@@ -1,7 +1,6 @@
 # AquaOps — Backend Handoff Document
 
 App: water refilling station management (Flutter/Dart client + Firebase).
-This doc is written from the actual codebase in `aquaops.zip`. Give this file to your backend builder along with the repo.
 
 **Important context up front:** most screens (`customer_order_screen.dart`, `delivery_queue_screen.dart`, `owner_dashboard_screen.dart`, `pos_screen.dart`, etc.) currently run on **local/mock data** (`_mockOrderHistory`, `_riders`, `_supplies`, etc.). They are not yet wired to `FirestoreService` or `AuthService`. Those two service files define the *intended* data layer, but no screen calls them yet. This isn't "a working app that needs a backend swapped in." It's a UI built against a data model that was never connected. That's normal for this stage, but it means step 5 below (screen-to-data map) shows *intent*, not current behavior.
 
@@ -138,7 +137,7 @@ This matrix is inferred from the screens (`owner_dashboard_screen.dart`, `pos_sc
 
 ## 5. Screen → data mapping (current state: mostly mock)
 
-| Screen                                 | Intended collection(s)                                         | Current state                                                    |
+~~| Screen                                 | Intended collection(s)                                         | Current state                                                    |
 |----------------------------------------|----------------------------------------------------------------|------------------------------------------------------------------|
 | login_screen.dart / signup_screen.dart | users, via AuthService                                         | Not wired — no Firebase import                                   |
 | pos_screen.dart                        | orders, inventory                                              | Mock only                                                        |
@@ -174,7 +173,3 @@ Option A is less work and keeps your current code mostly intact. Option B gives 
 - Any third-party services you're planning (GCash payment integration, SMS/notifications for delivery updates) — none are in the code yet, so if they're planned, say so now rather than after the backend is built.
 
 ---
-
-## 8. This document *is* the handoff README
-
-Put this file in the repo root (e.g. `HANDOFF.md`) alongside the zip/repo. It covers eight things: the auth bug fix, the Firestore schema, the logic that must move server-side, the roles matrix, and the screen-to-data map, including two collections that don't exist yet. It also covers the Firebase-vs-custom-backend decision and the environment details to gather. Send your backend builder the repo and this file together.

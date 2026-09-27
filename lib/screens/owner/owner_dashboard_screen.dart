@@ -28,7 +28,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   static const Color tealAccent = Color(0xFF14B8A6);
   static const Color primaryFixed = Color(0xFFCCE5FF);
 
-  final String _hubName = 'San Antonio Central Hub';
+  final String _hubName = 'Drink 8 Water Refilling Station';
   final String _statusLabel = 'STATION ONLINE • 4 STAGES ACTIVE';
   String _dateLabel = 'Today, Sep 26';
   final int _notificationCount = 4;
@@ -283,7 +283,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                         children: [
                           Container(width: 6, height: 6, decoration: const BoxDecoration(color: tealAccent, shape: BoxShape.circle)),
                           const SizedBox(width: 4),
-                          const Text('San Antonio Hub', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: onSurfaceVariant)),
+                          const Text('Sta. Monica, San Pablo City', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: onSurfaceVariant)),
                         ],
                       ),
                     ],

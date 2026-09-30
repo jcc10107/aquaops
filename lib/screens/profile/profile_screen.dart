@@ -1,7 +1,14 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/components/soft_input_field.dart';
 import '../../main.dart';
+import '../../models/user_model.dart';
+import '../../models/saved_address_model.dart';
+import '../owner/manage_team_screen.dart';
+import '../../services/auth_service.dart';
+import '../../services/firestore_service.dart';
+import '../../widgets/notification_bell.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -11,43 +18,43 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _notificationsEnabled = true;
+  final FirestoreService _firestoreService = FirestoreService();
+  final AuthService _authService = AuthService();
+  String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
-  Map<String, String> _getUserData(String role) {
+  String _getInitials(String fullName) {
+    if (fullName.trim().isEmpty) return 'U';
+    final parts = fullName.trim().split(RegExp(r'\s+'));
+    if (parts.length > 1) return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+    return parts.first.substring(0, parts.first.length >= 2 ? 2 : 1).toUpperCase();
+  }
+
+  String _badgeForRole(UserRole role) {
     switch (role) {
-      case 'owner':
-        return {
-          'name': 'Juan Dela Cruz',
-          'email': 'owner@drink8.com',
-          'badge': 'STATION OWNER',
-          'initials': 'JD'
-        };
-      case 'staff':
-        return {
-          'name': 'Arnel Bautista',
-          'email': 'arnel.staff@drink8.com',
-          'badge': 'STATION STAFF',
-          'initials': 'AB'
-        };
-      case 'rider':
-        return {
-          'name': 'Jun Soriano',
-          'email': 'jun.rider@drink8.com',
-          'badge': 'DISPATCH RIDER',
-          'initials': 'JS'
-        };
-      case 'customer':
-      default:
-        return {
-          'name': 'Elena Gomez',
-          'email': 'elena@aquaops.com',
-          'badge': 'ACTIVE SUBSCRIBER',
-          'initials': 'EG'
-        };
+      case UserRole.owner:
+        return 'STATION OWNER';
+      case UserRole.staff:
+        return 'STATION STAFF';
+      case UserRole.rider:
+        return 'DISPATCH RIDER';
+      case UserRole.customer:
+        return 'ACTIVE SUBSCRIBER';
     }
   }
 
-  void _showEditProfileDialog(Map<String, String> userData, bool isDark) {
+  Map<String, String> _userDataFromModel(UserModel user) {
+    return {
+      'name': user.name.isEmpty ? 'User' : user.name,
+      'email': user.email,
+      'phone': user.phone,
+      'badge': _badgeForRole(user.role),
+      'initials': _getInitials(user.name),
+    };
+  }
+
+  void _showEditProfileDialog(UserModel user, Map<String, String> userData, bool isDark) {
+    final nameCtrl = TextEditingController(text: user.name);
+    final phoneCtrl = TextEditingController(text: user.phone);
     showDialog(
       context: context,
       builder: (context) => Center(
@@ -112,9 +119,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      SoftInputField(label: 'Full Name', icon: Icons.person, initialValue: userData['name']),
+                      SoftInputField(label: 'Full Name', icon: Icons.person, controller: nameCtrl),
                       const SizedBox(height: 12),
-                      const SoftInputField(label: 'Mobile Number', icon: Icons.phone, initialValue: '0917 123 4567'),
+                      SoftInputField(label: 'Mobile Number', icon: Icons.phone, controller: phoneCtrl),
                       const SizedBox(height: 18),
                       Row(
                         children: [
@@ -123,7 +130,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Expanded(
                             child: Container(
                               decoration: BoxDecoration(borderRadius: BorderRadius.circular(100), gradient: const LinearGradient(colors: [AppColors.primary, AppColors.cyanElectric]), boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2))]),
-                              child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, padding: const EdgeInsets.symmetric(vertical: 13), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))), onPressed: () { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile saved successfully!'))); }, icon: const Icon(Icons.check, size: 15, color: Colors.white), label: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white))),
+                              child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, padding: const EdgeInsets.symmetric(vertical: 13), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))), onPressed: () async {
+                                final messenger = ScaffoldMessenger.of(context);
+                                Navigator.pop(context);
+                                try {
+                                  await _firestoreService.updateUserProfile(uid: user.id, name: nameCtrl.text.trim(), phone: phoneCtrl.text.trim());
+                                  messenger.showSnackBar(const SnackBar(content: Text('Profile saved successfully!')));
+                                } catch (e) {
+                                  messenger.showSnackBar(SnackBar(content: Text('Failed to save: $e'), backgroundColor: AppColors.error));
+                                }
+                              }, icon: const Icon(Icons.check, size: 15, color: Colors.white), label: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white))),
                             ),
                           )
                         ],
@@ -140,11 +156,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showAddressesDialog(bool isDark) {
+    final uid = _uid;
+    if (uid == null) return;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => Center(
+      builder: (sheetContext) => Center(
         child: SizedBox(
           width: 410,
           child: Container(
@@ -168,7 +186,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: AppColors.surfaceFrost, borderRadius: BorderRadius.circular(100)), child: const Row(children: [Icon(Icons.pin_drop, size: 12, color: AppColors.primary), SizedBox(width: 4), Text('AQUA LOGISTICS NETWORK', style: TextStyle(fontSize: 9, color: AppColors.primary, fontWeight: FontWeight.w800, letterSpacing: 0.8))])),
-                          InkWell(onTap: () => Navigator.pop(context), child: Container(width: 28, height: 28, decoration: const BoxDecoration(color: AppColors.surfaceContainerLow, shape: BoxShape.circle), child: const Icon(Icons.close, size: 16, color: AppColors.textVariant))),
+                          InkWell(onTap: () => Navigator.pop(sheetContext), child: Container(width: 28, height: 28, decoration: const BoxDecoration(color: AppColors.surfaceContainerLow, shape: BoxShape.circle), child: const Icon(Icons.close, size: 16, color: AppColors.textVariant))),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -179,12 +197,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 18),
-                  child: Column(
-                    children: [
-                      _buildAddressCard('Home', 'Primary', 'Quick Refill Dispatch Route', 'Barangay San Isidro, San Pablo City', 'Near Blue Gate, Landmark: Water Station Alpha', Icons.home, AppColors.primary, isDark),
-                      const SizedBox(height: 10),
-                      _buildAddressCard('Branch Office', 'Secondary', 'Bulk Container Hub', 'Mabini Street, Suite 402, San Pablo City', 'Across City Plaza, Service Entrance B', Icons.apartment, AppColors.outline, isDark),
-                    ],
+                  child: StreamBuilder<List<SavedAddressModel>>(
+                    stream: _firestoreService.getSavedAddressesStream(uid),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      final addresses = snapshot.data!;
+                      if (addresses.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Text('No saved addresses yet.', style: TextStyle(fontSize: 12, color: AppColors.textVariant)),
+                        );
+                      }
+                      return Column(
+                        children: [
+                          for (int i = 0; i < addresses.length; i++) ...[
+                            _buildAddressCard(uid, addresses[i], i == 0, isDark),
+                            if (i != addresses.length - 1) const SizedBox(height: 10),
+                          ],
+                        ],
+                      );
+                    },
                   ),
                 ),
                 Padding(
@@ -193,7 +230,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     decoration: BoxDecoration(borderRadius: BorderRadius.circular(100), gradient: const LinearGradient(colors: [AppColors.primary, AppColors.primaryContainer]), boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 16, offset: const Offset(0, 6))]),
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, minimumSize: const Size(double.infinity, 46), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
-                      onPressed: () { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opening maps to add address...'))); },
+                      onPressed: () { Navigator.pop(sheetContext); _showAddAddressDialog(uid); },
                       icon: const Icon(Icons.add_location_alt, size: 18, color: Colors.white),
                       label: const Text('Add New Address', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
                     ),
@@ -207,7 +244,112 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildAddressCard(String title, String badge, String subtitle, String address, String note, IconData icon, Color accentColor, bool isDark) {
+  void _showAddAddressDialog(String uid) {
+    final labelCtrl = TextEditingController();
+    final addressCtrl = TextEditingController();
+    final noteCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Add New Address'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(controller: labelCtrl, decoration: const InputDecoration(labelText: 'Tag (e.g. Home, Office)')),
+            const SizedBox(height: 12),
+            TextFormField(controller: addressCtrl, decoration: const InputDecoration(labelText: 'Full Address')),
+            const SizedBox(height: 12),
+            TextFormField(controller: noteCtrl, decoration: const InputDecoration(labelText: 'Landmark / Notes (optional)')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final label = labelCtrl.text.trim();
+              final addressText = addressCtrl.text.trim();
+              if (label.isEmpty || addressText.isEmpty) return;
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(dialogContext);
+              try {
+                await _firestoreService.addSavedAddress(
+                  uid: uid,
+                  label: label,
+                  addressText: addressText,
+                  note: noteCtrl.text.trim().isEmpty ? null : noteCtrl.text.trim(),
+                );
+              } catch (e) {
+                messenger.showSnackBar(SnackBar(content: Text('Failed to save address: $e'), backgroundColor: AppColors.error));
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditAddressLabelDialog(String uid, SavedAddressModel address) {
+    final labelCtrl = TextEditingController(text: address.label);
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Edit Tag'),
+        content: TextFormField(controller: labelCtrl, decoration: const InputDecoration(labelText: 'Tag')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final label = labelCtrl.text.trim();
+              if (label.isEmpty) return;
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(dialogContext);
+              try {
+                await _firestoreService.updateSavedAddressLabel(uid: uid, addressId: address.id, label: label);
+              } catch (e) {
+                messenger.showSnackBar(SnackBar(content: Text('Failed to update tag: $e'), backgroundColor: AppColors.error));
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteAddress(String uid, SavedAddressModel address) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete Address'),
+        content: Text('Remove "${address.label}" from your saved addresses?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(dialogContext);
+              try {
+                await _firestoreService.deleteSavedAddress(uid: uid, addressId: address.id);
+              } catch (e) {
+                messenger.showSnackBar(SnackBar(content: Text('Failed to delete address: $e'), backgroundColor: AppColors.error));
+              }
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddressCard(String uid, SavedAddressModel address, bool isPrimary, bool isDark) {
+    final accentColor = isPrimary ? AppColors.primary : AppColors.outline;
+    final badge = isPrimary ? 'Primary' : 'Secondary';
+    final icon = isPrimary ? Icons.home : Icons.apartment;
     return Container(
       decoration: BoxDecoration(color: isDark ? AppColors.surfaceContainer : AppColors.surfaceContainerLow, borderRadius: BorderRadius.circular(14)),
       child: IntrinsicHeight(
@@ -225,24 +367,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Row(
                         children: [
-                          Container(width: 32, height: 32, decoration: BoxDecoration(color: accentColor == AppColors.primary ? AppColors.surfaceFrost : AppColors.outlineVariant, shape: BoxShape.circle), child: Icon(icon, size: 16, color: accentColor == AppColors.primary ? AppColors.primary : AppColors.textVariant)),
+                          Container(width: 32, height: 32, decoration: BoxDecoration(color: isPrimary ? AppColors.surfaceFrost : AppColors.outlineVariant, shape: BoxShape.circle), child: Icon(icon, size: 16, color: isPrimary ? AppColors.primary : AppColors.textVariant)),
                           const SizedBox(width: 8),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 children: [
-                                  Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain)),
+                                  Text(address.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain)),
                                   const SizedBox(width: 6),
-                                  Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1), decoration: BoxDecoration(color: accentColor == AppColors.primary ? AppColors.secondaryContainer : AppColors.surfaceContainer, borderRadius: BorderRadius.circular(100)), child: Text(badge, style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: accentColor == AppColors.primary ? AppColors.secondary : AppColors.textVariant, letterSpacing: 0.5))),
+                                  Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1), decoration: BoxDecoration(color: isPrimary ? AppColors.secondaryContainer : AppColors.surfaceContainer, borderRadius: BorderRadius.circular(100)), child: Text(badge, style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: isPrimary ? AppColors.secondary : AppColors.textVariant, letterSpacing: 0.5))),
                                 ],
                               ),
-                              Row(children: [if (accentColor == AppColors.primary) ...[Container(width: 5, height: 5, decoration: const BoxDecoration(color: AppColors.cyanElectric, shape: BoxShape.circle)), const SizedBox(width: 4)], Text(subtitle, style: TextStyle(fontSize: 10, color: accentColor == AppColors.primary ? AppColors.primary : AppColors.textVariant))])
                             ],
                           )
                         ],
                       ),
-                      Icon(Icons.delete, size: 16, color: AppColors.outline.withValues(alpha: 0.5)),
+                      InkWell(
+                        onTap: () => _confirmDeleteAddress(uid, address),
+                        child: Icon(Icons.delete, size: 16, color: AppColors.outline.withValues(alpha: 0.7)),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -252,22 +396,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(address, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMain, height: 1.2)),
-                          const SizedBox(height: 2),
-                          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.explore, size: 12, color: accentColor == AppColors.primary ? AppColors.cyanElectric : AppColors.outline), const SizedBox(width: 4), Expanded(child: Text(note, style: const TextStyle(fontSize: 10, color: AppColors.textVariant)))])
+                          Text(address.addressText, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMain, height: 1.2)),
+                          if (address.note != null && address.note!.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.explore, size: 12, color: isPrimary ? AppColors.cyanElectric : AppColors.outline), const SizedBox(width: 4), Expanded(child: Text(address.note!, style: const TextStyle(fontSize: 10, color: AppColors.textVariant)))]),
+                          ],
                     ],
                   ),
                 ),
-                if (accentColor == AppColors.primary) ...[
               const SizedBox(height: 8),
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Row(children: [Icon(Icons.verified, size: 14, color: AppColors.tealAccent), SizedBox(width: 4), Text('Optimal Flow Certified', style: TextStyle(fontSize: 10, color: AppColors.textVariant))]),
-                  Row(children: [Text('Edit Tag', style: TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600)), Icon(Icons.chevron_right, size: 14, color: AppColors.primary)])
+                  InkWell(
+                    onTap: () => _showEditAddressLabelDialog(uid, address),
+                    child: const Row(mainAxisSize: MainAxisSize.min, children: [Text('Edit Tag', style: TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600)), Icon(Icons.chevron_right, size: 14, color: AppColors.primary)]),
+                  ),
                 ],
-              )
-            ]
+              ),
           ],
         ),
       ),
@@ -622,8 +768,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: ElevatedButton.icon(
                           onPressed: () {
                             Navigator.pop(context);
-                            currentUserRoleNotifier.value = 'none';
-                            Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+                            _signOutAndGoToLogin(context);
                           },
                           style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, shadowColor: AppColors.error.withValues(alpha: 0.5), elevation: 4, padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                           icon: const Icon(Icons.delete, size: 14, color: Colors.white),
@@ -651,8 +796,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (index == 4) return;
     } else if (role == 'staff') {
       if (index == 0) Navigator.pushReplacementNamed(context, '/pos');
-      if (index == 1) Navigator.pushReplacementNamed(context, '/inventory');
-      if (index == 2) return;
+      if (index == 1) Navigator.pushReplacementNamed(context, '/dispatch');
+      if (index == 2) Navigator.pushReplacementNamed(context, '/inventory');
+      if (index == 3) return;
     } else if (role == 'rider') {
       if (index == 0) Navigator.pushReplacementNamed(context, '/dispatch');
       if (index == 1) return;
@@ -680,10 +826,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } else if (role == 'staff') {
       items = const [
         BottomNavigationBarItem(icon: Icon(Icons.point_of_sale), label: 'Station POS'),
+        BottomNavigationBarItem(icon: Icon(Icons.local_shipping), label: 'Queue'),
         BottomNavigationBarItem(icon: Icon(Icons.inventory_2), label: 'Inventory'),
         BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
       ];
-      currentIndex = 2;
+      currentIndex = 3;
     } else if (role == 'rider') {
       items = const [
         BottomNavigationBarItem(icon: Icon(Icons.local_shipping), label: 'Routes'),
@@ -741,13 +888,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _signOutAndGoToLogin(BuildContext context) async {
+    await _authService.signOut();
+    currentUserRoleNotifier.value = 'none';
+    if (!context.mounted) return;
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final role = currentUserRoleNotifier.value;
-    final userData = _getUserData(role);
+    final uid = _uid;
 
-    return Scaffold(
+    return StreamBuilder<UserModel?>(
+      stream: uid == null ? const Stream.empty() : _firestoreService.getUserStream(uid),
+      builder: (context, snapshot) {
+        final user = snapshot.data;
+        final userData = user == null ? _userDataFromModel(UserModel(id: '', name: '', email: '', role: UserRole.customer, phone: '')) : _userDataFromModel(user);
+
+        return Scaffold(
       backgroundColor: isDark ? AppColors.backgroundDark : AppColors.background,
       extendBody: true,
       body: Align(
@@ -757,22 +917,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: SingleChildScrollView(
             child: Column(
               children: [
-                _buildCustomerHeader(isDark),
+                _buildCustomerHeader(isDark, role),
                 const SizedBox(height: 24),
                 _buildProfileHero(userData, isDark),
                 const SizedBox(height: 24),
 
                 _buildSectionHeader('ACCOUNT', role == 'customer' ? '2 Items' : '1 Item', AppColors.outline),
                 _buildCardGroup([
-                  _buildListTile('Manage Profile', 'Edit Name, Email & Phone', Icons.person, AppColors.primary, isDark, onTap: () => _showEditProfileDialog(userData, isDark)),
+                  _buildListTile('Manage Profile', 'Edit Name, Email & Phone', Icons.person, AppColors.primary, isDark, onTap: user == null ? null : () => _showEditProfileDialog(user, userData, isDark)),
                   _buildDivider(isDark),
                   _buildListTile('Saved Delivery Addresses', 'Primary residence & hub instructions', Icons.location_on, AppColors.primary, isDark, onTap: () => _showAddressesDialog(isDark)),
                 ], isDark),
                 const SizedBox(height: 24),
 
+                if (role == 'owner') ...[
+                  _buildSectionHeader('TEAM MANAGEMENT', 'Owner Only', AppColors.secondary),
+                  _buildCardGroup([
+                    _buildListTile('Manage Staff & Riders', 'Create and view team accounts', Icons.groups, AppColors.primary, isDark, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageTeamScreen()))),
+                  ], isDark),
+                  const SizedBox(height: 24),
+                ],
+
                 _buildSectionHeader('PREFERENCES', 'Customized', AppColors.secondary),
                 _buildCardGroup([
-                  _buildListTile('Notification Settings', 'Push alerts, delivery windows & reminders', Icons.notifications_active, AppColors.primary, isDark, trailing: _buildCustomSwitch()),
+                  _buildListTile('Notification Settings', 'Push alerts, delivery windows & reminders', Icons.notifications_active, AppColors.primary, isDark, trailing: _buildCustomSwitch(user)),
                 ], isDark),
                 const SizedBox(height: 24),
 
@@ -802,10 +970,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             elevation: 0,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: AppColors.error.withValues(alpha: 0.2)))
                         ),
-                        onPressed: () {
-                          currentUserRoleNotifier.value = 'none';
-                          Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-                        },
+                        onPressed: () => _signOutAndGoToLogin(context),
                         icon: const Icon(Icons.logout, size: 20, color: AppColors.error),
                         label: const Text('Log Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                       ),
@@ -834,9 +999,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       bottomNavigationBar: _buildFloatingBottomNav(isDark, role),
     );
+      },
+    );
   }
 
-  Widget _buildCustomerHeader(bool isDark) {
+  String _profileHeaderTitle(String role) {
+    switch (role) {
+      case 'owner':
+        return 'Owner Profile';
+      case 'staff':
+        return 'Staff Profile';
+      case 'rider':
+        return 'Rider Profile';
+      default:
+        return 'Customer Profile';
+    }
+  }
+
+  Widget _buildCustomerHeader(bool isDark, String role) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       decoration: BoxDecoration(color: isDark ? AppColors.surfaceDark.withValues(alpha: 0.85) : AppColors.surfaceLowest.withValues(alpha: 0.85), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 1))]),
@@ -851,20 +1031,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [const Text('AQUAOPS', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary, letterSpacing: -0.5)), const SizedBox(width: 6), Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1), decoration: BoxDecoration(color: AppColors.surfaceContainer, borderRadius: BorderRadius.circular(4)), child: const Text('DRINK 8', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.primary)))]),
-                  const Text('Customer Profile', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain, letterSpacing: -0.5)),
+                  Text(_profileHeaderTitle(role), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain, letterSpacing: -0.5)),
                 ],
               )
             ],
           ),
           Row(
             children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(width: 40, height: 40, decoration: const BoxDecoration(shape: BoxShape.circle), child: const Icon(Icons.notifications, color: AppColors.outline, size: 24)),
-                  Positioned(right: 0, top: 0, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: AppColors.coralAlert, shape: BoxShape.circle), child: const Text('4', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)))),
-                ],
-              ),
+              if (role == 'owner' || role == 'staff') NotificationBell(isDark: isDark),
               const SizedBox(width: 8),
               Container(width: 32, height: 32, decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle), child: const Icon(Icons.person, color: Colors.white, size: 18))
             ],
@@ -965,21 +1139,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildDivider(bool isDark) => Divider(height: 1, color: AppColors.surfaceContainer.withValues(alpha: 0.5));
 
-  Widget _buildCustomSwitch() {
+  Widget _buildCustomSwitch(UserModel? user) {
+    final enabled = user?.notificationsEnabled ?? true;
     return GestureDetector(
-      onTap: () => setState(() => _notificationsEnabled = !_notificationsEnabled),
+      onTap: user == null ? null : () => _firestoreService.setNotificationsEnabled(user.id, !enabled),
       child: Container(
         width: 48,
         height: 28,
         padding: const EdgeInsets.all(2),
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(100), gradient: LinearGradient(colors: _notificationsEnabled ? [AppColors.primary, AppColors.cyanElectric] : [AppColors.surfaceCanvas, AppColors.surfaceCanvas]), boxShadow: _notificationsEnabled ? [BoxShadow(color: AppColors.cyanElectric.withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 2))] : []),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(100), gradient: LinearGradient(colors: enabled ? [AppColors.primary, AppColors.cyanElectric] : [AppColors.surfaceCanvas, AppColors.surfaceCanvas]), boxShadow: enabled ? [BoxShadow(color: AppColors.cyanElectric.withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 2))] : []),
         child: AnimatedAlign(
           duration: const Duration(milliseconds: 200),
-          alignment: _notificationsEnabled ? Alignment.centerRight : Alignment.centerLeft,
+          alignment: enabled ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(
             width: 24, height: 24,
             decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))]),
-            child: _notificationsEnabled ? const Icon(Icons.check, size: 14, color: AppColors.primary) : null,
+            child: enabled ? const Icon(Icons.check, size: 14, color: AppColors.primary) : null,
           ),
         ),
       ),
@@ -1000,12 +1175,45 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
   final _confirmPassController = TextEditingController();
   bool _isMatch = false;
   int _strength = 0;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
     _newPassController.addListener(_checkStrength);
     _confirmPassController.addListener(_validate);
+    _currPassController.addListener(() => setState(() {}));
+  }
+
+  Future<void> _changePassword() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.email == null) return;
+
+    setState(() => _isSubmitting = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final credential = EmailAuthProvider.credential(email: user.email!, password: _currPassController.text);
+      await user.reauthenticateWithCredential(credential);
+      await user.updatePassword(_newPassController.text);
+
+      if (!mounted) return;
+      Navigator.pop(context);
+      messenger.showSnackBar(const SnackBar(content: Text('Password updated smoothly!', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: AppColors.secondary, behavior: SnackBarBehavior.floating));
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      final message = switch (e.code) {
+        'wrong-password' || 'invalid-credential' => 'Current password is incorrect.',
+        'weak-password' => 'New password is too weak.',
+        'requires-recent-login' => 'Please log out and log back in, then try again.',
+        _ => e.message ?? 'Failed to update password.',
+      };
+      messenger.showSnackBar(SnackBar(content: Text(message), backgroundColor: AppColors.error));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      messenger.showSnackBar(SnackBar(content: Text('Failed to update password: $e'), backgroundColor: AppColors.error));
+    }
   }
 
   @override
@@ -1035,7 +1243,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
 
   @override
   Widget build(BuildContext context) {
-    bool canSubmit = _isMatch;
+    bool canSubmit = _isMatch && _currPassController.text.isNotEmpty && !_isSubmitting;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Dialog(
@@ -1106,8 +1314,10 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
                         decoration: BoxDecoration(borderRadius: BorderRadius.circular(100), gradient: LinearGradient(colors: canSubmit ? [AppColors.primary, AppColors.cyanElectric] : [Colors.grey, Colors.grey.shade400]), boxShadow: canSubmit ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2))] : []),
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
-                          onPressed: canSubmit ? () { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password updated smoothly!', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: AppColors.secondary, behavior: SnackBarBehavior.floating)); } : null,
-                          icon: const Icon(Icons.verified, size: 18, color: Colors.white),
+                          onPressed: canSubmit ? _changePassword : null,
+                          icon: _isSubmitting
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.verified, size: 18, color: Colors.white),
                           label: const Text('Update', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
                         ),
                       ),

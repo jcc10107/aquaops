@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../models/order_model.dart';
+import '../../models/inventory_model.dart';
+import '../../models/shift_model.dart';
+import '../../services/firestore_service.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   const OwnerDashboardScreen({super.key});
@@ -29,168 +33,41 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   static const Color primaryFixed = Color(0xFFCCE5FF);
 
   final String _hubName = 'Drink 8 Water Refilling Station';
-  final String _statusLabel = 'STATION ONLINE • 4 STAGES ACTIVE';
-  String _dateLabel = 'Today, Sep 26';
-  final int _notificationCount = 4;
-
-  final double _dailyGrossRevenue = 14850.00;
-  final double _yesterdayGrossRevenue = 12540.00;
-  final double _cashInTill = 8620.00;
-  final double _gcashQr = 6230.00;
-  final int _gallonsPumped = 342;
-  final int _roundGallons = 210;
-  final int _slimGallons = 132;
-  final double _depositsHeld = 2100.00;
-  final int _depositsHeldPieces = 14;
-
-  final int _ridersEnRoute = 3;
-  final double _onTimeRate = 94;
-
-  final List<Map<String, dynamic>> _riders = const [
-    {
-      'initials': 'AB',
-      'name': 'Arnel Bautista',
-      'code': 'R-09',
-      'route': 'North Caloocan / Phase 3',
-      'doneCount': 18,
-      'totalCount': 25,
-      'codAmount': 1320.0,
-      'status': 'Cash-out Due',
-      'statusIsAlert': true,
-      'doneBadgeIsAlert': false,
-      'actionLabel': 'Ping Rider',
-    },
-    {
-      'initials': 'JS',
-      'name': 'Jun Soriano',
-      'code': 'R-04',
-      'route': 'Villa Luisa Subd • Stop #13',
-      'doneCount': 12,
-      'totalCount': 15,
-      'codAmount': 840.0,
-      'status': 'Moving (2km/h)',
-      'statusIsAlert': false,
-      'doneBadgeIsAlert': false,
-      'actionLabel': 'View Map',
-    },
-  ];
-
-  final List<Map<String, dynamic>> _supplies = const [
-    {
-      'name': 'Blue Caps',
-      'quantity': 380,
-      'badgeLabel': '15% LEFT',
-      'badgeIsAlert': true,
-      'footerLabel': 'Restock ASAP',
-      'footerIsAlert': true,
-      'icon': Icons.report,
-    },
-    {
-      'name': 'Heat Seals',
-      'quantity': 850,
-      'badgeLabel': 'GOOD',
-      'badgeIsAlert': false,
-      'footerLabel': 'Safe for 4 days',
-      'footerIsAlert': false,
-      'icon': Icons.verified,
-    },
-    {
-      'name': 'Clean Jars',
-      'quantity': 48,
-      'badgeLabel': 'READY',
-      'badgeIsAlert': false,
-      'footerLabel': 'Refill buffer ready',
-      'footerIsAlert': false,
-      'icon': Icons.local_drink,
-    },
-  ];
-
-  final int _discrepancyCount = 0;
-  final String _lastShiftLabel = 'Shift #1041 (Morning)';
-  final double _lastShiftAmount = 3850.00;
-  final String _lastShiftReconciler = 'Kuya Noel';
-  final String _lastShiftTime = '12:15 PM';
-
+  final String _statusLabel = 'STATION ONLINE';
+  String _period = 'today';
+  int _seenNotificationCount = 0;
   final int _navIndex = 0;
 
-  void _onPingRider(String name) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Ping sent to $name.')),
-    );
+  final FirestoreService _firestoreService = FirestoreService();
+
+  String get _dateLabel {
+    switch (_period) {
+      case 'week':
+        return 'This Week';
+      case 'month':
+        return 'This Month';
+      default:
+        return 'Today';
+    }
   }
 
-  void _onViewRiderMap(String name) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 450),
-            child: Dialog(
-              insetPadding: const EdgeInsets.symmetric(horizontal: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.near_me, color: cyanElectric),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Live Map - $name',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: onSurface,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      height: 180,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: surfaceIce,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.map, size: 48, color: primary),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(dialogContext),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryContainer,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(100),
-                          ),
-                        ),
-                        child: const Text(
-                          'Close',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
+  // Returns (periodStart, previousPeriodStart) for the selected filter, both
+  // ending at "now" / "periodStart" respectively — used to compute the
+  // period's revenue and the prior period's revenue for the growth badge.
+  (DateTime, DateTime) _periodBounds() {
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    switch (_period) {
+      case 'week':
+        final startOfWeek = startOfToday.subtract(Duration(days: startOfToday.weekday - 1));
+        return (startOfWeek, startOfWeek.subtract(const Duration(days: 7)));
+      case 'month':
+        final startOfMonth = DateTime(now.year, now.month, 1);
+        final startOfPrevMonth = DateTime(now.year, now.month - 1, 1);
+        return (startOfMonth, startOfPrevMonth);
+      default:
+        return (startOfToday, startOfToday.subtract(const Duration(days: 1)));
+    }
   }
 
   void _onOpenDispatchConsole() {
@@ -228,6 +105,105 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         ),
       ),
       bottomNavigationBar: _buildBottomNav(),
+    );
+  }
+
+  Widget _buildNotificationBell() {
+    return StreamBuilder<List<InventoryModel>>(
+      stream: _firestoreService.getInventoryStream(),
+      builder: (context, invSnapshot) {
+        return StreamBuilder<List<MaintenanceAlertModel>>(
+          stream: _firestoreService.getMaintenanceAlertsStream(),
+          builder: (context, alertSnapshot) {
+            return StreamBuilder<List<OrderModel>>(
+              stream: _firestoreService.getActiveOrdersStream(),
+              builder: (context, orderSnapshot) {
+                final lowStock = (invSnapshot.data ?? const <InventoryModel>[]).where((i) => i.isLowStock).toList();
+                final overdueAlerts = (alertSnapshot.data ?? const <MaintenanceAlertModel>[]).where((a) => a.isOverdue).toList();
+                final unassigned = (orderSnapshot.data ?? const <OrderModel>[]).where((o) => o.assignedRiderId == null).toList();
+
+                final entries = <(IconData, Color, String, String)>[
+                  for (final i in lowStock)
+                    (Icons.inventory_2, coralAlert, 'Low Stock Alert', '${i.name} is below minimum threshold (${i.currentStock} left).'),
+                  for (final a in overdueAlerts)
+                    (Icons.build, const Color(0xFFD97706), 'Maintenance Overdue', '${a.equipmentName} — ${a.taskType} is overdue.'),
+                  for (final o in unassigned)
+                    (Icons.local_shipping, primary, 'Unassigned Delivery', 'Order ${o.orderNumber} for ${o.customerName} needs a rider.'),
+                ];
+
+                final showBadge = entries.length > _seenNotificationCount;
+
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: const BoxDecoration(color: surfaceIce, shape: BoxShape.circle),
+                      child: PopupMenuButton<void>(
+                        padding: EdgeInsets.zero,
+                        offset: const Offset(0, 44),
+                        color: surfaceContainerLowest,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        icon: const Icon(Icons.notifications, color: primary, size: 22),
+                        onOpened: () => setState(() => _seenNotificationCount = entries.length),
+                        itemBuilder: (context) => [
+                          PopupMenuItem<void>(
+                            enabled: false,
+                            child: Text('Alerts (${entries.length})', style: const TextStyle(fontWeight: FontWeight.bold, color: onSurface, fontSize: 14)),
+                          ),
+                          const PopupMenuDivider(),
+                          if (entries.isEmpty)
+                            const PopupMenuItem<void>(enabled: false, child: Text('No alerts right now.', style: TextStyle(color: onSurfaceVariant, fontSize: 13)))
+                          else
+                            ...entries.map((e) => PopupMenuItem<void>(
+                              enabled: false,
+                              child: SizedBox(
+                                width: 260,
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(e.$1, size: 16, color: e.$2),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(e.$3, style: const TextStyle(fontWeight: FontWeight.bold, color: onSurface, fontSize: 12)),
+                                          Text(e.$4, style: const TextStyle(color: onSurfaceVariant, fontSize: 11)),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )),
+                        ],
+                      ),
+                    ),
+                    if (showBadge)
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: IgnorePointer(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: coralAlert,
+                              borderRadius: BorderRadius.circular(100),
+                              border: Border.all(color: surfaceContainerLowest, width: 2),
+                            ),
+                            child: Text('${entries.length}', style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 
@@ -292,35 +268,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               ),
               Row(
                 children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: const BoxDecoration(color: surfaceIce, shape: BoxShape.circle),
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(Icons.notifications, color: primary, size: 22),
-                          onPressed: () {},
-                        ),
-                      ),
-                      if (_notificationCount > 0)
-                        Positioned(
-                          top: 4,
-                          right: 4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: coralAlert,
-                              borderRadius: BorderRadius.circular(100),
-                              border: Border.all(color: surfaceContainerLowest, width: 2),
-                            ),
-                            child: Text('$_notificationCount', style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                    ],
-                  ),
+                  _buildNotificationBell(),
                   const SizedBox(width: 8),
                   Container(
                     width: 32,
@@ -340,19 +288,31 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   Widget _buildBody() {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHubHeaderSection(),
-          const SizedBox(height: 16),
-          _buildRevenueCard(),
-          const SizedBox(height: 16),
-          _buildDispatchSection(),
-          const SizedBox(height: 16),
-          _buildSuppliesSection(),
-          const SizedBox(height: 16),
-          _buildReconciliationSection(),
-        ],
+      child: StreamBuilder<List<OrderModel>>(
+        stream: _firestoreService.getAllOrdersStream(),
+        builder: (context, ordersSnapshot) {
+          final orders = ordersSnapshot.data ?? const <OrderModel>[];
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHubHeaderSection(),
+              const SizedBox(height: 16),
+              _buildRevenueCard(orders),
+              const SizedBox(height: 16),
+              _buildDispatchSection(orders),
+              const SizedBox(height: 16),
+              StreamBuilder<List<InventoryModel>>(
+                stream: _firestoreService.getInventoryStream(),
+                builder: (context, invSnapshot) {
+                  return _buildSuppliesSection(invSnapshot.data ?? const <InventoryModel>[]);
+                },
+              ),
+              const SizedBox(height: 16),
+              _buildReconciliationSection(),
+            ],
+          );
+        },
       ),
     );
   }
@@ -402,11 +362,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           offset: const Offset(0, 40),
           color: surfaceContainerLowest,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          onSelected: (value) => setState(() => _dateLabel = value),
+          onSelected: (value) => setState(() => _period = value),
           itemBuilder: (context) => const [
-            PopupMenuItem(value: 'Today, Sep 26', child: Text('Today')),
-            PopupMenuItem(value: 'This Week (W39)', child: Text('This Week')),
-            PopupMenuItem(value: 'Sep 2024 (MTD)', child: Text('This Month')),
+            PopupMenuItem(value: 'today', child: Text('Today')),
+            PopupMenuItem(value: 'week', child: Text('This Week')),
+            PopupMenuItem(value: 'month', child: Text('This Month')),
           ],
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -426,8 +386,43 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
-  Widget _buildRevenueCard() {
-    final growthPercent = (((_dailyGrossRevenue - _yesterdayGrossRevenue) / _yesterdayGrossRevenue) * 100);
+  Widget _buildRevenueCard(List<OrderModel> orders) {
+    final (periodStart, prevPeriodStart) = _periodBounds();
+
+    final paidOrders = orders.where((o) => o.status == OrderStatus.delivered && o.isPaid);
+    final periodOrders = paidOrders.where((o) => !o.revenueDate.isBefore(periodStart));
+    final prevPeriodOrders = paidOrders.where(
+      (o) => !o.revenueDate.isBefore(prevPeriodStart) && o.revenueDate.isBefore(periodStart),
+    );
+
+    final dailyGrossRevenue = periodOrders.fold<double>(0, (sum, o) => sum + o.totalAmount);
+    final prevGrossRevenue = prevPeriodOrders.fold<double>(0, (sum, o) => sum + o.totalAmount);
+    final cashInTill = periodOrders
+        .where((o) => o.paymentMethod == PaymentMethod.cash)
+        .fold<double>(0, (sum, o) => sum + o.totalAmount);
+    final gcashQr = periodOrders
+        .where((o) => o.paymentMethod == PaymentMethod.gcash)
+        .fold<double>(0, (sum, o) => sum + o.totalAmount);
+
+    int roundGallons = 0;
+    int slimGallons = 0;
+    for (final order in periodOrders) {
+      for (final item in order.items) {
+        final name = item.name.toLowerCase();
+        if (name.contains('round')) {
+          roundGallons += item.quantity;
+        } else if (name.contains('slim') || name.contains('alkaline')) {
+          slimGallons += item.quantity;
+        }
+      }
+    }
+    final gallonsPumped = roundGallons + slimGallons;
+    final ordersCompleted = periodOrders.length;
+
+    final growthPercent = prevGrossRevenue == 0
+        ? (dailyGrossRevenue > 0 ? 100.0 : 0.0)
+        : (((dailyGrossRevenue - prevGrossRevenue) / prevGrossRevenue) * 100);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -472,9 +467,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text('₱${_dailyGrossRevenue.toStringAsFixed(2)}', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.6)),
+              Text('₱${dailyGrossRevenue.toStringAsFixed(2)}', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.6)),
               const SizedBox(width: 8),
-              Text('vs ₱${_yesterdayGrossRevenue.toStringAsFixed(0)} y\'day', style: const TextStyle(fontSize: 11, color: primaryFixed)),
+              Text('vs ₱${prevGrossRevenue.toStringAsFixed(0)} prior', style: const TextStyle(fontSize: 11, color: primaryFixed)),
             ],
           ),
           const SizedBox(height: 12),
@@ -495,7 +490,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text('₱${_cashInTill.toStringAsFixed(2)}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
+                      Text('₱${cashInTill.toStringAsFixed(2)}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
                       const SizedBox(height: 2),
                       const Text('Reconciled ready', style: TextStyle(fontSize: 10, color: primaryFixed), overflow: TextOverflow.ellipsis),
                     ],
@@ -518,7 +513,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text('₱${_gcashQr.toStringAsFixed(2)}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
+                      Text('₱${gcashQr.toStringAsFixed(2)}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
                       const SizedBox(height: 2),
                       const Text('InstaPay verified', style: TextStyle(fontSize: 10, color: primaryFixed), overflow: TextOverflow.ellipsis),
                     ],
@@ -546,8 +541,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('$_gallonsPumped Gallons Pumped', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: primaryFixed)),
-                        Text('$_roundGallons Round • $_slimGallons Slim', style: const TextStyle(fontSize: 10, color: Colors.white)),
+                        Text('$gallonsPumped Gallons Pumped', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: primaryFixed)),
+                        Text('$roundGallons Round • $slimGallons Slim', style: const TextStyle(fontSize: 10, color: Colors.white)),
                       ],
                     ),
                   ],
@@ -555,8 +550,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text('Deposits Held', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: primaryFixed)),
-                    Text('₱${_depositsHeld.toStringAsFixed(0)} ($_depositsHeldPieces pcs)', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: secondaryContainer)),
+                    const Text('Orders Completed', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: primaryFixed)),
+                    Text('$ordersCompleted orders', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: secondaryContainer)),
                   ],
                 ),
               ],
@@ -567,7 +562,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
-  Widget _buildDispatchSection() {
+  Widget _buildDispatchSection(List<OrderModel> orders) {
+    final activeDeliveries = orders.where((o) => o.status == OrderStatus.outForDelivery).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -589,17 +586,24 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 children: [
                   Container(width: 6, height: 6, decoration: const BoxDecoration(color: tealAccent, shape: BoxShape.circle)),
                   const SizedBox(width: 4),
-                  Text('$_ridersEnRoute En Route • ${_onTimeRate.toStringAsFixed(0)}% On-Time', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: primary)),
+                  Text('${activeDeliveries.length} En Route', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: primary)),
                 ],
               ),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        ..._riders.map((r) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: _buildRiderCard(r),
-        )),
+        if (activeDeliveries.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: surfaceContainerLowest, borderRadius: BorderRadius.circular(16)),
+            child: const Text('No orders out for delivery right now.', style: TextStyle(fontSize: 12, color: onSurfaceVariant)),
+          )
+        else
+          ...activeDeliveries.take(3).map((o) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _buildRiderCard(o),
+          )),
         InkWell(
           onTap: _onOpenDispatchConsole,
           borderRadius: BorderRadius.circular(100),
@@ -621,9 +625,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
-  Widget _buildRiderCard(Map<String, dynamic> rider) {
-    final bool statusIsAlert = rider['statusIsAlert'] as bool;
-    final bool doneBadgeIsAlert = rider['doneBadgeIsAlert'] as bool;
+  Widget _buildRiderCard(OrderModel order) {
+    final itemSummary = order.items.isEmpty
+        ? '—'
+        : order.items.map((i) => '${i.quantity}x ${i.name}').join(', ');
+    final riderLabel = order.assignedRiderName ?? 'Unassigned';
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -645,8 +651,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     width: 40,
                     height: 40,
                     decoration: const BoxDecoration(color: surfaceFrost, shape: BoxShape.circle),
-                    child: Center(
-                      child: Text(rider['initials'] as String, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: primary)),
+                    child: const Center(
+                      child: Icon(Icons.person, color: primary, size: 20),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -655,17 +661,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     children: [
                       Row(
                         children: [
-                          Text(rider['name'] as String, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: onSurface)),
+                          Text(order.customerName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: onSurface)),
                           const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                             decoration: BoxDecoration(color: surfaceContainer, borderRadius: BorderRadius.circular(100)),
-                            child: Text(rider['code'] as String, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: onSurfaceVariant)),
+                            child: Text(order.orderNumber, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: onSurfaceVariant)),
                           ),
                         ],
                       ),
                       const SizedBox(height: 2),
-                      Text(rider['route'] as String, style: const TextStyle(fontSize: 11, color: onSurfaceVariant)),
+                      Text(order.deliveryAddress ?? '', style: const TextStyle(fontSize: 11, color: onSurfaceVariant)),
                     ],
                   ),
                 ],
@@ -673,12 +679,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: doneBadgeIsAlert ? surfaceFrost : secondaryContainer,
+                  color: secondaryContainer,
                   borderRadius: BorderRadius.circular(100),
                 ),
-                child: Text(
-                  '${rider['doneCount']}/${rider['totalCount']} Done',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: doneBadgeIsAlert ? primary : onSecondaryContainer),
+                child: const Text(
+                  'Out for delivery',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: onSecondaryContainer),
                 ),
               ),
             ],
@@ -692,27 +698,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   children: [
                     const Icon(Icons.account_balance_wallet, size: 15, color: secondary),
                     const SizedBox(width: 4),
-                    Text('₱${(rider['codAmount'] as double).toStringAsFixed(0)} COD', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: onSurface)),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        '• ${rider['status']}',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusIsAlert ? coralAlert : secondary),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                    Text('₱${order.totalAmount.toStringAsFixed(0)} • $itemSummary', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: onSurface), overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
-              InkWell(
-                onTap: () => statusIsAlert ? _onPingRider(rider['name'] as String) : _onViewRiderMap(rider['name'] as String),
-                borderRadius: BorderRadius.circular(100),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(color: surfaceContainer, borderRadius: BorderRadius.circular(100)),
-                  child: Text(rider['actionLabel'] as String, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: primary)),
-                ),
-              ),
+              const SizedBox(width: 8),
+              Text(riderLabel, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: primary)),
             ],
           ),
         ],
@@ -720,7 +711,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
-  Widget _buildSuppliesSection() {
+  Widget _buildSuppliesSection(List<InventoryModel> supplies) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -741,26 +732,36 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        Row(
-          children: _supplies
-              .asMap()
-              .entries
-              .map((entry) => Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(right: entry.key == _supplies.length - 1 ? 0 : 8),
-              child: _buildSupplyCard(entry.value),
-            ),
-          ))
-              .toList(),
-        ),
+        if (supplies.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: surfaceContainerLowest, borderRadius: BorderRadius.circular(16)),
+            child: const Text('No inventory items yet.', style: TextStyle(fontSize: 12, color: onSurfaceVariant)),
+          )
+        else
+          Row(
+            children: supplies
+                .take(3)
+                .toList()
+                .asMap()
+                .entries
+                .map((entry) => Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(right: entry.key == supplies.take(3).length - 1 ? 0 : 8),
+                child: _buildSupplyCard(entry.value),
+              ),
+            ))
+                .toList(),
+          ),
       ],
     );
   }
 
-  Widget _buildSupplyCard(Map<String, dynamic> supply) {
-    final bool badgeIsAlert = supply['badgeIsAlert'] as bool;
-    final bool footerIsAlert = supply['footerIsAlert'] as bool;
-    final Color accent = badgeIsAlert ? coralAlert : (supply['name'] == 'Clean Jars' ? primary : secondary);
+  Widget _buildSupplyCard(InventoryModel supply) {
+    final bool isLow = supply.isLowStock;
+    final Color accent = isLow ? coralAlert : secondary;
+    final IconData icon = supply.category == 'water' ? Icons.water_drop : Icons.inventory_2;
+    final int pctLeft = supply.maxCapacity == 0 ? 0 : ((supply.currentStock / supply.maxCapacity) * 100).round();
 
     return Container(
       padding: const EdgeInsets.all(10),
@@ -771,25 +772,25 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(supply['icon'] as IconData, size: 18, color: accent),
+              Icon(icon, size: 18, color: accent),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
-                  color: badgeIsAlert ? errorContainer : (supply['name'] == 'Clean Jars' ? surfaceFrost : secondaryContainer),
+                  color: isLow ? errorContainer : secondaryContainer,
                   borderRadius: BorderRadius.circular(100),
                 ),
                 child: Text(
-                  supply['badgeLabel'] as String,
-                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: badgeIsAlert ? onErrorContainer : (supply['name'] == 'Clean Jars' ? primary : onSecondaryContainer)),
+                  isLow ? '$pctLeft% LEFT' : 'GOOD',
+                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: isLow ? onErrorContainer : onSecondaryContainer),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          Text('${supply['quantity']}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: badgeIsAlert ? coralAlert : onSurface)),
-          Text(supply['name'] as String, style: const TextStyle(fontSize: 11, color: onSurfaceVariant), overflow: TextOverflow.ellipsis),
+          Text('${supply.currentStock}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: isLow ? coralAlert : onSurface)),
+          Text(supply.name, style: const TextStyle(fontSize: 11, color: onSurfaceVariant), overflow: TextOverflow.ellipsis),
           const SizedBox(height: 4),
-          Text(supply['footerLabel'] as String, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: footerIsAlert ? coralAlert : (supply['name'] == 'Clean Jars' ? primary : secondary))),
+          Text(isLow ? 'Restock ASAP' : 'Stock healthy', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isLow ? coralAlert : secondary)),
         ],
       ),
     );
@@ -799,62 +800,100 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        const Row(
           children: [
-            const Row(
-              children: [
-                Icon(Icons.assignment_turned_in, color: primary, size: 20),
-                SizedBox(width: 6),
-                Text('Reconciliation Status', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: onSurface)),
-              ],
-            ),
-            Row(
-              children: [
-                const Icon(Icons.check_circle, size: 14, color: secondary),
-                const SizedBox(width: 4),
-                Text('$_discrepancyCount Discrepancies', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: secondary)),
-              ],
-            ),
+            Icon(Icons.assignment_turned_in, color: primary, size: 20),
+            SizedBox(width: 6),
+            Text('Reconciliation Status', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: onSurface)),
           ],
         ),
         const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: surfaceContainerLowest, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Color(0x0F007BB9), blurRadius: 16)]),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: const BoxDecoration(color: secondaryContainer, shape: BoxShape.circle),
-                child: const Icon(Icons.task_alt, size: 20, color: onSecondaryContainer),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        StreamBuilder<ShiftModel?>(
+          stream: _firestoreService.getLatestShiftStream(),
+          builder: (context, snapshot) {
+            final shift = snapshot.data;
+            final now = DateTime.now();
+            final openedToday = shift != null && shift.openedAt.year == now.year && shift.openedAt.month == now.month && shift.openedAt.day == now.day;
+
+            // A closed shift from a previous day is stale — show it only if it's still open or was opened today.
+            if (shift == null || (shift.status == ShiftStatus.closed && !openedToday)) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: surfaceContainerLowest, borderRadius: BorderRadius.circular(16)),
+                child: const Text('No shift opened today yet. Staff open a shift from the POS screen.', style: TextStyle(fontSize: 12, color: onSurfaceVariant)),
+              );
+            }
+
+            if (shift.status == ShiftStatus.open) {
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: surfaceContainerLowest, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Color(0x0F007BB9), blurRadius: 16)]),
+                child: Row(
                   children: [
-                    Row(
+                    Container(
+                      width: 36, height: 36,
+                      decoration: const BoxDecoration(color: Color(0xFFFFFBEB), shape: BoxShape.circle),
+                      child: const Icon(Icons.hourglass_top, size: 20, color: Color(0xFFD97706)),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Text('Shift In Progress', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: onSurface)),
+                            ],
+                          ),
+                          Text('Opened by ${shift.openedByName} with ₱${shift.openingCash.toStringAsFixed(2)} float', style: const TextStyle(fontSize: 11, color: onSurfaceVariant)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final discrepancy = shift.discrepancy ?? 0;
+            final isBalanced = discrepancy.abs() < 0.01;
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: surfaceContainerLowest, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Color(0x0F007BB9), blurRadius: 16)]),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(color: isBalanced ? secondaryContainer : errorContainer, shape: BoxShape.circle),
+                    child: Icon(isBalanced ? Icons.task_alt : Icons.warning_amber, size: 20, color: isBalanced ? onSecondaryContainer : onErrorContainer),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Flexible(
-                          child: Text(_lastShiftLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: onSurface), overflow: TextOverflow.ellipsis),
+                        Row(
+                          children: [
+                            Flexible(child: Text('Closed by ${shift.closedByName}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: onSurface), overflow: TextOverflow.ellipsis)),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                              decoration: BoxDecoration(color: isBalanced ? secondaryContainer : errorContainer, borderRadius: BorderRadius.circular(100)),
+                              child: Text(isBalanced ? 'Balanced' : 'Discrepancy', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isBalanced ? onSecondaryContainer : onErrorContainer)),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(color: secondaryContainer, borderRadius: BorderRadius.circular(100)),
-                          child: const Text('Settled', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: onSecondaryContainer)),
+                        Text(
+                          'Counted ₱${shift.closingCash?.toStringAsFixed(2) ?? '—'} vs expected ₱${shift.expectedCash?.toStringAsFixed(2) ?? '—'}${isBalanced ? '' : ' (${discrepancy > 0 ? '+' : ''}₱${discrepancy.toStringAsFixed(2)})'}',
+                          style: const TextStyle(fontSize: 11, color: onSurfaceVariant),
                         ),
                       ],
                     ),
-                    Text('₱${_lastShiftAmount.toStringAsFixed(2)} reconciled by $_lastShiftReconciler', style: const TextStyle(fontSize: 11, color: onSurfaceVariant)),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              Text(_lastShiftTime, style: const TextStyle(fontSize: 11, color: onSurfaceVariant)),
-            ],
-          ),
+            );
+          },
         ),
       ],
     );

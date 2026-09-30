@@ -1,0 +1,81 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function myRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isOwner() {
+      return isSignedIn() && myRole() == 'owner';
+    }
+
+    function isStaff() {
+      return isSignedIn() && (myRole() == 'owner' || myRole() == 'staff');
+    }
+
+    function isRider() {
+      return isSignedIn() && myRole() == 'rider';
+    }
+
+    match /users/{userId} {
+      // Owner can also create Staff/Rider accounts on their behalf
+      // (via createTeamAccount(), which writes this doc from the owner's
+      // own authenticated session after creating the Auth user separately).
+      allow create: if isSignedIn() && (request.auth.uid == userId || isOwner());
+      allow read: if isSignedIn() && (request.auth.uid == userId || isStaff());
+      // A rider may only touch a customer's unreturnedContainers count —
+      // that's the one field fulfillDelivery() adjusts on their behalf.
+      allow update: if isSignedIn() && (
+        request.auth.uid == userId ||
+        isOwner() ||
+        (isRider() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unreturnedContainers']))
+      );
+      allow delete: if isOwner();
+
+      match /addresses/{addressId} {
+        allow read, write: if isSignedIn() && (request.auth.uid == userId || isStaff());
+      }
+    }
+
+    match /orders/{orderId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      // The assigned rider can update their own order (fulfill delivery, payment
+      // confirmation) but can't touch orders assigned to someone else or grab
+      // an unassigned one themselves — only staff/owner can assign via assignRider().
+      allow update: if isStaff()
+        || (isSignedIn() && resource.data.customerId == request.auth.uid)
+        || (isRider() && resource.data.assignedRiderId == request.auth.uid);
+      allow delete: if isStaff() || (isSignedIn() && resource.data.customerId == request.auth.uid);
+    }
+
+    match /inventory/{itemId} {
+      allow read: if isSignedIn();
+      // Riders decrement packaging stock (caps/seals) as part of fulfillDelivery().
+      allow write: if isStaff() || isRider();
+    }
+
+    match /maintenance_alerts/{alertId} {
+      allow read: if isStaff();
+      allow create: if isOwner();
+      allow update: if isStaff();
+      allow delete: if isOwner();
+    }
+
+    match /shifts/{shiftId} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+    }
+
+    match /rider_cashouts/{cashOutId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+    }
+  }
+}

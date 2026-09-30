@@ -27,6 +27,7 @@ class OrderItem {
 class OrderModel {
   final String id;
   final String orderNumber;
+  final String? customerId;
   final String customerName;
   final String customerPhone;
   final String? deliveryAddress;
@@ -36,17 +37,21 @@ class OrderModel {
   final OrderStatus status;
   final PaymentMethod paymentMethod;
   final bool isPaid;
+  final String? gcashReference;
   final String? assignedRiderId;
   final String? assignedRiderName;
   final int gallonsDelivered;
   final int emptyGallonsReturned;
   final int unreturnedDiff;
   final String? proofOfDeliveryUrl;
+  final String? lastTransferReason;
   final DateTime createdAt;
+  final DateTime? deliveredAt;
 
   OrderModel({
     required this.id,
     required this.orderNumber,
+    this.customerId,
     required this.customerName,
     required this.customerPhone,
     this.deliveryAddress,
@@ -56,18 +61,26 @@ class OrderModel {
     required this.status,
     required this.paymentMethod,
     required this.isPaid,
+    this.gcashReference,
     this.assignedRiderId,
     this.assignedRiderName,
     this.gallonsDelivered = 0,
     this.emptyGallonsReturned = 0,
     this.unreturnedDiff = 0,
     this.proofOfDeliveryUrl,
+    this.lastTransferReason,
     required this.createdAt,
+    this.deliveredAt,
   });
+
+  // The moment this order's payment was actually realized: when it was
+  // dropped off for deliveries, or immediately at creation for walk-in sales.
+  DateTime get revenueDate => deliveredAt ?? createdAt;
 
   Map<String, dynamic> toMap() {
     return {
       'orderNumber': orderNumber,
+      'customerId': customerId,
       'customerName': customerName,
       'customerPhone': customerPhone,
       'deliveryAddress': deliveryAddress,
@@ -77,12 +90,14 @@ class OrderModel {
       'status': status.name,
       'paymentMethod': paymentMethod.name,
       'isPaid': isPaid,
+      'gcashReference': gcashReference,
       'assignedRiderId': assignedRiderId,
       'assignedRiderName': assignedRiderName,
       'gallonsDelivered': gallonsDelivered,
       'emptyGallonsReturned': emptyGallonsReturned,
       'unreturnedDiff': unreturnedDiff,
       'proofOfDeliveryUrl': proofOfDeliveryUrl,
+      'lastTransferReason': lastTransferReason,
       'createdAt': createdAt.toIso8601String(),
     };
   }

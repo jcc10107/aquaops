@@ -1,8 +1,12 @@
 // lib/widgets/custom_header.dart
 import 'dart:ui';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../core/constants/app_colors.dart';
+import '../models/user_model.dart';
+import '../services/firestore_service.dart';
+import 'notification_bell.dart';
 
 class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
   const CustomHeader({super.key});
@@ -22,17 +26,18 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final role = currentUserRoleNotifier.value;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
 
-    String mockDatabaseName = "Admin User";
-    if (role == 'owner') mockDatabaseName = "Juan Dela Cruz";
-    if (role == 'staff') mockDatabaseName = "Arnel Bautista";
-    if (role == 'customer') mockDatabaseName = "Elena Gomez";
+    return StreamBuilder<UserModel?>(
+      stream: uid == null ? const Stream.empty() : FirestoreService().getUserStream(uid),
+      builder: (context, userSnapshot) {
+        final userInitials = _getInitials(userSnapshot.data?.name ?? 'User');
+        return _buildHeader(context, isDark, role, userInitials);
+      },
+    );
+  }
 
-    final userInitials = _getInitials(mockDatabaseName);
-    final myNotifications = globalNotifications
-        .where((n) => n['role'] == role || role == 'owner')
-        .toList();
-
+  Widget _buildHeader(BuildContext context, bool isDark, String role, String userInitials) {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 450),
@@ -209,99 +214,12 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
                     ),
                     Row(
                       children: [
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: isDark ? AppColors.borderDark : AppColors.surfaceCanvas,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: isDark
-                                      ? Colors.white.withValues(alpha: 0.1)
-                                      : AppColors.borderLight.withValues(alpha: 0.5),
-                                ),
-                              ),
-                              child: PopupMenuButton<String>(
-                                offset: const Offset(0, 50),
-                                color: isDark ? AppColors.surfaceDark : AppColors.surfaceLowest,
-                                elevation: 12,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                icon: Icon(
-                                  Icons.notifications_none,
-                                  color: isDark ? Colors.grey[300] : AppColors.textVariant,
-                                  size: 22,
-                                ),
-                                itemBuilder: (context) => [
-                                  PopupMenuItem(
-                                    enabled: false,
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text('Alerts', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black, fontSize: 14)),
-                                        const Text('Clear', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold)),
-                                      ],
-                                    ),
-                                  ),
-                                  const PopupMenuDivider(),
-                                  ...myNotifications.map((n) => PopupMenuItem(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(n['title'], style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black, fontSize: 13)),
-                                            Text(n['time'], style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(n['desc'], style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                                        const SizedBox(height: 8),
-                                      ],
-                                    ),
-                                  )),
-                                  if (myNotifications.isEmpty)
-                                    PopupMenuItem(child: Text('No new alerts.', style: TextStyle(fontSize: 13, color: isDark ? Colors.white : Colors.black))),
-                                ],
-                              ),
-                            ),
-                            if (myNotifications.isNotEmpty)
-                              Positioned(
-                                top: -4,
-                                right: -4,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [AppColors.coralAlert, Color(0xFFDC2626)],
-                                    ),
-                                    borderRadius: BorderRadius.circular(100),
-                                    border: Border.all(color: Colors.white, width: 2),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppColors.coralAlert.withValues(alpha: 0.2),
-                                        blurRadius: 4,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Text(
-                                    '${myNotifications.length}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w900,
-                                      height: 1,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+                        NotificationBell(isDark: isDark),
                         const SizedBox(width: 8),
-                        Stack(
+                        InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => Navigator.pushNamed(context, '/profile'),
+                          child: Stack(
                           children: [
                             Container(
                               width: 40,
@@ -378,6 +296,7 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
                               ),
                             ),
                           ],
+                          ),
                         ),
                       ],
                     ),

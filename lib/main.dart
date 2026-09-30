@@ -1,5 +1,7 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/profile/profile_screen.dart';
@@ -13,14 +15,11 @@ import 'core/constants/app_colors.dart';
 final ValueNotifier<bool> isDarkModeNotifier = ValueNotifier(false);
 final ValueNotifier<String> currentUserRoleNotifier = ValueNotifier('none');
 
-final List<Map<String, dynamic>> globalNotifications = [
-  {'role': 'owner', 'title': 'Inventory Restocked', 'desc': 'Restocked 100 units. Stock levels refreshed.', 'time': 'Just now'},
-  {'role': 'owner', 'title': 'Low Stock Alert', 'desc': 'Non-Spill Blue Gallon Caps is below minimum threshold (24 left).', 'time': '10 mins ago'},
-  {'role': 'owner', 'title': 'Maintenance Required', 'desc': 'Station High-Pressure Feed Pump routine service is overdue by 3 days.', 'time': '1 hour ago'},
-  {'role': 'customer', 'title': 'Order Out for Delivery', 'desc': 'Rider Arnel is on the way with your 2x Round Purified water.', 'time': '5 mins ago'},
-];
-
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const AquaOpsApp());
 }
 
@@ -42,9 +41,10 @@ class AquaOpsApp extends StatelessWidget {
             fontFamily: 'Inter',
             elevatedButtonTheme: ElevatedButtonThemeData(
                 style: ElevatedButton.styleFrom(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                )),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(100)),
+            )),
           ),
           darkTheme: ThemeData(
             brightness: Brightness.dark,
@@ -52,9 +52,10 @@ class AquaOpsApp extends StatelessWidget {
             fontFamily: 'Inter',
             elevatedButtonTheme: ElevatedButtonThemeData(
                 style: ElevatedButton.styleFrom(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                )),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(100)),
+            )),
           ),
           initialRoute: '/login',
           routes: {

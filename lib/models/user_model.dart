@@ -10,6 +10,8 @@ class UserModel {
   final String? assignedArea;
   final int unreturnedContainers;
   final double activeDepositAmount;
+  final bool notificationsEnabled;
+  final bool? hasOwnContainers;
 
   UserModel({
     required this.id,
@@ -21,6 +23,8 @@ class UserModel {
     this.assignedArea,
     this.unreturnedContainers = 0,
     this.activeDepositAmount = 0.0,
+    this.notificationsEnabled = true,
+    this.hasOwnContainers,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> data, String id) {
@@ -37,6 +41,8 @@ class UserModel {
       assignedArea: data['assignedArea'],
       unreturnedContainers: data['unreturnedContainers'] ?? 0,
       activeDepositAmount: (data['activeDepositAmount'] ?? 0).toDouble(),
+      notificationsEnabled: data['notificationsEnabled'] ?? true,
+      hasOwnContainers: data['hasOwnContainers'],
     );
   }
 
@@ -50,6 +56,8 @@ class UserModel {
       'assignedArea': assignedArea,
       'unreturnedContainers': unreturnedContainers,
       'activeDepositAmount': activeDepositAmount,
+      'notificationsEnabled': notificationsEnabled,
+      'hasOwnContainers': hasOwnContainers,
     };
   }
 }

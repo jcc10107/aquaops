@@ -1,9 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class InventoryModel {
   final String id;
   final String sku;
   final String name;
   final String category; // 'water', 'packaging'
   final int currentStock;
+  final int maxCapacity;
   final String unit;
   final int minimumThreshold;
   final double costPerUnit;
@@ -14,6 +17,7 @@ class InventoryModel {
     required this.name,
     required this.category,
     required this.currentStock,
+    required this.maxCapacity,
     required this.unit,
     required this.minimumThreshold,
     required this.costPerUnit,
@@ -21,11 +25,26 @@ class InventoryModel {
 
   bool get isLowStock => currentStock <= minimumThreshold;
 
+  factory InventoryModel.fromMap(Map<String, dynamic> data, String id) {
+    return InventoryModel(
+      id: id,
+      sku: data['sku'] ?? '',
+      name: data['name'] ?? '',
+      category: data['category'] ?? 'water',
+      currentStock: (data['currentStock'] ?? 0).toInt(),
+      maxCapacity: (data['maxCapacity'] ?? 0).toInt(),
+      unit: data['unit'] ?? 'pcs',
+      minimumThreshold: (data['minimumThreshold'] ?? 0).toInt(),
+      costPerUnit: (data['costPerUnit'] ?? 0).toDouble(),
+    );
+  }
+
   Map<String, dynamic> toMap() => {
     'sku': sku,
     'name': name,
     'category': category,
     'currentStock': currentStock,
+    'maxCapacity': maxCapacity,
     'unit': unit,
     'minimumThreshold': minimumThreshold,
     'costPerUnit': costPerUnit,
@@ -48,4 +67,26 @@ class MaintenanceAlertModel {
     required this.dueDate,
     this.isCompleted = false,
   });
+
+  bool get isOverdue => !isCompleted && dueDate.isBefore(DateTime.now());
+
+  factory MaintenanceAlertModel.fromMap(Map<String, dynamic> data, String id) {
+    final dueDateRaw = data['dueDate'];
+    return MaintenanceAlertModel(
+      id: id,
+      equipmentName: data['equipmentName'] ?? '',
+      taskType: data['taskType'] ?? '',
+      urgency: data['urgency'] ?? 'routine',
+      dueDate: dueDateRaw is Timestamp ? dueDateRaw.toDate() : DateTime.now(),
+      isCompleted: data['isCompleted'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'equipmentName': equipmentName,
+    'taskType': taskType,
+    'urgency': urgency,
+    'dueDate': Timestamp.fromDate(dueDate),
+    'isCompleted': isCompleted,
+  };
 }

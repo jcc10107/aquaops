@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "344330549483",
+    "project_id": "aquaops-e8dd1",
+    "storage_bucket": "aquaops-e8dd1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:344330549483:android:56f97e2338b288569fa6ae",
+        "android_client_info": {
+          "package_name": "com.example.aquaops"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAycNB9kguvmRWPN2YONLhmB6Q9LLZ4H9U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../main.dart';
@@ -7,6 +8,9 @@ import '../delivery/delivery_queue_screen.dart';
 import '../inventory/inventory_screen.dart';
 import '../owner/owner_dashboard_screen.dart';
 import '../profile/profile_screen.dart';
+import '../../models/order_model.dart';
+import '../../models/shift_model.dart';
+import '../../services/firestore_service.dart';
 
 class _AquaColors {
   static const Color primary = Color(0xFF006194);
@@ -50,9 +54,12 @@ class _PosScreenState extends State<PosScreen> {
   int _bottle500 = 0;
   String _pay = 'cash';
   bool _showToast = false;
+  bool _isCheckingOut = false;
+  String _lastOrderNumber = '';
   Timer? _toastTimer;
   final TextEditingController _tenderCtrl = TextEditingController(text: '35');
   final TextEditingController _gcashRefCtrl = TextEditingController();
+  final FirestoreService _firestoreService = FirestoreService();
 
   int get _totalItems => _round + _slim + _newB + _bottle500;
 
@@ -93,12 +100,71 @@ class _PosScreenState extends State<PosScreen> {
     });
   }
 
-  void _triggerCheckout() {
-    setState(() => _showToast = true);
-    _toastTimer?.cancel();
-    _toastTimer = Timer(const Duration(milliseconds: 2600), () {
-      if (mounted) setState(() => _showToast = false);
-    });
+  Future<void> _triggerCheckout() async {
+    if (_totalItems == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add at least one item before checkout.')),
+      );
+      return;
+    }
+    if (_pay == 'cash') {
+      final tendered = double.tryParse(_tenderCtrl.text) ?? 0.0;
+      if (tendered < _tot) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tendered cash is less than the total.'), backgroundColor: _AquaColors.coralAlert),
+        );
+        return;
+      }
+    } else if (_gcashRefCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter the GCash reference number.'), backgroundColor: _AquaColors.coralAlert),
+      );
+      return;
+    }
+
+    final items = <OrderItem>[
+      if (_round > 0) OrderItem(name: '5-Gal Round Refill', quantity: _round, unitPrice: _roundPrice),
+      if (_slim > 0) OrderItem(name: '5-Gal Slim Alkaline Refill', quantity: _slim, unitPrice: _slimPrice),
+      if (_newB > 0) OrderItem(name: 'New Bottle + Water (5-Gal)', quantity: _newB, unitPrice: _newBottlePrice),
+      if (_bottle500 > 0) OrderItem(name: '500ml Bottled Water', quantity: _bottle500, unitPrice: _bottle500Price, requiresPackaging: false),
+    ];
+
+    setState(() => _isCheckingOut = true);
+    try {
+      final orderNumber = await _firestoreService.recordWalkInSale(
+        items: items,
+        totalAmount: _tot,
+        paymentMethod: _pay,
+        gcashReference: _pay == 'gcash' && _gcashRefCtrl.text.trim().isNotEmpty ? _gcashRefCtrl.text.trim() : null,
+        // "New Bottle + Water" is a standard 5-Gal (round) fill, so it draws
+        // from the same round water stock as a regular round refill.
+        roundGallons: _round + _newB,
+        slimGallons: _slim,
+        packagingUnits: _round + _slim + _newB,
+      );
+      if (!mounted) return;
+      setState(() {
+        _isCheckingOut = false;
+        _lastOrderNumber = orderNumber;
+        _round = 0;
+        _slim = 0;
+        _newB = 0;
+        _bottle500 = 0;
+        _tenderCtrl.text = '0';
+        _gcashRefCtrl.clear();
+        _showToast = true;
+      });
+      _toastTimer?.cancel();
+      _toastTimer = Timer(const Duration(milliseconds: 2600), () {
+        if (mounted) setState(() => _showToast = false);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isCheckingOut = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Checkout failed: $e'), backgroundColor: _AquaColors.coralAlert),
+      );
+    }
   }
 
   void _onNavTapped(int index) {
@@ -129,9 +195,12 @@ class _PosScreenState extends State<PosScreen> {
         case 0:
           return;
         case 1:
-          targetScreen = const InventoryScreen();
+          targetScreen = const DeliveryQueueScreen();
           break;
         case 2:
+          targetScreen = const InventoryScreen();
+          break;
+        case 3:
           targetScreen = const ProfileScreen();
           break;
         default:
@@ -194,6 +263,7 @@ class _PosScreenState extends State<PosScreen> {
                       ]
                           : const [
                         BottomNavigationBarItem(icon: Icon(Icons.point_of_sale), label: 'Station POS'),
+                        BottomNavigationBarItem(icon: Icon(Icons.local_shipping), label: 'Queue'),
                         BottomNavigationBarItem(icon: Icon(Icons.inventory_2), label: 'Inventory'),
                         BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
                       ],
@@ -224,6 +294,173 @@ class _PosScreenState extends State<PosScreen> {
         border: Border.all(color: _AquaColors.surfaceContainerHigh.withValues(alpha: 0.6)),
       ),
       child: child,
+    );
+  }
+
+  Future<String> _currentUserName() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return 'Staff';
+    final profile = await _firestoreService.getUser(uid);
+    return profile?.name ?? 'Staff';
+  }
+
+  void _showOpenShiftDialog() {
+    final TextEditingController cashCtrl = TextEditingController(text: '0');
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Open Shift'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Enter the starting cash float in the till.', style: TextStyle(fontSize: 13, color: _AquaColors.textVariant)),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: cashCtrl,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                prefixText: '₱ ',
+                filled: true,
+                fillColor: _AquaColors.surfaceCanvas,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final openingCash = double.tryParse(cashCtrl.text) ?? 0;
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(dialogContext);
+              try {
+                final name = await _currentUserName();
+                await _firestoreService.openShift(openedByName: name, openingCash: openingCash);
+                messenger.showSnackBar(const SnackBar(content: Text('Shift opened.'), backgroundColor: _AquaColors.secondary));
+              } catch (e) {
+                messenger.showSnackBar(SnackBar(content: Text('Failed to open shift: $e'), backgroundColor: _AquaColors.coralAlert));
+              }
+            },
+            child: const Text('Open Shift'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCloseShiftDialog(ShiftModel shift) {
+    final TextEditingController cashCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Close Shift'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Opened by ${shift.openedByName} with ₱${shift.openingCash.toStringAsFixed(2)} starting float.', style: const TextStyle(fontSize: 13, color: _AquaColors.textVariant)),
+            const SizedBox(height: 16),
+            const Text('Count the cash in the till now:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _AquaColors.textMain)),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: cashCtrl,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              decoration: InputDecoration(
+                prefixText: '₱ ',
+                filled: true,
+                fillColor: _AquaColors.surfaceCanvas,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final closingCash = double.tryParse(cashCtrl.text);
+              if (closingCash == null) return;
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(dialogContext);
+              try {
+                final name = await _currentUserName();
+                final discrepancy = await _firestoreService.closeShift(
+                  shiftId: shift.id,
+                  openedAt: shift.openedAt,
+                  openingCash: shift.openingCash,
+                  closingCash: closingCash,
+                  closedByName: name,
+                );
+                final isBalanced = discrepancy.abs() < 0.01;
+                messenger.showSnackBar(SnackBar(
+                  content: Text(isBalanced ? 'Shift closed. Balanced!' : 'Shift closed. Discrepancy: ₱${discrepancy.toStringAsFixed(2)}'),
+                  backgroundColor: isBalanced ? _AquaColors.secondary : _AquaColors.coralAlert,
+                ));
+              } catch (e) {
+                messenger.showSnackBar(SnackBar(content: Text('Failed to close shift: $e'), backgroundColor: _AquaColors.coralAlert));
+              }
+            },
+            child: const Text('Close Shift'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShiftCard() {
+    return StreamBuilder<ShiftModel?>(
+      stream: _firestoreService.getOpenShiftStream(),
+      builder: (context, snapshot) {
+        final shift = snapshot.data;
+        return _sectionCard(
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: shift != null ? _AquaColors.secondaryContainer.withValues(alpha: 0.4) : _AquaColors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(shift != null ? Icons.point_of_sale : Icons.lock_clock, color: shift != null ? _AquaColors.secondary : _AquaColors.textVariant, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(shift != null ? 'Shift Open' : 'No Active Shift', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _AquaColors.textMain)),
+                    Text(
+                      shift != null
+                          ? 'Started ₱${shift.openingCash.toStringAsFixed(2)} by ${shift.openedByName}'
+                          : 'Open a shift before counting cash at close-out',
+                      style: const TextStyle(fontSize: 11, color: _AquaColors.textVariant),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: shift != null ? () => _showCloseShiftDialog(shift) : _showOpenShiftDialog,
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: shift != null ? _AquaColors.coralAlert : _AquaColors.primary),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                ),
+                child: Text(
+                  shift != null ? 'Close' : 'Open',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: shift != null ? _AquaColors.coralAlert : _AquaColors.primary),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -334,6 +571,8 @@ class _PosScreenState extends State<PosScreen> {
                         ],
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    _buildShiftCard(),
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -588,33 +827,32 @@ class _PosScreenState extends State<PosScreen> {
                               child: Column(
                                 children: [
                                   Container(
-                                    width: 120,
-                                    height: 120,
-                                    padding: const EdgeInsets.all(10),
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
                                       color: _AquaColors.surfaceLowest,
                                       borderRadius: BorderRadius.circular(16),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.05),
-                                          blurRadius: 4,
-                                        ),
-                                      ],
                                       border: Border.all(color: _AquaColors.surfaceContainerHigh.withValues(alpha: 0.6)),
                                     ),
-                                    child: const Icon(Icons.qr_code_2, size: 90, color: _AquaColors.primary),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.account_balance_wallet, size: 20, color: _AquaColors.primary),
+                                        const SizedBox(width: 10),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: const [
+                                            Text('Station Owner (Aquaflow)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _AquaColors.textMain)),
+                                            Text('0917 123 4567', style: TextStyle(fontSize: 13, color: _AquaColors.textVariant, letterSpacing: 1)),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                   const SizedBox(height: 10),
                                   const Text(
-                                    'Scan to Pay Station Merchant',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: _AquaColors.textMain,
-                                    ),
-                                  ),
-                                  const Text(
-                                    'AquaOps \u2022 Merchant ID: AQ-88219',
+                                    'Have the customer send GCash to this account, then log the reference number below.',
+                                    textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: _AquaColors.textVariant,
@@ -761,7 +999,7 @@ class _PosScreenState extends State<PosScreen> {
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton(
-                        onPressed: _triggerCheckout,
+                        onPressed: _isCheckingOut ? null : _triggerCheckout,
                         style: ElevatedButton.styleFrom(
                           padding: EdgeInsets.zero,
                           shape: RoundedRectangleBorder(
@@ -779,7 +1017,13 @@ class _PosScreenState extends State<PosScreen> {
                           ),
                           child: Container(
                             alignment: Alignment.center,
-                            child: const Row(
+                            child: _isCheckingOut
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(Icons.check_circle, color: Colors.white, size: 20),
@@ -856,9 +1100,9 @@ class _PosScreenState extends State<PosScreen> {
                               ],
                             ),
                           ),
-                          const Text(
-                            'POS #4092',
-                            style: TextStyle(
+                          Text(
+                            _lastOrderNumber,
+                            style: const TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.w800,
                               color: _AquaColors.cyanElectric,
@@ -1095,459 +1339,6 @@ class _PosScreenState extends State<PosScreen> {
               fontSize: 11,
               fontWeight: FontWeight.bold,
               color: _AquaColors.primary,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class EmergencyTransferModal extends StatefulWidget {
-  final String sourceRider;
-  final String sourceZone;
-  final int pendingStops;
-  final String codAmount;
-
-  const EmergencyTransferModal({
-    super.key,
-    this.sourceRider = 'Arnel Bautista',
-    this.sourceZone = 'Barangay San Antonio • Sector 4',
-    this.pendingStops = 2,
-    this.codAmount = '₱190.00',
-  });
-
-  @override
-  State<EmergencyTransferModal> createState() => _EmergencyTransferModalState();
-}
-
-class _EmergencyTransferModalState extends State<EmergencyTransferModal> {
-  String _reason = 'Bike Breakdown';
-  String _scope = 'all';
-  bool _notify = true;
-  bool _isTransferring = false;
-  bool _isDone = false;
-
-  final List<Map<String, dynamic>> _reasons = const [
-    {'label': 'Bike Breakdown', 'icon': Icons.build_circle},
-    {'label': 'Heavy Rain / Flood', 'icon': Icons.thunderstorm},
-    {'label': 'Rider Medical', 'icon': Icons.medical_services},
-    {'label': 'Overcapacity', 'icon': Icons.inventory_2},
-  ];
-
-  void _confirmTransfer() {
-    setState(() => _isTransferring = true);
-    Future.delayed(const Duration(milliseconds: 900), () {
-      if (!mounted) return;
-      setState(() {
-        _isTransferring = false;
-        _isDone = true;
-      });
-      Future.delayed(const Duration(milliseconds: 700), () {
-        if (mounted) Navigator.pop(context);
-      });
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(16),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: 450,
-            maxHeight: MediaQuery.of(context).size.height * 0.9,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: _AquaColors.surfaceLowest,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: _AquaColors.primary.withValues(alpha: 0.18),
-                  blurRadius: 40,
-                  offset: const Offset(0, 16),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Stack(
-                children: [
-                  Positioned(
-                    top: 0, left: 0, right: 0,
-                    child: Container(
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [_AquaColors.coralAlert, _AquaColors.cyanElectric, _AquaColors.secondaryContainer],
-                        ),
-                      ),
-                    ),
-                  ),
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24, 30, 24, 24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(color: _AquaColors.coralAlert.withValues(alpha: 0.1), shape: BoxShape.circle),
-                              child: const Icon(Icons.swap_horiz, color: _AquaColors.coralAlert, size: 24),
-                            ),
-                            const SizedBox(width: 16),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Emergency Route Transfer', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: _AquaColors.textMain, letterSpacing: -0.5)),
-                                  SizedBox(height: 4),
-                                  Text('Reassign an active delivery queue in real time without resetting progress (e.g. bike breakdown, heavy rainfall, flat tire).', style: TextStyle(fontSize: 11, color: _AquaColors.textVariant, height: 1.4)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        const Text('TRIGGER REASON', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _AquaColors.textVariant, letterSpacing: 1)),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: _reasons.map((r) {
-                            final bool active = _reason == r['label'];
-                            return InkWell(
-                              onTap: () => setState(() => _reason = r['label']),
-                              borderRadius: BorderRadius.circular(100),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: active ? _AquaColors.coralAlert : _AquaColors.surfaceContainerLow,
-                                  borderRadius: BorderRadius.circular(100),
-                                  boxShadow: active ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))] : [],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(r['icon'] as IconData, size: 14, color: active ? _AquaColors.surfaceLowest : _AquaColors.textMain),
-                                    const SizedBox(width: 4),
-                                    Text(r['label'] as String, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: active ? _AquaColors.surfaceLowest : _AquaColors.textMain)),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Source Rider (Current Queue)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _AquaColors.textMain)),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(color: _AquaColors.coralAlert.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(100)),
-                              child: const Text('Stalled', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _AquaColors.coralAlert)),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(color: _AquaColors.surfaceCanvas, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4)]),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Container(width: 32, height: 32, decoration: const BoxDecoration(color: _AquaColors.surfaceFrost, shape: BoxShape.circle), child: const Icon(Icons.two_wheeler, size: 20, color: _AquaColors.primary)),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(widget.sourceRider, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _AquaColors.textMain)),
-                                        Text(widget.sourceZone, style: const TextStyle(fontSize: 11, color: _AquaColors.textVariant)),
-                                      ],
-                                    ),
-                                  ),
-                                  const Icon(Icons.keyboard_arrow_down, size: 20, color: _AquaColors.outline),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(color: _AquaColors.surfaceLowest, borderRadius: BorderRadius.circular(6)),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.local_shipping, size: 16, color: _AquaColors.primary),
-                                        const SizedBox(width: 6),
-                                        Text('${widget.pendingStops} Pending Stops', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _AquaColors.primary)),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        const Text('5 Gallons • ', style: TextStyle(fontSize: 10, color: _AquaColors.textVariant)),
-                                        Text('${widget.codAmount} COD', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _AquaColors.textMain)),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Center(
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Container(height: 24, width: 2, color: _AquaColors.cyanElectric.withValues(alpha: 0.4)),
-                                Container(
-                                  width: 28, height: 28,
-                                  decoration: BoxDecoration(color: _AquaColors.cyanElectric.withValues(alpha: 0.15), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]),
-                                  child: const Icon(Icons.south, size: 18, color: _AquaColors.primary),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Target Rider (New Assignee)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _AquaColors.textMain)),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(color: _AquaColors.secondaryContainer, borderRadius: BorderRadius.circular(100)),
-                              child: const Text('Optimal Match', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _AquaColors.secondary)),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(color: _AquaColors.surfaceIce, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4)]),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Container(width: 32, height: 32, decoration: BoxDecoration(color: _AquaColors.secondaryContainer.withValues(alpha: 0.4), shape: BoxShape.circle), child: const Icon(Icons.directions_bike, size: 20, color: _AquaColors.secondary)),
-                                  const SizedBox(width: 10),
-                                  const Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Jun Soriano', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _AquaColors.textMain)),
-                                        Text('Barangay San Isidro • Available', style: TextStyle(fontSize: 11, color: _AquaColors.textVariant)),
-                                      ],
-                                    ),
-                                  ),
-                                  const Icon(Icons.expand_circle_down, size: 20, color: _AquaColors.outline),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(color: _AquaColors.surfaceLowest, borderRadius: BorderRadius.circular(6)),
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(Icons.near_me, size: 15, color: _AquaColors.secondary),
-                                        SizedBox(width: 4),
-                                        Text('1.2 km away (4 mins)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _AquaColors.secondary)),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        Icon(Icons.water_drop, size: 14, color: _AquaColors.textVariant),
-                                        SizedBox(width: 4),
-                                        Text('Load: ', style: TextStyle(fontSize: 10, color: _AquaColors.textVariant)),
-                                        Text('4 / 20 jugs', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _AquaColors.textMain)),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        const Text('QUEUE TRANSFER SCOPE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _AquaColors.textVariant, letterSpacing: 1)),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: InkWell(
-                                onTap: () => setState(() => _scope = 'all'),
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: _scope == 'all' ? _AquaColors.surfaceFrost : _AquaColors.surfaceCanvas,
-                                    borderRadius: BorderRadius.circular(8),
-                                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4)],
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 2),
-                                        child: Icon(_scope == 'all' ? Icons.radio_button_checked : Icons.radio_button_off, color: _scope == 'all' ? _AquaColors.primary : _AquaColors.outlineVariant, size: 16),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text('All Stops (${widget.pendingStops})', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _AquaColors.textMain)),
-                                            const Text('Full queue handoff', style: TextStyle(fontSize: 11, color: _AquaColors.textVariant)),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: InkWell(
-                                onTap: () => setState(() => _scope = 'split'),
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: _scope == 'split' ? _AquaColors.surfaceFrost : _AquaColors.surfaceCanvas,
-                                    borderRadius: BorderRadius.circular(8),
-                                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4)],
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 2),
-                                        child: Icon(_scope == 'split' ? Icons.radio_button_checked : Icons.radio_button_off, color: _scope == 'split' ? _AquaColors.primary : _AquaColors.outlineVariant, size: 16),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text('Split Queue', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _AquaColors.textMain)),
-                                            Text('Transfer only stop #2', style: TextStyle(fontSize: 11, color: _AquaColors.textVariant)),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        InkWell(
-                          onTap: () => setState(() => _notify = !_notify),
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(color: _AquaColors.surfaceCanvas, borderRadius: BorderRadius.circular(8)),
-                            child: Row(
-                              children: [
-                                Icon(_notify ? Icons.check_box : Icons.check_box_outline_blank, color: _AquaColors.secondary, size: 18),
-                                const SizedBox(width: 10),
-                                const Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Text('Instant Dispatch Alert', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _AquaColors.textMain)),
-                                          SizedBox(width: 4),
-                                          Icon(Icons.bolt, size: 14, color: _AquaColors.secondary),
-                                        ],
-                                      ),
-                                      Text('In-app alert & push ping only (no SMS/WhatsApp)', style: TextStyle(fontSize: 11, color: _AquaColors.textVariant), overflow: TextOverflow.ellipsis),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 10,
-                              child: TextButton(
-                                onPressed: _isTransferring ? null : () => Navigator.pop(context),
-                                style: TextButton.styleFrom(
-                                  backgroundColor: _AquaColors.surfaceContainer,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                                ),
-                                child: const Text('Cancel', style: TextStyle(color: _AquaColors.textMain, fontSize: 13, fontWeight: FontWeight.bold)),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              flex: 15,
-                              child: ElevatedButton(
-                                onPressed: _isTransferring || _isDone ? null : _confirmTransfer,
-                                style: ElevatedButton.styleFrom(
-                                  padding: EdgeInsets.zero,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                                  elevation: 0,
-                                ),
-                                child: Ink(
-                                  decoration: BoxDecoration(
-                                    gradient: _isDone ? null : const LinearGradient(colors: [_AquaColors.coralAlert, _AquaColors.amber600]),
-                                    color: _isDone ? _AquaColors.secondary : null,
-                                    borderRadius: BorderRadius.circular(100),
-                                    boxShadow: _isDone ? [] : [BoxShadow(color: _AquaColors.coralAlert.withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 8))],
-                                  ),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    alignment: Alignment.center,
-                                    child: _isTransferring
-                                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                        : Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(_isDone ? Icons.check : Icons.swap_horiz, size: 18, color: Colors.white),
-                                        const SizedBox(width: 6),
-                                        Text(_isDone ? 'Queue Transferred!' : 'Transfer Queue Now', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.verified_user, size: 15, color: _AquaColors.tealAccent),
-                            SizedBox(width: 6),
-                            Text('Live tracking handoff verified by AquaOps Dispatch Telematics', style: TextStyle(fontSize: 11, color: _AquaColors.textVariant)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ),

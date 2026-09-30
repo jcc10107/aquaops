@@ -1,0 +1,39 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function myRole() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isStaff() {
+      return isSignedIn() && (myRole() == 'owner' || myRole() == 'staff');
+    }
+
+    function isRider() {
+      return isSignedIn() && myRole() == 'rider';
+    }
+
+    function isImageUnder5MB() {
+      return request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // GCash payment screenshots uploaded by a customer at checkout.
+    match /receipts/{uid}/{fileName} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isStaff());
+      allow write: if isSignedIn() && request.auth.uid == uid && isImageUnder5MB();
+    }
+
+    // Proof-of-delivery photos uploaded by the assigned rider.
+    match /delivery_proofs/{orderId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if (isRider() || isStaff()) && isImageUnder5MB();
+    }
+  }
+}

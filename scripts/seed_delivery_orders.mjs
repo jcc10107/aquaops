@@ -10,7 +10,11 @@
 // rules require an authenticated user to create an order.
 // Run with: node scripts/seed_delivery_orders.mjs
 
-const API_KEY = 'AIzaSyBIKVc-siDJBmseHauc9h1Bd43vxh2ZaZI'; // Web API key from lib/firebase_options.dart
+const API_KEY = process.env.FIREBASE_API_KEY;
+if (!API_KEY) {
+  console.error('Set FIREBASE_API_KEY first (the Web API key from the Firebase console).');
+  process.exit(1);
+}
 const PROJECT_ID = 'aquaops-e8dd1';
 const OWNER_EMAIL = 'owner@aquaops.com';
 const OWNER_PASSWORD = 'password123';

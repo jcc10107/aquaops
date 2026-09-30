@@ -9,7 +9,11 @@
 // since Firestore rules only allow owner/staff to write to `inventory`.
 // Run with: node scripts/seed_inventory.mjs
 
-const API_KEY = 'AIzaSyBIKVc-siDJBmseHauc9h1Bd43vxh2ZaZI'; // Web API key from lib/firebase_options.dart
+const API_KEY = process.env.FIREBASE_API_KEY;
+if (!API_KEY) {
+  console.error('Set FIREBASE_API_KEY first (the Web API key from the Firebase console).');
+  process.exit(1);
+}
 const PROJECT_ID = 'aquaops-e8dd1';
 const OWNER_EMAIL = 'owner@aquaops.com';
 const OWNER_PASSWORD = 'password123';

@@ -8,7 +8,11 @@
 // same key that ships inside firebase_options.dart) so no service-account file
 // is needed. Run with: node scripts/seed_users.mjs
 
-const API_KEY = 'AIzaSyBIKVc-siDJBmseHauc9h1Bd43vxh2ZaZI'; // Web API key from lib/firebase_options.dart
+const API_KEY = process.env.FIREBASE_API_KEY;
+if (!API_KEY) {
+  console.error('Set FIREBASE_API_KEY first (the Web API key from the Firebase console).');
+  process.exit(1);
+}
 const PROJECT_ID = 'aquaops-e8dd1';
 const PASSWORD = 'password123';
 

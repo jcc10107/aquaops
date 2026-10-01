@@ -51,21 +51,41 @@ service cloud.firestore {
     }
 
     match /orders/{orderId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
+      // Customers only see their own orders (the app queries them with
+      // where customerId == uid). Riders still read all orders because the
+      // delivery queue subscribes to every active order.
+      allow read: if isStaff() || isRider()
+        || (isSignedIn() && resource.data.customerId == request.auth.uid);
+      // Customers may only place their own unpaid, pending order; staff create
+      // walk-in POS sales.
+      allow create: if isStaff()
+        || (isSignedIn()
+            && request.resource.data.customerId == request.auth.uid
+            && request.resource.data.status == 'pending'
+            && request.resource.data.isPaid == false);
       // The assigned rider can update their own order (fulfill delivery, payment
       // confirmation) but can't touch orders assigned to someone else or grab
       // an unassigned one themselves — only staff/owner can assign via assignRider().
+      // A customer can only cancel their own order, nothing else.
       allow update: if isStaff()
-        || (isSignedIn() && resource.data.customerId == request.auth.uid)
+        || (isSignedIn()
+            && resource.data.customerId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+            && request.resource.data.status == 'cancelled'
+            && resource.data.status != 'delivered')
         || (isRider() && resource.data.assignedRiderId == request.auth.uid);
-      allow delete: if isStaff() || (isSignedIn() && resource.data.customerId == request.auth.uid);
+      allow delete: if isStaff();
     }
 
     match /inventory/{itemId} {
-      allow read: if isSignedIn();
-      // Riders decrement packaging stock (caps/seals) as part of fulfillDelivery().
-      allow write: if isStaff() || isRider();
+      allow read: if isStaff() || isRider();
+      allow create, delete: if isStaff();
+      // Riders decrement packaging stock (caps/seals) as part of fulfillDelivery(),
+      // but can only lower currentStock, never edit anything else or raise it.
+      allow update: if isStaff()
+        || (isRider()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentStock'])
+            && request.resource.data.currentStock <= resource.data.currentStock);
     }
 
     match /maintenance_alerts/{alertId} {

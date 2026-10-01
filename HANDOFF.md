@@ -25,17 +25,23 @@ Collections in use (`lib/services/firestore_service.dart`): `users`
   themselves an owner.
 - **Not yet deployed** unless `firebase deploy --only firestore:rules` has been
   run since the change; the rules live in Firebase, not in git.
-- Still too loose: `orders` can be read by any signed-in user (customers can
-  see each other's orders), and `inventory` is writable by any rider. The app
-  currently subscribes to the whole `orders` collection in several places
-  (`firestore_service.dart`), so tightening reads means changing those queries
-  to filter by customer / rider area first.
+- `orders`: customers can only read their own orders, create their own
+  pending/unpaid order, and cancel it (nothing else). Staff/owner have full
+  access; the assigned rider can update their own orders.
+- `inventory`: only staff/owner/rider can read; riders can only lower
+  `currentStock`.
+- Still loose: riders can read every order, because the delivery queue
+  subscribes to all active orders (`getActiveOrdersStream`). Limiting riders
+  to their own area/assigned orders means changing that query first. These
+  order/inventory rules are committed but not deployed until you run
+  `firebase deploy --only firestore:rules`.
 
 ## Remaining work
 
 1. Deploy the rules and test every role (owner, staff, rider, customer
    signup) against them.
-2. Tighten `orders` / `inventory` rules and the queries that depend on them.
+2. Limit rider reads of `orders` to their own area/assigned orders (needs a
+   query change in `getActiveOrdersStream`).
 3. Move `fulfillDelivery()` server-side (Cloud Function or API). It currently
    runs as a client batch write that sets the order delivered, decrements
    `inv_pkg_caps` / `inv_pkg_seals`, and adjusts the customer's

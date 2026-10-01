@@ -27,12 +27,19 @@ service cloud.firestore {
       // Owner can also create Staff/Rider accounts on their behalf
       // (via createTeamAccount(), which writes this doc from the owner's
       // own authenticated session after creating the Auth user separately).
-      allow create: if isSignedIn() && (request.auth.uid == userId || isOwner());
+      // Self-signup may only ever produce a customer; staff/rider/owner docs
+      // can only be created by an existing owner. Otherwise anyone with the
+      // (public) API key could make themselves an owner.
+      allow create: if isSignedIn() && (
+        (request.auth.uid == userId && request.resource.data.role == 'customer') ||
+        isOwner()
+      );
       allow read: if isSignedIn() && (request.auth.uid == userId || isStaff());
+      // Users can edit their own doc but never change their own role.
       // A rider may only touch a customer's unreturnedContainers count —
       // that's the one field fulfillDelivery() adjusts on their behalf.
       allow update: if isSignedIn() && (
-        request.auth.uid == userId ||
+        (request.auth.uid == userId && request.resource.data.role == resource.data.role) ||
         isOwner() ||
         (isRider() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unreturnedContainers']))
       );

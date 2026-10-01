@@ -75,7 +75,11 @@ async function writeUserDoc(idToken, uid, data) {
   if (!res.ok) throw new Error(body.error?.message || 'Firestore write failed');
 }
 
-async function seedOne(demo) {
+// Firestore rules only let a signed-in user create their own doc as a
+// customer; staff/rider docs must be written by an existing owner, so
+// `writerToken` (the owner's token) is used for those. The owner doc itself
+// must already exist (create it once by hand in the console on a fresh project).
+async function seedOne(demo, writerToken) {
   const email = `${demo.role}@aquaops.com`;
   let idToken, uid, created;
 
@@ -95,7 +99,8 @@ async function seedOne(demo) {
     }
   }
 
-  await writeUserDoc(idToken, uid, {
+  const useOwner = (demo.role === 'staff' || demo.role === 'rider') && writerToken;
+  await writeUserDoc(useOwner ? writerToken : idToken, uid, {
     name: demo.name,
     email,
     role: demo.role,
@@ -107,12 +112,15 @@ async function seedOne(demo) {
   });
 
   console.log(`${created ? 'Created' : 'Updated'}: ${email} (uid: ${uid}, role: ${demo.role})`);
+  return idToken;
 }
 
 async function main() {
+  let ownerToken;
   for (const demo of DEMO_USERS) {
     try {
-      await seedOne(demo);
+      const token = await seedOne(demo, ownerToken);
+      if (demo.role === 'owner') ownerToken = token;
     } catch (err) {
       console.error(`Failed to seed ${demo.role}@aquaops.com:`, err.message);
     }

@@ -137,7 +137,7 @@ This matrix is inferred from the screens (`owner_dashboard_screen.dart`, `pos_sc
 
 ## 5. Screen → data mapping (current state: mostly mock)
 
-~~| Screen                                 | Intended collection(s)                                         | Current state                                                    |
+| Screen                                 | Intended collection(s)                                         | Current state                                                    |
 |----------------------------------------|----------------------------------------------------------------|------------------------------------------------------------------|
 | login_screen.dart / signup_screen.dart | users, via AuthService                                         | Not wired — no Firebase import                                   |
 | pos_screen.dart                        | orders, inventory                                              | Mock only                                                        |
@@ -148,7 +148,6 @@ This matrix is inferred from the screens (`owner_dashboard_screen.dart`, `pos_sc
 | owner_dashboard_screen.dart            | Aggregates across orders, inventory, users (riders)            | Mock only (_riders, _supplies)                                   |
 | customer_order_screen.dart             | orders, plus a transactions collection (doesn't exist yet)     | Mock only (_mockOrderHistory, _mockTransactions)                 |
 | profile_screen.dart                    | users                                                          | Not wired                                                        |
-
 Two collections are implied by the UI but don't exist in the models yet: cash-out/ledger records, and customer transactions. Your backend builder will need specs for these, not just the three existing models.
 
 ---

@@ -6,10 +6,10 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/components/soft_input_field.dart';
-import '../../widgets/custom_header.dart';
 import '../../models/order_model.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
+import '../profile/profile_screen.dart';
 
 class CustomerOrderScreen extends StatefulWidget {
   const CustomerOrderScreen({super.key});
@@ -36,6 +36,7 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
 
   final FirestoreService _firestoreService = FirestoreService();
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
+  late final Future<UserModel?> _userFuture;
 
   static const Map<String, String> _areaZoneByAddress = {
     'Barangay San Isidro': 'si',
@@ -87,6 +88,13 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
   double get _checkoutTotal => _cartSubtotal + _missingContainerDeposit;
 
   @override
+  void initState() {
+    super.initState();
+    final uid = _uid;
+    _userFuture = uid == null ? Future<UserModel?>.value(null) : _firestoreService.getUser(uid);
+  }
+
+  @override
   void dispose() {
     _gcashRefController.dispose();
     _notesController.dispose();
@@ -113,9 +121,9 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
     final uid = _uid;
     if (uid == null) return;
 
-    if (_paymentMethod == 'gcash' && _gcashRefController.text.trim().isEmpty) {
+    if (_paymentMethod == 'gcash' && _gcashRefController.text.trim().length != 13) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter your GCash reference number.'), backgroundColor: AppColors.error),
+        const SnackBar(content: Text('Enter the 13-digit GCash reference number.'), backgroundColor: AppColors.error),
       );
       return;
     }
@@ -174,16 +182,11 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
     }
   }
 
-
   void _onNavTapped(int index) {
-    if (index == 3) {
-      Navigator.pushReplacementNamed(context, '/profile');
-    } else {
-      setState(() {
-        _navIndex = index;
-        _isCheckoutView = false;
-      });
-    }
+    setState(() {
+      _navIndex = index;
+      _isCheckoutView = false;
+    });
   }
 
   void _showLocationPicker(bool isDark) {
@@ -376,13 +379,12 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
       builder: (context, snapshot) {
         final myOrders = snapshot.data ?? const <OrderModel>[];
         final hasActiveOrder = myOrders.any(
-          (o) => o.status != OrderStatus.delivered && o.status != OrderStatus.cancelled,
+              (o) => o.status != OrderStatus.delivered && o.status != OrderStatus.cancelled,
         );
 
         return Scaffold(
           backgroundColor: AppColors.background,
           extendBody: true,
-          appBar: _isCheckoutView ? null : const CustomHeader(),
           body: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
@@ -402,7 +404,7 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
     if (_navIndex == 0) return _buildHomeFeed(isDark);
     if (_navIndex == 1) return _buildOrdersScreen(isDark, myOrders, hasActiveOrder);
     if (_navIndex == 2) return _buildPaymentsScreen(isDark, myOrders);
-    return const SizedBox();
+    return const SafeArea(child: ProfileScreen());
   }
 
   Widget _buildProductListItem(Map<String, dynamic> p, int qty, bool isDark) {
@@ -673,7 +675,7 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
     final completedOrders = historyOrders.where((o) => o.status == OrderStatus.delivered).toList();
     final gallonsRefilled = completedOrders.fold<int>(
       0,
-      (sum, o) => sum + o.items.fold<int>(0, (s, i) => s + i.quantity),
+          (sum, o) => sum + o.items.fold<int>(0, (s, i) => s + i.quantity),
     );
     final totalSpent = completedOrders.fold<double>(0, (sum, o) => sum + o.totalAmount);
 
@@ -930,7 +932,7 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
                             setState(() {
                               for (final item in order.items) {
                                 final product = _products.firstWhere(
-                                  (p) => p['name'] == item.name,
+                                      (p) => p['name'] == item.name,
                                   orElse: () => const {},
                                 );
                                 if (product.isNotEmpty) {
@@ -974,12 +976,12 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     FutureBuilder<UserModel?>(
-                      future: _uid == null ? null : _firestoreService.getUser(_uid!),
+                      future: _userFuture,
                       builder: (context, snapshot) {
                         final name = snapshot.data?.name.split(' ').first ?? 'there';
                         return Row(
                           children: [
-                            Text('Good Day, $name!', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textMain, letterSpacing: -0.5)),
+                            Flexible(child: Text('Good Day, $name!', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textMain, letterSpacing: -0.5))),
                             const SizedBox(width: 8),
                             const Icon(Icons.water_drop, color: AppColors.cyanElectric, size: 20),
                           ],
@@ -1160,7 +1162,6 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
   }
 
   Widget _buildActiveOrderCard(OrderModel order, bool isDark) {
-    // pending/refilling = Placed, outForDelivery = out with rider, delivered/cancelled won't appear here.
     final int currentStep = order.status == OrderStatus.outForDelivery ? 2 : 0;
 
     return Container(
@@ -1177,36 +1178,39 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(order.orderNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textMain, fontSize: 17, letterSpacing: -0.5)),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: AppColors.surfaceIce, borderRadius: BorderRadius.circular(100)),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.circle, size: 6, color: AppColors.cyanElectric),
-                            const SizedBox(width: 4),
-                            Text(order.status == OrderStatus.outForDelivery ? 'Out for delivery' : 'Placed', style: const TextStyle(fontSize: 10, color: AppColors.cyanElectric, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
-                          ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(order.orderNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textMain, fontSize: 17, letterSpacing: -0.5)),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: AppColors.surfaceIce, borderRadius: BorderRadius.circular(100)),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.circle, size: 6, color: AppColors.cyanElectric),
+                              const SizedBox(width: 4),
+                              Text(order.status == OrderStatus.outForDelivery ? 'Out for delivery' : 'Placed', style: const TextStyle(fontSize: 10, color: AppColors.cyanElectric, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on, size: 14, color: AppColors.primary),
-                      const SizedBox(width: 4),
-                      Expanded(child: Text(order.deliveryAddress ?? '', style: const TextStyle(color: AppColors.textVariant, fontSize: 12), overflow: TextOverflow.ellipsis)),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on, size: 14, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Expanded(child: Text(order.deliveryAddress ?? '', style: const TextStyle(color: AppColors.textVariant, fontSize: 12), overflow: TextOverflow.ellipsis)),
+                      ],
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -1233,12 +1237,14 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Container(width: 36, height: 36, decoration: const BoxDecoration(color: AppColors.surfaceLowest, shape: BoxShape.circle), child: const Icon(Icons.water_drop, size: 18, color: AppColors.primary)),
-                          const SizedBox(width: 12),
-                          Text(order.items[i].name, style: const TextStyle(fontSize: 13, color: AppColors.textMain, fontWeight: FontWeight.bold)),
-                        ],
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(width: 36, height: 36, decoration: const BoxDecoration(color: AppColors.surfaceLowest, shape: BoxShape.circle), child: const Icon(Icons.water_drop, size: 18, color: AppColors.primary)),
+                            const SizedBox(width: 12),
+                            Expanded(child: Text(order.items[i].name, style: const TextStyle(fontSize: 13, color: AppColors.textMain, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+                          ],
+                        ),
                       ),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -1306,7 +1312,7 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
       return;
     }
     try {
-      final customer = _uid == null ? null : await _firestoreService.getUser(_uid!);
+      final customer = await _userFuture;
       final doc = pw.Document();
       doc.addPage(
         pw.Page(
@@ -1314,7 +1320,7 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
           build: (pdfContext) => pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Text('AquaOps — Drink 8 Purified Water', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+              pw.Text('AquaOps — Drink 8 Purified Water', style: const pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
               pw.SizedBox(height: 4),
               pw.Text('Monthly Statement — $monthLabel'),
               pw.SizedBox(height: 12),
@@ -1333,7 +1339,7 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
               pw.SizedBox(height: 16),
               pw.Align(
                 alignment: pw.Alignment.centerRight,
-                child: pw.Text('Total: PHP ${totalSpent.toStringAsFixed(2)}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+                child: pw.Text('Total: PHP ${totalSpent.toStringAsFixed(2)}', style: const pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
               ),
             ],
           ),
@@ -1349,7 +1355,7 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
   Widget _buildPaymentsScreen(bool isDark, List<OrderModel> myOrders) {
     final now = DateTime.now();
     final thisMonthOrders = myOrders.where((o) =>
-        o.status == OrderStatus.delivered &&
+    o.status == OrderStatus.delivered &&
         o.revenueDate.year == now.year &&
         o.revenueDate.month == now.month).toList();
     final totalSpentThisMonth = thisMonthOrders.fold<double>(0, (sum, o) => sum + o.totalAmount);
@@ -1452,13 +1458,13 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: _buildTransactionItem(
-                  icon: Icons.local_shipping,
-                  title: 'Refill Order ${o.orderNumber}',
-                  subtitle: subtitle,
-                  amount: '-₱${o.totalAmount.toStringAsFixed(2)}',
-                  status: status,
-                  details: details,
-                  isCredit: false,
+                icon: Icons.local_shipping,
+                title: 'Refill Order ${o.orderNumber}',
+                subtitle: subtitle,
+                amount: '-₱${o.totalAmount.toStringAsFixed(2)}',
+                status: status,
+                details: details,
+                isCredit: false,
               ),
             );
           }),
@@ -1493,7 +1499,6 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
       ),
     );
   }
-
 
   Widget _buildTransactionItem({required IconData icon, required String title, required String subtitle, required String amount, required String status, required String details, required bool isCredit}) {
     return Container(
@@ -1535,7 +1540,8 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(details, style: const TextStyle(fontSize: 11, color: AppColors.outline)),
+              Expanded(child: Text(details, style: const TextStyle(fontSize: 11, color: AppColors.outline), overflow: TextOverflow.ellipsis)),
+              const SizedBox(width: 8),
               const Row(
                 children: [
                   Icon(Icons.receipt, size: 14, color: AppColors.primary),
@@ -1576,206 +1582,144 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
   }
 
   Widget _buildCheckoutView(bool isDark) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.arrow_back, color: AppColors.textMain), onPressed: () => setState(() => _isCheckoutView = false)),
-        title: const Text('Order Tracking Detail', style: TextStyle(color: AppColors.textMain, fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 16.0),
-            child: CircleAvatar(backgroundColor: AppColors.primary, radius: 16, child: Icon(Icons.person, size: 18, color: Colors.white)),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 200, top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconButton(icon: const Icon(Icons.arrow_back, color: AppColors.textMain), onPressed: () => setState(() => _isCheckoutView = false)),
+              const Text('Checkout', style: TextStyle(color: AppColors.textMain, fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
+            ],
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 200),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: AppColors.surfaceIce, borderRadius: BorderRadius.circular(12)),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(children: [Container(width: 36, height: 36, decoration: BoxDecoration(color: AppColors.cyanElectric.withValues(alpha: 0.2), shape: BoxShape.circle), child: const Icon(Icons.water_drop, color: AppColors.primary, size: 20)), const SizedBox(width: 12), const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('FAST PURE FLOW', style: TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w800, letterSpacing: 1)), Text('Express Hydration Dispatch', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textMain))])]),
-                  Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: AppColors.secondaryContainer.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(100)), child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.bolt, size: 14, color: AppColors.secondary), SizedBox(width: 4), Text('30-45 MINS', style: TextStyle(fontSize: 10, color: AppColors.secondary, fontWeight: FontWeight.bold))])),
-                ],
-              ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: AppColors.surfaceIce, borderRadius: BorderRadius.circular(12)),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(children: [Container(width: 36, height: 36, decoration: BoxDecoration(color: AppColors.cyanElectric.withValues(alpha: 0.2), shape: BoxShape.circle), child: const Icon(Icons.water_drop, color: AppColors.primary, size: 20)), const SizedBox(width: 12), const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('FAST PURE FLOW', style: TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w800, letterSpacing: 1)), Text('Express Hydration Dispatch', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textMain))])]),
+                Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: AppColors.secondaryContainer.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(100)), child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.bolt, size: 14, color: AppColors.secondary), SizedBox(width: 4), Text('30-45 MINS', style: TextStyle(fontSize: 10, color: AppColors.secondary, fontWeight: FontWeight.bold))])),
+              ],
             ),
-            const SizedBox(height: 16),
+          ),
+          const SizedBox(height: 16),
 
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.surfaceLowest, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.04), blurRadius: 10)]),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(width: 40, height: 40, decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle), child: const Icon(Icons.location_on, color: AppColors.primary, size: 22)),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Row(children: [Text('DELIVERING TO', style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w800, letterSpacing: 0.5)), SizedBox(width: 6), Icon(Icons.circle, size: 6, color: AppColors.secondary), SizedBox(width: 6), Text('Home', style: TextStyle(fontSize: 10, color: AppColors.secondary, fontWeight: FontWeight.bold))]),
-                                  const SizedBox(height: 2),
-                                  Text(_currentAddress, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain, letterSpacing: -0.5), overflow: TextOverflow.ellipsis),
-                                  const Text('San Pablo City, Laguna 4000', style: TextStyle(fontSize: 13, color: AppColors.textVariant)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      InkWell(
-                        onTap: () => _showLocationPicker(isDark),
-                        borderRadius: BorderRadius.circular(100),
-                        child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: const Color(0xFFF2F3FF), borderRadius: BorderRadius.circular(100)), child: const Text('Change', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary))),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(8)), child: const Row(children: [Icon(Icons.pin_drop, size: 16, color: AppColors.outline), SizedBox(width: 8), Expanded(child: Text('Near Blue Gate, Landmark: Water Station Alpha', style: TextStyle(fontSize: 11, color: AppColors.textVariant)))])),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.surfaceLowest, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.04), blurRadius: 10)]),
-              child: Column(
-                children: [
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Row(children: [Icon(Icons.local_drink, color: AppColors.primary, size: 20), SizedBox(width: 8), Text('Order Summary', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain))]), Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2), decoration: BoxDecoration(color: const Color(0xFFCCE5FF), borderRadius: BorderRadius.circular(100)), child: Text('${_cart.values.fold(0, (a, b) => a + b)} Items', style: const TextStyle(fontSize: 10, color: Color(0xFF004B73), fontWeight: FontWeight.bold)))]),
-                  const SizedBox(height: 16),
-                  ..._cart.entries.map((e) {
-                    final p = _products.firstWhere((prod) => prod['id'] == e.key);
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(8)),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(children: [Container(width: 48, height: 48, decoration: BoxDecoration(color: AppColors.surfaceIce, borderRadius: BorderRadius.circular(8)), child: Icon((p['id'] as String).contains('slim') ? Icons.water_drop : Icons.local_drink, color: AppColors.cyanElectric, size: 24)), const SizedBox(width: 12), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(p['name'] as String, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textMain)), Text('Qty: ${e.value} • ₱${(p['price'] as double).toStringAsFixed(2)} each', style: const TextStyle(fontSize: 11, color: AppColors.textVariant))])]),
-                          Text('₱${((p['price'] as double) * e.value).toStringAsFixed(2)}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain)),
-                        ],
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            if (_orderedRefillsCount > 0)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: AppColors.surfaceLowest, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.04), blurRadius: 10)]),
-                child: Column(
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: AppColors.surfaceLowest, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.04), blurRadius: 10)]),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Row(children: [const Icon(Icons.swap_horizontal_circle, color: AppColors.secondary, size: 22), const SizedBox(width: 8), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Container Exchange', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain)), Text('Total containers ordered: $_orderedRefillsCount', style: const TextStyle(fontSize: 11, color: AppColors.textVariant))])]), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: AppColors.secondaryContainer.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(100)), child: const Text('Standard 1:1', style: TextStyle(fontSize: 10, color: AppColors.secondary, fontWeight: FontWeight.bold)))]),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: AppColors.surfaceIce, borderRadius: BorderRadius.circular(12)),
+                    Expanded(
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Empty Gallons Returning', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textMain)), Text('Handing over to rider at door', style: TextStyle(fontSize: 11, color: AppColors.primary))]),
-                          Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(color: AppColors.surfaceLowest, borderRadius: BorderRadius.circular(100), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]),
-                            child: Row(
+                          Container(width: 40, height: 40, decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle), child: const Icon(Icons.location_on, color: AppColors.primary, size: 22)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                InkWell(onTap: () => setState(() => _emptyGallonsReturning = _emptyGallonsReturning > 0 ? _emptyGallonsReturning - 1 : 0), child: Container(width: 36, height: 36, decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle), child: const Icon(Icons.remove, size: 18, color: AppColors.primary))),
-                                Container(width: 28, alignment: Alignment.center, child: Text('$_emptyGallonsReturning', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain))),
-                                InkWell(onTap: () => setState(() => _emptyGallonsReturning++), child: Container(width: 36, height: 36, decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle), child: const Icon(Icons.add, size: 18, color: AppColors.primary))),
+                                const Row(children: [Text('DELIVERING TO', style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w800, letterSpacing: 0.5)), SizedBox(width: 6), Icon(Icons.circle, size: 6, color: AppColors.secondary), SizedBox(width: 6), Text('Home', style: TextStyle(fontSize: 10, color: AppColors.secondary, fontWeight: FontWeight.bold))]),
+                                const SizedBox(height: 2),
+                                Text(_currentAddress, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain, letterSpacing: -0.5), overflow: TextOverflow.ellipsis),
+                                const Text('San Pablo City, Laguna 4000', style: TextStyle(fontSize: 13, color: AppColors.textVariant)),
                               ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                    if (_missingContainerDeposit > 0) ...[
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: AppColors.errorContainer, borderRadius: BorderRadius.circular(12)),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(Icons.info, color: AppColors.error, size: 20),
-                            const SizedBox(width: 12),
-                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('CONTAINER DEFICIT NOTICE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.error, letterSpacing: 1)), const SizedBox(height: 2), Text('Missing ${_orderedRefillsCount - _emptyGallonsReturning} container(s). A refundable deposit of ₱${_missingContainerDeposit.toStringAsFixed(2)} (₱200/gal) has been added.', style: const TextStyle(fontSize: 13, color: AppColors.error))])),
-                          ],
-                        ),
-                      ),
-                    ],
+                    InkWell(
+                      onTap: () => _showLocationPicker(isDark),
+                      borderRadius: BorderRadius.circular(100),
+                      child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: const Color(0xFFF2F3FF), borderRadius: BorderRadius.circular(100)), child: const Text('Change', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary))),
+                    ),
                   ],
                 ),
-              ),
-            const SizedBox(height: 16),
+                const SizedBox(height: 16),
+                Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(8)), child: const Row(children: [Icon(Icons.pin_drop, size: 16, color: AppColors.outline), SizedBox(width: 8), Expanded(child: Text('Near Blue Gate, Landmark: Water Station Alpha', style: TextStyle(fontSize: 11, color: AppColors.textVariant)))])),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
 
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: AppColors.surfaceLowest, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.04), blurRadius: 10)]),
+            child: Column(
+              children: [
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Row(children: [Icon(Icons.local_drink, color: AppColors.primary, size: 20), SizedBox(width: 8), Text('Order Summary', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain))]), Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2), decoration: BoxDecoration(color: const Color(0xFFCCE5FF), borderRadius: BorderRadius.circular(100)), child: Text('${_cart.values.fold(0, (a, b) => a + b)} Items', style: const TextStyle(fontSize: 10, color: Color(0xFF004B73), fontWeight: FontWeight.bold)))]),
+                const SizedBox(height: 16),
+                ..._cart.entries.map((e) {
+                  final p = _products.firstWhere((prod) => prod['id'] == e.key);
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(8)),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(child: Row(children: [Container(width: 48, height: 48, decoration: BoxDecoration(color: AppColors.surfaceIce, borderRadius: BorderRadius.circular(8)), child: Icon((p['id'] as String).contains('slim') ? Icons.water_drop : Icons.local_drink, color: AppColors.cyanElectric, size: 24)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(p['name'] as String, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textMain), overflow: TextOverflow.ellipsis), Text('Qty: ${e.value} • ₱${(p['price'] as double).toStringAsFixed(2)} each', style: const TextStyle(fontSize: 11, color: AppColors.textVariant))]))])),
+                        const SizedBox(width: 8),
+                        Text('₱${((p['price'] as double) * e.value).toStringAsFixed(2)}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain)),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          if (_orderedRefillsCount > 0)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: AppColors.surfaceLowest, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.04), blurRadius: 10)]),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Row(children: [Icon(Icons.account_balance_wallet, color: AppColors.primary, size: 20), SizedBox(width: 8), Text('Payment Method', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain))]), Text('INSTANT VERIFY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.primary))]),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Expanded(child: Row(children: [const Icon(Icons.swap_horizontal_circle, color: AppColors.secondary, size: 22), const SizedBox(width: 8), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Container Exchange', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain)), Text('Total containers ordered: $_orderedRefillsCount', style: const TextStyle(fontSize: 11, color: AppColors.textVariant))]))])), const SizedBox(width: 8), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: AppColors.secondaryContainer.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(100)), child: const Text('Standard 1:1', style: TextStyle(fontSize: 10, color: AppColors.secondary, fontWeight: FontWeight.bold)))]),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(child: InkWell(onTap: () => setState(() => _paymentMethod = 'cash'), child: Container(padding: const EdgeInsets.symmetric(vertical: 10), decoration: BoxDecoration(color: _paymentMethod == 'cash' ? AppColors.primaryContainer : AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(100), boxShadow: _paymentMethod == 'cash' ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8)] : const []), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.payments, size: 18, color: _paymentMethod == 'cash' ? Colors.white : AppColors.textVariant), const SizedBox(width: 8), Text('Cash on Delivery', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _paymentMethod == 'cash' ? Colors.white : AppColors.textVariant))])))),
-                      const SizedBox(width: 12),
-                      Expanded(child: InkWell(onTap: () => setState(() => _paymentMethod = 'gcash'), child: Container(padding: const EdgeInsets.symmetric(vertical: 10), decoration: BoxDecoration(color: _paymentMethod == 'gcash' ? AppColors.primaryContainer : AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(100), boxShadow: _paymentMethod == 'gcash' ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8)] : const []), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.check_circle, size: 18, color: _paymentMethod == 'gcash' ? Colors.white : AppColors.textVariant), const SizedBox(width: 8), Text('GCash Transfer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _paymentMethod == 'gcash' ? Colors.white : AppColors.textVariant))])))),
-                    ],
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: AppColors.surfaceIce, borderRadius: BorderRadius.circular(12)),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Empty Gallons Returning', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textMain)), Text('Handing over to rider at door', style: TextStyle(fontSize: 11, color: AppColors.primary))])),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(color: AppColors.surfaceLowest, borderRadius: BorderRadius.circular(100), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]),
+                          child: Row(
+                            children: [
+                              InkWell(onTap: () => setState(() => _emptyGallonsReturning = _emptyGallonsReturning > 0 ? _emptyGallonsReturning - 1 : 0), child: Container(width: 36, height: 36, decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle), child: const Icon(Icons.remove, size: 18, color: AppColors.primary))),
+                              Container(width: 28, alignment: Alignment.center, child: Text('$_emptyGallonsReturning', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain))),
+                              InkWell(onTap: () => setState(() => _emptyGallonsReturning++), child: Container(width: 36, height: 36, decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle), child: const Icon(Icons.add, size: 18, color: AppColors.primary))),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  if (_paymentMethod == 'gcash') ...[
+                  if (_missingContainerDeposit > 0) ...[
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(12)),
-                      child: Column(
+                      decoration: BoxDecoration(color: AppColors.errorContainer, borderRadius: BorderRadius.circular(12)),
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.surfaceIce, borderRadius: BorderRadius.circular(8)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('GCASH ACCOUNT NAME', style: TextStyle(fontSize: 10, color: AppColors.textVariant, fontWeight: FontWeight.w800)), Text('Station Owner (Aquaflow)', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.primary)), Text('0917 123 4567', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain, letterSpacing: 1))]), Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle), child: const Icon(Icons.content_copy, size: 18, color: AppColors.primary))])),
-                          const SizedBox(height: 16),
-                          SoftInputField(icon: Icons.receipt_long, label: '13-Digit Ref Number', controller: _gcashRefController),
-                          const SizedBox(height: 16),
-                          const Text('Payment Screenshot Proof', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textVariant)),
-                          const SizedBox(height: 8),
-                          InkWell(
-                            onTap: _simulateFileUpload,
-                            child: Container(padding: const EdgeInsets.symmetric(vertical: 14), decoration: BoxDecoration(color: AppColors.surfaceFrost, borderRadius: BorderRadius.circular(100)), child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_photo_alternate, size: 20, color: AppColors.primary), SizedBox(width: 8), Text('Upload GCash Screenshot', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary))])),
-                          ),
-                          if (_hasUploadedReceipt) ...[
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(color: AppColors.surfaceLowest, borderRadius: BorderRadius.circular(8), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]),
-                              child: Row(
-                                children: [
-                                  Container(width: 40, height: 40, decoration: BoxDecoration(color: AppColors.surfaceFrost, borderRadius: BorderRadius.circular(4)), child: const Icon(Icons.image, color: AppColors.primary)),
-                                  const SizedBox(width: 12),
-                                  const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('receipt_gcash.jpg', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMain)), Text('Verified Attachment • 1.4 MB', style: TextStyle(fontSize: 11, color: AppColors.secondary))])),
-                                  IconButton(icon: const Icon(Icons.close, size: 18, color: AppColors.textVariant), onPressed: () => setState(() => _hasUploadedReceipt = false)),
-                                ],
-                              ),
-                            ),
-                          ],
+                          const Icon(Icons.info, color: AppColors.error, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('CONTAINER DEFICIT NOTICE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.error, letterSpacing: 1)), const SizedBox(height: 2), Text('Missing ${_orderedRefillsCount - _emptyGallonsReturning} container(s). A refundable deposit of ₱${_missingContainerDeposit.toStringAsFixed(2)} (₱200/gal) has been added.', style: const TextStyle(fontSize: 13, color: AppColors.error))])),
                         ],
                       ),
                     ),
@@ -1783,68 +1727,106 @@ class _CustomerOrderScreenState extends State<CustomerOrderScreen> with SingleTi
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+          const SizedBox(height: 16),
 
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.surfaceLowest, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.04), blurRadius: 10)]),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: AppColors.surfaceLowest, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.04), blurRadius: 10)]),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Row(children: [Icon(Icons.account_balance_wallet, color: AppColors.primary, size: 20), SizedBox(width: 8), Text('Payment Method', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain))]), Text('INSTANT VERIFY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.primary))]),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(child: InkWell(onTap: () => setState(() => _paymentMethod = 'cash'), child: Container(padding: const EdgeInsets.symmetric(vertical: 10), decoration: BoxDecoration(color: _paymentMethod == 'cash' ? AppColors.primaryContainer : AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(100), boxShadow: _paymentMethod == 'cash' ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8)] : const []), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.payments, size: 18, color: _paymentMethod == 'cash' ? Colors.white : AppColors.textVariant), const SizedBox(width: 8), Text('Cash on Delivery', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _paymentMethod == 'cash' ? Colors.white : AppColors.textVariant))])))),
+                    const SizedBox(width: 12),
+                    Expanded(child: InkWell(onTap: () => setState(() => _paymentMethod = 'gcash'), child: Container(padding: const EdgeInsets.symmetric(vertical: 10), decoration: BoxDecoration(color: _paymentMethod == 'gcash' ? AppColors.primaryContainer : AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(100), boxShadow: _paymentMethod == 'gcash' ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8)] : const []), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.check_circle, size: 18, color: _paymentMethod == 'gcash' ? Colors.white : AppColors.textVariant), const SizedBox(width: 8), Text('GCash Transfer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _paymentMethod == 'gcash' ? Colors.white : AppColors.textVariant))])))),
+                  ],
+                ),
+                if (_paymentMethod == 'gcash') ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(12)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.surfaceIce, borderRadius: BorderRadius.circular(8)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('GCASH ACCOUNT NAME', style: TextStyle(fontSize: 10, color: AppColors.textVariant, fontWeight: FontWeight.w800)), Text('Station Owner (Aquaflow)', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.primary)), Text('0917 123 4567', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain, letterSpacing: 1))])), Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle), child: const Icon(Icons.content_copy, size: 18, color: AppColors.primary))])),
+                        const SizedBox(height: 16),
+                        SoftInputField(icon: Icons.receipt_long, label: '13-Digit Ref Number', controller: _gcashRefController),
+                        const SizedBox(height: 16),
+                        const Text('Payment Screenshot Proof', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textVariant)),
+                        const SizedBox(height: 8),
+                        InkWell(
+                          onTap: _simulateFileUpload,
+                          child: Container(padding: const EdgeInsets.symmetric(vertical: 14), decoration: BoxDecoration(color: AppColors.surfaceFrost, borderRadius: BorderRadius.circular(100)), child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_photo_alternate, size: 20, color: AppColors.primary), SizedBox(width: 8), Text('Upload GCash Screenshot', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary))])),
+                        ),
+                        if (_hasUploadedReceipt) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: AppColors.surfaceLowest, borderRadius: BorderRadius.circular(8), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]),
+                            child: Row(
+                              children: [
+                                Container(width: 40, height: 40, decoration: BoxDecoration(color: AppColors.surfaceFrost, borderRadius: BorderRadius.circular(4)), child: const Icon(Icons.image, color: AppColors.primary)),
+                                const SizedBox(width: 12),
+                                const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('receipt_gcash.jpg', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMain)), Text('Verified Attachment • 1.4 MB', style: TextStyle(fontSize: 11, color: AppColors.secondary))])),
+                                IconButton(icon: const Icon(Icons.close, size: 18, color: AppColors.textVariant), onPressed: () => setState(() => _hasUploadedReceipt = false)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: AppColors.surfaceLowest, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.04), blurRadius: 10)]),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Delivery Notes', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain)), Text('Optional', style: TextStyle(fontSize: 10, color: AppColors.textVariant))]),
+                const SizedBox(height: 12),
+                TextField(controller: _notesController, maxLines: 2, style: const TextStyle(color: AppColors.textMain, fontSize: 13), decoration: InputDecoration(hintText: 'Ring the bell twice, gate is unlocked...', hintStyle: const TextStyle(color: AppColors.outline), filled: true, fillColor: AppColors.surfaceCanvas, contentPadding: const EdgeInsets.all(12), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none))),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Refills Total (${_cart.values.fold(0, (a, b) => a + b)} Gallons)', style: const TextStyle(fontSize: 13, color: AppColors.textVariant)), Text('₱${_cartSubtotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain))]),
+          if (_missingContainerDeposit > 0) ...[
+            const SizedBox(height: 4),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Row(children: [const Icon(Icons.shield, size: 14, color: AppColors.error), const SizedBox(width: 4), Text('Container Deposit (${_orderedRefillsCount - _emptyGallonsReturning}x)', style: const TextStyle(fontSize: 13, color: AppColors.error, fontWeight: FontWeight.w500))]), Text('₱${_missingContainerDeposit.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.error))]),
+          ],
+          const SizedBox(height: 12),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('TOTAL PAY AMOUNT', style: TextStyle(fontSize: 10, color: AppColors.textVariant, fontWeight: FontWeight.w800, letterSpacing: 1)), Text('Includes fully refundable bottle deposit', style: TextStyle(fontSize: 11, color: AppColors.secondary, fontWeight: FontWeight.bold))])), Text('₱${_checkoutTotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: -1))]),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              onPressed: _isPlacingOrder ? null : _placeOrder,
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryContainer, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)), elevation: 4),
+              child: _isPlacingOrder
+                  ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Delivery Notes', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain)), Text('Optional', style: TextStyle(fontSize: 10, color: AppColors.textVariant))]),
-                  const SizedBox(height: 12),
-                  TextField(controller: _notesController, maxLines: 2, style: const TextStyle(color: AppColors.textMain, fontSize: 13), decoration: InputDecoration(hintText: 'Ring the bell twice, gate is unlocked...', hintStyle: const TextStyle(color: AppColors.outline), filled: true, fillColor: AppColors.surfaceCanvas, contentPadding: const EdgeInsets.all(12), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none))),
+                  Text('Confirm Order', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.5)),
+                  SizedBox(width: 8),
+                  Icon(Icons.arrow_forward, color: Colors.white, size: 22),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-
-      bottomSheet: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Container(
-            decoration: BoxDecoration(color: AppColors.surfaceLowest.withValues(alpha: 0.95), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, -5))]),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Refills Total (${_cart.values.fold(0, (a, b) => a + b)} Gallons)', style: const TextStyle(fontSize: 13, color: AppColors.textVariant)), Text('₱${_cartSubtotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain))]),
-                    if (_missingContainerDeposit > 0) ...[
-                      const SizedBox(height: 4),
-                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Row(children: [const Icon(Icons.shield, size: 14, color: AppColors.error), const SizedBox(width: 4), Text('Container Deposit (${_orderedRefillsCount - _emptyGallonsReturning}x)', style: const TextStyle(fontSize: 13, color: AppColors.error, fontWeight: FontWeight.w500))]), Text('₱${_missingContainerDeposit.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.error))]),
-                    ],
-                    const SizedBox(height: 12),
-                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('TOTAL PAY AMOUNT', style: TextStyle(fontSize: 10, color: AppColors.textVariant, fontWeight: FontWeight.w800, letterSpacing: 1)), Text('Includes fully refundable bottle deposit', style: TextStyle(fontSize: 11, color: AppColors.secondary, fontWeight: FontWeight.bold))]), Text('₱${_checkoutTotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: -1))]),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: _isPlacingOrder ? null : _placeOrder,
-                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryContainer, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)), elevation: 4),
-                        child: _isPlacingOrder
-                            ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('Confirm Order', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.5)),
-                            SizedBox(width: 8),
-                            Icon(Icons.arrow_forward, color: Colors.white, size: 22),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ),
-        ),
+        ],
       ),
     );
   }

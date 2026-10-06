@@ -8,7 +8,6 @@ import '../../models/saved_address_model.dart';
 import '../owner/manage_team_screen.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
-import '../../widgets/notification_bell.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -208,8 +207,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       }
                       final addresses = snapshot.data!;
                       if (addresses.isEmpty) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
                           child: Text('No saved addresses yet.', style: TextStyle(fontSize: 12, color: AppColors.textVariant)),
                         );
                       }
@@ -357,43 +356,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Container(width: 4, decoration: BoxDecoration(color: accentColor, borderRadius: const BorderRadius.horizontal(left: Radius.circular(14)))),
             Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(width: 32, height: 32, decoration: BoxDecoration(color: isPrimary ? AppColors.surfaceFrost : AppColors.outlineVariant, shape: BoxShape.circle), child: Icon(icon, size: 16, color: isPrimary ? AppColors.primary : AppColors.textVariant)),
-                          const SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(address.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain)),
-                                  const SizedBox(width: 6),
-                                  Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1), decoration: BoxDecoration(color: isPrimary ? AppColors.secondaryContainer : AppColors.surfaceContainer, borderRadius: BorderRadius.circular(100)), child: Text(badge, style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: isPrimary ? AppColors.secondary : AppColors.textVariant, letterSpacing: 0.5))),
-                                ],
-                              ),
-                            ],
-                          )
-                        ],
-                      ),
-                      InkWell(
-                        onTap: () => _confirmDeleteAddress(uid, address),
-                        child: Icon(Icons.delete, size: 16, color: AppColors.outline.withValues(alpha: 0.7)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: isDark ? AppColors.backgroundDark : AppColors.surfaceLowest, borderRadius: BorderRadius.circular(10)),
-                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(width: 32, height: 32, decoration: BoxDecoration(color: isPrimary ? AppColors.surfaceFrost : AppColors.outlineVariant, shape: BoxShape.circle), child: Icon(icon, size: 16, color: isPrimary ? AppColors.primary : AppColors.textVariant)),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(address.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain)),
+                                    const SizedBox(width: 6),
+                                    Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1), decoration: BoxDecoration(color: isPrimary ? AppColors.secondaryContainer : AppColors.surfaceContainer, borderRadius: BorderRadius.circular(100)), child: Text(badge, style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: isPrimary ? AppColors.secondary : AppColors.textVariant, letterSpacing: 0.5))),
+                                  ],
+                                ),
+                              ],
+                            )
+                          ],
+                        ),
+                        InkWell(
+                          onTap: () => _confirmDeleteAddress(uid, address),
+                          child: Icon(Icons.delete, size: 16, color: AppColors.outline.withValues(alpha: 0.7)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: isDark ? AppColors.backgroundDark : AppColors.surfaceLowest, borderRadius: BorderRadius.circular(10)),
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(address.addressText, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMain, height: 1.2)),
@@ -401,26 +400,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const SizedBox(height: 2),
                             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.explore, size: 12, color: isPrimary ? AppColors.cyanElectric : AppColors.outline), const SizedBox(width: 4), Expanded(child: Text(address.note!, style: const TextStyle(fontSize: 10, color: AppColors.textVariant)))]),
                           ],
-                    ],
-                  ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        InkWell(
+                          onTap: () => _showEditAddressLabelDialog(uid, address),
+                          child: const Row(mainAxisSize: MainAxisSize.min, children: [Text('Edit Tag', style: TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600)), Icon(Icons.chevron_right, size: 14, color: AppColors.primary)]),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  InkWell(
-                    onTap: () => _showEditAddressLabelDialog(uid, address),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [Text('Edit Tag', style: TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600)), Icon(Icons.chevron_right, size: 14, color: AppColors.primary)]),
-                  ),
-                ],
               ),
+            )
           ],
         ),
       ),
-    )
-    ],
-    ),
-    ),
     );
   }
 
@@ -786,221 +785,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _onNavTapped(int index) {
-    final role = currentUserRoleNotifier.value;
-    if (role == 'owner') {
-      if (index == 0) Navigator.pushReplacementNamed(context, '/owner_dashboard');
-      if (index == 1) Navigator.pushReplacementNamed(context, '/pos');
-      if (index == 2) Navigator.pushReplacementNamed(context, '/dispatch');
-      if (index == 3) Navigator.pushReplacementNamed(context, '/inventory');
-      if (index == 4) return;
-    } else if (role == 'staff') {
-      if (index == 0) Navigator.pushReplacementNamed(context, '/pos');
-      if (index == 1) Navigator.pushReplacementNamed(context, '/dispatch');
-      if (index == 2) Navigator.pushReplacementNamed(context, '/inventory');
-      if (index == 3) return;
-    } else if (role == 'rider') {
-      if (index == 0) Navigator.pushReplacementNamed(context, '/dispatch');
-      if (index == 1) return;
-    } else {
-      if (index == 0 || index == 1 || index == 2) {
-        Navigator.pushReplacementNamed(context, '/customer');
-      }
-      if (index == 3) return;
-    }
-  }
-
-  Widget _buildFloatingBottomNav(bool isDark, String role) {
-    List<BottomNavigationBarItem> items = [];
-    int currentIndex = 0;
-
-    if (role == 'owner') {
-      items = const [
-        BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-        BottomNavigationBarItem(icon: Icon(Icons.point_of_sale), label: 'POS'),
-        BottomNavigationBarItem(icon: Icon(Icons.local_shipping), label: 'Queue'),
-        BottomNavigationBarItem(icon: Icon(Icons.inventory_2), label: 'Stock'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-      ];
-      currentIndex = 4;
-    } else if (role == 'staff') {
-      items = const [
-        BottomNavigationBarItem(icon: Icon(Icons.point_of_sale), label: 'Station POS'),
-        BottomNavigationBarItem(icon: Icon(Icons.local_shipping), label: 'Queue'),
-        BottomNavigationBarItem(icon: Icon(Icons.inventory_2), label: 'Inventory'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-      ];
-      currentIndex = 3;
-    } else if (role == 'rider') {
-      items = const [
-        BottomNavigationBarItem(icon: Icon(Icons.local_shipping), label: 'Routes'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-      ];
-      currentIndex = 1;
-    } else {
-      items = const [
-        BottomNavigationBarItem(icon: Icon(Icons.water_drop), label: 'Order'),
-        BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: 'Orders'),
-        BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet), label: 'Payments'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-      ];
-      currentIndex = 3;
-    }
-
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.only(left: 24, right: 24, bottom: 16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Flexible(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 450),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.surfaceDark.withValues(alpha: 0.95) : AppColors.surfaceLowest.withValues(alpha: 0.95),
-                    borderRadius: BorderRadius.circular(40),
-                    boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 8))],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(40),
-                    child: BottomNavigationBar(
-                      elevation: 0,
-                      backgroundColor: Colors.transparent,
-                      type: BottomNavigationBarType.fixed,
-                      currentIndex: currentIndex,
-                      onTap: _onNavTapped,
-                      showSelectedLabels: true,
-                      showUnselectedLabels: true,
-                      selectedItemColor: AppColors.primary,
-                      unselectedItemColor: AppColors.outline,
-                      selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                      unselectedLabelStyle: const TextStyle(fontSize: 11),
-                      items: items,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _signOutAndGoToLogin(BuildContext context) async {
     await _authService.signOut();
     currentUserRoleNotifier.value = 'none';
     if (!context.mounted) return;
     Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final role = currentUserRoleNotifier.value;
-    final uid = _uid;
-
-    return StreamBuilder<UserModel?>(
-      stream: uid == null ? const Stream.empty() : _firestoreService.getUserStream(uid),
-      builder: (context, snapshot) {
-        final user = snapshot.data;
-        final userData = user == null ? _userDataFromModel(UserModel(id: '', name: '', email: '', role: UserRole.customer, phone: '')) : _userDataFromModel(user);
-
-        return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.background,
-      extendBody: true,
-      body: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 450),
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                _buildCustomerHeader(isDark, role),
-                const SizedBox(height: 24),
-                _buildProfileHero(userData, isDark),
-                const SizedBox(height: 24),
-
-                _buildSectionHeader('ACCOUNT', role == 'customer' ? '2 Items' : '1 Item', AppColors.outline),
-                _buildCardGroup([
-                  _buildListTile('Manage Profile', 'Edit Name, Email & Phone', Icons.person, AppColors.primary, isDark, onTap: user == null ? null : () => _showEditProfileDialog(user, userData, isDark)),
-                  _buildDivider(isDark),
-                  _buildListTile('Saved Delivery Addresses', 'Primary residence & hub instructions', Icons.location_on, AppColors.primary, isDark, onTap: () => _showAddressesDialog(isDark)),
-                ], isDark),
-                const SizedBox(height: 24),
-
-                if (role == 'owner') ...[
-                  _buildSectionHeader('TEAM MANAGEMENT', 'Owner Only', AppColors.secondary),
-                  _buildCardGroup([
-                    _buildListTile('Manage Staff & Riders', 'Create and view team accounts', Icons.groups, AppColors.primary, isDark, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageTeamScreen()))),
-                  ], isDark),
-                  const SizedBox(height: 24),
-                ],
-
-                _buildSectionHeader('PREFERENCES', 'Customized', AppColors.secondary),
-                _buildCardGroup([
-                  _buildListTile('Notification Settings', 'Push alerts, delivery windows & reminders', Icons.notifications_active, AppColors.primary, isDark, trailing: _buildCustomSwitch(user)),
-                ], isDark),
-                const SizedBox(height: 24),
-
-                _buildSectionHeader('SECURITY', 'Protected', AppColors.tealAccent),
-                _buildCardGroup([
-                  _buildListTile('Change Password', 'Update secure credentials & 2FA', Icons.lock, AppColors.primary, isDark, onTap: () => _showPasswordDialog(isDark)),
-                ], isDark),
-                const SizedBox(height: 24),
-
-                _buildSectionHeader('SUPPORT & POLICIES', '24/7 Available', AppColors.outline),
-                _buildCardGroup([
-                  _buildListTile('Help Center & FAQs', 'Hydration guide & dispatch assistance', Icons.support_agent, AppColors.primary, isDark, onTap: () => _showHelpCenterDialog(isDark)),
-                  _buildDivider(isDark),
-                  _buildListTile('Terms & Privacy', 'Policies, bottle deposits & sanitization', Icons.shield, AppColors.primary, isDark, onTap: () => _showTermsDialog(isDark)),
-                ], isDark),
-                const SizedBox(height: 32),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    children: [
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.errorContainer.withValues(alpha: 0.6),
-                            foregroundColor: AppColors.error,
-                            minimumSize: const Size(double.infinity, 52),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: AppColors.error.withValues(alpha: 0.2)))
-                        ),
-                        onPressed: () => _signOutAndGoToLogin(context),
-                        icon: const Icon(Icons.logout, size: 20, color: AppColors.error),
-                        label: const Text('Log Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                      ),
-                      if (role == 'customer') ...[
-                        const SizedBox(height: 12),
-                        TextButton.icon(
-                          onPressed: () => _showDeleteAccountDialog(isDark),
-                          icon: const Icon(Icons.delete_forever, size: 18, color: AppColors.error),
-                          label: const Text('Delete Account', style: TextStyle(color: AppColors.error, fontSize: 13, fontWeight: FontWeight.bold)),
-                          style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                        ),
-                      ]
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 40),
-                const Text('Version 1.0.0 (Build 42)', style: TextStyle(color: AppColors.outline, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-                const SizedBox(height: 4),
-                const Text('SAN ANTONIO REGIONAL HUB • PURE HYDRATION', style: TextStyle(color: AppColors.outlineVariant, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
-                const SizedBox(height: 120),
-              ],
-            ),
-          ),
-        ),
-      ),
-      bottomNavigationBar: _buildFloatingBottomNav(isDark, role),
-    );
-      },
-    );
   }
 
   String _profileHeaderTitle(String role) {
@@ -1016,35 +805,117 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Widget _buildCustomerHeader(bool isDark, String role) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-      decoration: BoxDecoration(color: isDark ? AppColors.surfaceDark.withValues(alpha: 0.85) : AppColors.surfaceLowest.withValues(alpha: 0.85), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 1))]),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(width: 36, height: 36, decoration: BoxDecoration(gradient: const LinearGradient(colors: [AppColors.primary, AppColors.cyanElectric]), shape: BoxShape.circle, boxShadow: [BoxShadow(color: AppColors.cyanElectric.withValues(alpha: 0.35), blurRadius: 16, offset: const Offset(0, 4))]), child: const Icon(Icons.water_drop, color: Colors.white, size: 20)),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [const Text('AQUAOPS', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary, letterSpacing: -0.5)), const SizedBox(width: 6), Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1), decoration: BoxDecoration(color: AppColors.surfaceContainer, borderRadius: BorderRadius.circular(4)), child: const Text('DRINK 8', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.primary)))]),
-                  Text(_profileHeaderTitle(role), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain, letterSpacing: -0.5)),
-                ],
-              )
-            ],
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final role = currentUserRoleNotifier.value;
+    final uid = _uid;
+
+    return StreamBuilder<UserModel?>(
+      stream: uid == null ? const Stream.empty() : _firestoreService.getUserStream(uid),
+      builder: (context, snapshot) {
+        final user = snapshot.data;
+        final userData = user == null ? _userDataFromModel(UserModel(id: '', name: '', email: '', role: UserRole.customer, phone: '')) : _userDataFromModel(user);
+
+        return Scaffold(
+          backgroundColor: isDark ? AppColors.backgroundDark : AppColors.background,
+          body: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 450),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        _profileHeaderTitle(role),
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textMain, letterSpacing: -0.5),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildProfileHero(userData, isDark),
+                    const SizedBox(height: 24),
+
+                    _buildSectionHeader('ACCOUNT', role == 'customer' ? '2 Items' : '1 Item', AppColors.outline),
+                    _buildCardGroup([
+                      _buildListTile('Manage Profile', 'Edit Name, Email & Phone', Icons.person, AppColors.primary, isDark, onTap: user == null ? null : () => _showEditProfileDialog(user, userData, isDark)),
+                      _buildDivider(isDark),
+                      _buildListTile('Saved Delivery Addresses', 'Primary residence & hub instructions', Icons.location_on, AppColors.primary, isDark, onTap: () => _showAddressesDialog(isDark)),
+                    ], isDark),
+                    const SizedBox(height: 24),
+
+                    if (role == 'owner') ...[
+                      _buildSectionHeader('TEAM MANAGEMENT', 'Owner Only', AppColors.secondary),
+                      _buildCardGroup([
+                        _buildListTile('Manage Staff & Riders', 'Create and view team accounts', Icons.groups, AppColors.primary, isDark, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageTeamScreen()))),
+                      ], isDark),
+                      const SizedBox(height: 24),
+                    ],
+
+                    _buildSectionHeader('PREFERENCES', 'Customized', AppColors.secondary),
+                    _buildCardGroup([
+                      _buildListTile('Notification Settings', 'Push alerts, delivery windows & reminders', Icons.notifications_active, AppColors.primary, isDark, trailing: _buildCustomSwitch(user)),
+                    ], isDark),
+                    const SizedBox(height: 24),
+
+                    _buildSectionHeader('SECURITY', 'Protected', AppColors.tealAccent),
+                    _buildCardGroup([
+                      _buildListTile('Change Password', 'Update secure credentials & 2FA', Icons.lock, AppColors.primary, isDark, onTap: () => _showPasswordDialog(isDark)),
+                    ], isDark),
+                    const SizedBox(height: 24),
+
+                    _buildSectionHeader('SUPPORT & POLICIES', '24/7 Available', AppColors.outline),
+                    _buildCardGroup([
+                      _buildListTile('Help Center & FAQs', 'Hydration guide & dispatch assistance', Icons.support_agent, AppColors.primary, isDark, onTap: () => _showHelpCenterDialog(isDark)),
+                      _buildDivider(isDark),
+                      _buildListTile('Terms & Privacy', 'Policies, bottle deposits & sanitization', Icons.shield, AppColors.primary, isDark, onTap: () => _showTermsDialog(isDark)),
+                    ], isDark),
+                    const SizedBox(height: 32),
+
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        children: [
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.errorContainer.withValues(alpha: 0.6),
+                                foregroundColor: AppColors.error,
+                                minimumSize: const Size(double.infinity, 52),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: AppColors.error.withValues(alpha: 0.2)))
+                            ),
+                            onPressed: () => _signOutAndGoToLogin(context),
+                            icon: const Icon(Icons.logout, size: 20, color: AppColors.error),
+                            label: const Text('Log Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                          ),
+                          if (role == 'customer') ...[
+                            const SizedBox(height: 12),
+                            TextButton.icon(
+                              onPressed: () => _showDeleteAccountDialog(isDark),
+                              icon: const Icon(Icons.delete_forever, size: 18, color: AppColors.error),
+                              label: const Text('Delete Account', style: TextStyle(color: AppColors.error, fontSize: 13, fontWeight: FontWeight.bold)),
+                              style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                            ),
+                          ]
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 40),
+                    const Center(child: Text('Version 1.0.0 (Build 42)', style: TextStyle(color: AppColors.outline, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5))),
+                    const SizedBox(height: 4),
+                    const Center(child: Text('SAN ANTONIO REGIONAL HUB • PURE HYDRATION', style: TextStyle(color: AppColors.outlineVariant, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5))),
+                    const SizedBox(height: 120),
+                  ],
+                ),
+              ),
+            ),
           ),
-          Row(
-            children: [
-              if (role == 'owner' || role == 'staff') NotificationBell(isDark: isDark),
-              const SizedBox(width: 8),
-              Container(width: 32, height: 32, decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle), child: const Icon(Icons.person, color: Colors.white, size: 18))
-            ],
-          )
-        ],
-      ),
+        );
+      },
     );
   }
 

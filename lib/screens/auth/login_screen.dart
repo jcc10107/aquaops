@@ -1,13 +1,10 @@
-// lib/screens/auth/login_screen.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/components/soft_card.dart';
-import '../../core/components/soft_input_field.dart';
-import '../../widgets/custom_button.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
+import 'reset_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,11 +12,58 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
   final AuthService _authService = AuthService();
   bool _isLoading = false;
+
+  final FocusNode _emailFocus = FocusNode();
+  final FocusNode _passwordFocus = FocusNode();
+  bool _obscurePassword = true;
+  bool _isEmailValid = false;
+
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat(reverse: true);
+    _pulseAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(_pulseController);
+
+    _emailFocus.addListener(_onFocusChanged);
+    _passwordFocus.addListener(_onFocusChanged);
+    _emailController.addListener(_onEmailChanged);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
+    _emailController.removeListener(_onEmailChanged);
+    _emailController.dispose();
+    _passController.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChanged() {
+    setState(() {});
+  }
+
+  void _onEmailChanged() {
+    final valid = _emailController.text.trim().length > 4;
+    if (_isEmailValid != valid) {
+      setState(() {
+        _isEmailValid = valid;
+      });
+    }
+  }
 
   Future<void> _handleLogin() async {
     final email = _emailController.text.trim();
@@ -89,134 +133,347 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showForgotPasswordDialog() {
-    final resetEmailController = TextEditingController(text: _emailController.text.trim());
-    bool isSending = false;
-    showDialog(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Reset Password'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Enter your account email. We\'ll send a link to reset your password.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: resetEmailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email'),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: isSending
-                  ? null
-                  : () async {
-                      final email = resetEmailController.text.trim();
-                      if (email.isEmpty) return;
-                      setDialogState(() => isSending = true);
-                      final messenger = ScaffoldMessenger.of(context);
-                      try {
-                        await _authService.sendPasswordReset(email);
-                        if (!dialogContext.mounted) return;
-                        Navigator.pop(dialogContext);
-                        messenger.showSnackBar(SnackBar(content: Text('Password reset link sent to $email.'), backgroundColor: AppColors.primaryLight));
-                      } on FirebaseAuthException catch (e) {
-                        if (!dialogContext.mounted) return;
-                        Navigator.pop(dialogContext);
-                        messenger.showSnackBar(SnackBar(content: Text(_resetErrorMessage(e)), backgroundColor: AppColors.error));
-                      } catch (e) {
-                        if (!dialogContext.mounted) return;
-                        Navigator.pop(dialogContext);
-                        messenger.showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.'), backgroundColor: AppColors.error));
-                      }
-                    },
-              child: isSending
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Send Reset Link'),
-            ),
-          ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ResetPasswordScreen(
+          initialEmail: _emailController.text.trim(),
         ),
       ),
     );
   }
 
-  String _resetErrorMessage(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'invalid-email':
-        return 'That email address looks invalid.';
-      case 'user-not-found':
-        return 'No account found with that email.';
-      default:
-        return e.message ?? 'Failed to send reset link. Please try again.';
-    }
+  Widget _buildInputContainer({
+    required FocusNode focusNode,
+    required Widget child,
+  }) {
+    final bool isFocused = focusNode.hasFocus;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isFocused ? const Color(0xFF0284C7) : const Color(0xFFE5E9EB).withValues(alpha: 0.8),
+          width: 1,
+        ),
+        boxShadow: isFocused
+            ? [
+          BoxShadow(
+            color: const Color(0xFF0284C7).withValues(alpha: 0.15),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          )
+        ]
+            : [],
+      ),
+      child: child,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      body: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 450),
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: SoftCard(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
+      backgroundColor: const Color(0xFFF6FAFC),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxWidth: 384),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 48),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      'https://lh3.googleusercontent.com/aida/AEtjO1Vas2R0e1buuUvrIGqWLEEG0V0H59JlDQkO7FLkBmQzzjU6g26vP8Vv7gwG-zwqNkOL5Vt1aieuZmY-keD-332BDvKo4Z8ch1r2Z7W3pz6ghvbkWPY-sQm-2ontpVO2Z0b9NvfhmBnHq1jLSXB2mnbFWuM3sUEcZ_TJ5j4mVJ5lkfDlfHOyIawrb8SIKfLdFmrE0s7ClNCu5B6QaR2lQJbjdb5uK7kB164Ivpb7blvt0VqnGXTiGtHdeq0',
                       width: 80,
                       height: 80,
-                      decoration: BoxDecoration(
-                          gradient: AppColors.vividGradient,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [BoxShadow(color: AppColors.cyanElectric.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))]),
-                      child: const Icon(Icons.water_drop, color: Colors.white, size: 40),
-                    ),
-                    const SizedBox(height: 24),
-                    Text('AquaOps Login', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: isDark ? Colors.white : AppColors.textLight)),
-                    const SizedBox(height: 8),
-                    Text('Secure dispatch & station portal', style: TextStyle(color: isDark ? Colors.white70 : AppColors.textSecondary, fontSize: 14)),
-                    const SizedBox(height: 32),
-                    SoftInputField(icon: Icons.email, label: 'Email', controller: _emailController),
-                    const SizedBox(height: 16),
-                    SoftInputField(icon: Icons.lock, label: 'Password', controller: _passController, isObscure: true),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: GestureDetector(
-                        onTap: _showForgotPasswordDialog,
-                        child: const Text('Forgot Password?', style: TextStyle(color: AppColors.primaryLight, fontWeight: FontWeight.bold, fontSize: 13)),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        width: 80, height: 80, color: Colors.blueGrey,
+                        child: const Icon(Icons.water_drop, color: Colors.white, size: 40),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    CustomButton(
-                      label: 'Log In',
-                      icon: Icons.arrow_forward,
-                      isLoading: _isLoading,
-                      onPressed: _handleLogin,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'AquaOps',
+                    style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontSize: 30,
+                      height: 1.26,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.9,
+                      color: Color(0xFF171C1E),
                     ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text("New to AquaOps? ", style: TextStyle(color: isDark ? Colors.white70 : AppColors.textSecondary, fontSize: 14)),
-                        GestureDetector(
-                          onTap: () => Navigator.pushNamed(context, '/signup'),
-                          child: const Text('Sign Up', style: TextStyle(color: AppColors.primaryLight, fontWeight: FontWeight.bold, fontSize: 14)),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Secure dispatch & station portal',
+                    style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF404751),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFFFF),
+                      borderRadius: BorderRadius.circular(9999),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 2,
+                          offset: const Offset(0, 1),
                         )
                       ],
                     ),
-                  ],
-                ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AnimatedBuilder(
+                          animation: _pulseAnimation,
+                          builder: (context, child) {
+                            return Opacity(
+                              opacity: _pulseAnimation.value,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF0284C7),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'SYSTEM ONLINE',
+                          style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF005E9F),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(left: 4, bottom: 6),
+                        child: Text(
+                          'EMAIL ADDRESS',
+                          style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF404751),
+                          ),
+                        ),
+                      ),
+                      _buildInputContainer(
+                        focusNode: _emailFocus,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.mail_outline, color: Color(0xFF005E9F), size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: _emailController,
+                                focusNode: _emailFocus,
+                                keyboardType: TextInputType.emailAddress,
+                                style: const TextStyle(
+                                  fontFamily: 'Plus Jakarta Sans',
+                                  fontSize: 15,
+                                  color: Color(0xFF171C1E),
+                                ),
+                                decoration: const InputDecoration(
+                                  hintText: 'user@aquaops.com',
+                                  hintStyle: TextStyle(
+                                    color: Color(0xFFC0C7D3),
+                                  ),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.symmetric(vertical: 10),
+                                ),
+                              ),
+                            ),
+                            AnimatedOpacity(
+                              duration: const Duration(milliseconds: 200),
+                              opacity: _isEmailValid ? 1.0 : 0.0,
+                              child: const Icon(Icons.check_circle, color: Color(0xFF006B5F), size: 18),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Padding(
+                        padding: EdgeInsets.only(left: 4, bottom: 6),
+                        child: Text(
+                          'PASSWORD',
+                          style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF404751),
+                          ),
+                        ),
+                      ),
+                      _buildInputContainer(
+                        focusNode: _passwordFocus,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.lock_outline, color: Color(0xFF005E9F), size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: _passController,
+                                focusNode: _passwordFocus,
+                                obscureText: _obscurePassword,
+                                style: const TextStyle(
+                                  fontFamily: 'Plus Jakarta Sans',
+                                  fontSize: 15,
+                                  color: Color(0xFF171C1E),
+                                ),
+                                decoration: const InputDecoration(
+                                  hintText: '••••••••••••',
+                                  hintStyle: TextStyle(
+                                    color: Color(0xFFC0C7D3),
+                                  ),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.symmetric(vertical: 10),
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                              child: Icon(
+                                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                color: const Color(0xFF404751),
+                                size: 20,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 8, right: 4),
+                          child: GestureDetector(
+                            onTap: _showForgotPasswordDialog,
+                            child: const Text(
+                              'Forgot Password?',
+                              style: TextStyle(
+                                fontFamily: 'Plus Jakarta Sans',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF005E9F),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0284C7),
+                          borderRadius: BorderRadius.circular(9999),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF0284C7).withValues(alpha: 0.25),
+                              blurRadius: 6,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(9999),
+                            onTap: _isLoading ? null : _handleLogin,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                              child: _isLoading
+                                  ? const Center(
+                                child: SizedBox(
+                                  height: 22,
+                                  width: 22,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              )
+                                  : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Log In',
+                                    style: TextStyle(
+                                      fontFamily: 'Plus Jakarta Sans',
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Icon(Icons.arrow_forward, color: Colors.white, size: 18),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            'New to AquaOps? ',
+                            style: TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              color: Color(0xFF404751),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => Navigator.pushNamed(context, '/signup'),
+                            child: const Text(
+                              'Sign Up',
+                              style: TextStyle(
+                                fontFamily: 'Plus Jakarta Sans',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF005E9F),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),

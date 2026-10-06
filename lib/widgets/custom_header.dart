@@ -1,43 +1,51 @@
-// lib/widgets/custom_header.dart
 import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../main.dart';
 import '../core/constants/app_colors.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
 import 'notification_bell.dart';
 
-class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
-  const CustomHeader({super.key});
+class CustomHeader extends StatelessWidget {
+  final String hubName;
+  final VoidCallback? onProfileTap;
+
+  const CustomHeader({
+    super.key,
+    this.hubName = 'Sta Monica, San Pablo City',
+    this.onProfileTap,
+  });
+
+  static const double contentHeight = 76;
 
   String _getInitials(String fullName) {
     if (fullName.trim().isEmpty) return 'U';
-
-    List<String> nameParts = fullName.trim().split(RegExp(r'\s+'));
-    if (nameParts.length > 1) {
-      return '${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}'.toUpperCase();
-    } else {
-      return nameParts[0].substring(0, nameParts[0].length >= 2 ? 2 : 1).toUpperCase();
+    final List<String> parts = fullName.trim().split(RegExp(r'\s+'));
+    if (parts.length > 1) {
+      return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
     }
+    return parts.first.substring(0, parts.first.length >= 2 ? 2 : 1).toUpperCase();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final role = currentUserRoleNotifier.value;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final String? uid = FirebaseAuth.instance.currentUser?.uid;
 
     return StreamBuilder<UserModel?>(
-      stream: uid == null ? const Stream.empty() : FirestoreService().getUserStream(uid),
-      builder: (context, userSnapshot) {
-        final userInitials = _getInitials(userSnapshot.data?.name ?? 'User');
-        return _buildHeader(context, isDark, role, userInitials);
+      stream: uid == null
+          ? const Stream<UserModel?>.empty()
+          : FirestoreService().getUserStream(uid),
+      builder: (context, snapshot) {
+        final String initials = _getInitials(snapshot.data?.name ?? 'User');
+        return _buildHeader(context, isDark, initials);
       },
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isDark, String role, String userInitials) {
+  Widget _buildHeader(BuildContext context, bool isDark, String initials) {
+    final double topInset = MediaQuery.of(context).padding.top;
+
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 450),
@@ -45,8 +53,8 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: Container(
-              height: 76,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              height: contentHeight + topInset,
+              padding: EdgeInsets.fromLTRB(16, topInset, 16, 0),
               decoration: BoxDecoration(
                 color: isDark
                     ? AppColors.surfaceDark.withValues(alpha: 0.85)
@@ -59,249 +67,38 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
                   ),
                 ),
                 boxShadow: isDark
-                    ? []
-                    : [
-                  const BoxShadow(
+                    ? const []
+                    : const [
+                  BoxShadow(
                     color: Color(0x0F0F172A),
                     blurRadius: 20,
                     offset: Offset(0, 4),
                   ),
                 ],
               ),
-              child: SafeArea(
-                bottom: false,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(
+                    child: Row(
                       children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          padding: const EdgeInsets.all(1.5),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            gradient: const LinearGradient(
-                              colors: [AppColors.primary, Color(0xFF0088CC), AppColors.cyanHighlight],
-                              begin: Alignment.bottomLeft,
-                              end: Alignment.topRight,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.cyanElectric.withValues(alpha: 0.25),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14),
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF0077B6), Color(0xFF004E7C)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                            ),
-                            child: Stack(
-                              children: [
-                                Positioned(
-                                  top: -8,
-                                  right: -8,
-                                  child: Container(
-                                    width: 24,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.2),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                ),
-                                const Center(
-                                  child: Icon(
-                                    Icons.water_drop,
-                                    color: Colors.white,
-                                    size: 24,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                        _buildLogo(),
                         const SizedBox(width: 12),
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                RichText(
-                                  text: TextSpan(
-                                    style: TextStyle(
-                                      fontFamily: 'Plus Jakarta Sans',
-                                      fontSize: 19,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.5,
-                                      color: isDark ? Colors.white : AppColors.textMain,
-                                    ),
-                                    children: const [
-                                      TextSpan(text: 'Aqua'),
-                                      TextSpan(
-                                        text: 'Ops',
-                                        style: TextStyle(color: Color(0xFF0077B6)),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFECFEFF),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: const Color(0xFFA5F3FC).withValues(alpha: 0.6)),
-                                  ),
-                                  child: const Text(
-                                    'HQ',
-                                    style: TextStyle(
-                                      color: Color(0xFF00689C),
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.accentTeal,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppColors.accentTeal.withValues(alpha: 0.8),
-                                        blurRadius: 8,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'San Antonio Hub',
-                                  style: TextStyle(
-                                    color: isDark ? Colors.grey[400] : AppColors.textVariant,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: -0.2,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.keyboard_arrow_down,
-                                  size: 14,
-                                  color: isDark ? Colors.grey[400] : AppColors.outlineVariant,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                        Flexible(child: _buildTitleBlock(isDark)),
                       ],
                     ),
-                    Row(
-                      children: [
-                        NotificationBell(isDark: isDark),
-                        const SizedBox(width: 8),
-                        InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () => Navigator.pushNamed(context, '/profile'),
-                          child: Stack(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              padding: const EdgeInsets.all(1.5),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF004B73), Color(0xFF00689C), Color(0xFF0EA5E9)],
-                                  begin: Alignment.bottomLeft,
-                                  end: Alignment.topRight,
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x1A000000),
-                                    blurRadius: 4,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFF003857), Color(0xFF005A87)],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                ),
-                                child: Stack(
-                                  children: [
-                                    Positioned.fill(
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(10),
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              Colors.black.withValues(alpha: 0.2),
-                                              Colors.transparent,
-                                              Colors.white.withValues(alpha: 0.25),
-                                            ],
-                                            begin: Alignment.bottomCenter,
-                                            end: Alignment.topCenter,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    Center(
-                                      child: Text(
-                                        userInitials,
-                                        style: const TextStyle(
-                                          color: Color(0xFFECFEFF),
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                          letterSpacing: 1,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              bottom: -2,
-                              right: -2,
-                              child: Container(
-                                width: 12,
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  color: AppColors.accentTeal,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
-                                ),
-                              ),
-                            ),
-                          ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      NotificationBell(isDark: isDark),
+                      const SizedBox(width: 8),
+                      _buildAvatar(initials),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
@@ -310,6 +107,171 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  @override
-  Size get preferredSize => const Size.fromHeight(76);
+  Widget _buildLogo() {
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Image.network(
+          'https://lh3.googleusercontent.com/aida/AEtjO1Vas2R0e1buuUvrIGqWLEEG0V0H59JlDQkO7FLkBmQzzjU6g26vP8Vv7gwG-zwqNkOL5Vt1aieuZmY-keD-332BDvKo4Z8ch1r2Z7W3pz6ghvbkWPY-sQm-2ontpVO2Z0b9NvfhmBnHq1jLSXB2mnbFWuM3sUEcZ_TJ5j4mVJ5lkfDlfHOyIawrb8SIKfLdFmrE0s7ClNCu5B6QaR2lQJbjdb5uK7kB164Ivpb7blvt0VqnGXTiGtHdeq0',
+          width: 44,
+          height: 44,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            width: 44,
+            height: 44,
+            color: const Color(0xFF0284C7),
+            child: const Icon(Icons.water_drop, color: Colors.white, size: 24),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTitleBlock(bool isDark) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RichText(
+              text: TextSpan(
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: isDark ? Colors.white : AppColors.textMain,
+                ),
+                children: const [
+                  TextSpan(text: 'Aqua'),
+                  TextSpan(
+                    text: 'Ops',
+                    style: TextStyle(color: Color(0xFF0077B6)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFECFEFF),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: const Color(0xFFA5F3FC).withValues(alpha: 0.6),
+                ),
+              ),
+              child: const Text(
+                'HQ',
+                style: TextStyle(
+                  color: Color(0xFF00689C),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: AppColors.accentTeal,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.accentTeal.withValues(alpha: 0.8),
+                    blurRadius: 8,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                hubName,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isDark ? Colors.grey[400] : AppColors.textVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAvatar(String initials) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onProfileTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0284C7), // Matches login screen primary color
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0284C7).withValues(alpha: 0.25),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                initials,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  letterSpacing: 1,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -2,
+            right: -2,
+            child: Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: AppColors.accentTeal,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

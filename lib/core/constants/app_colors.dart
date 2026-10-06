@@ -1,4 +1,3 @@
-// lib/core/constants/app_colors.dart
 import 'package:flutter/material.dart';
 
 class AppColors {
@@ -32,6 +31,7 @@ class AppColors {
   static const Color surfaceFrost = Color(0xFFE0F2FE);
   static const Color surfaceContainerLow = Color(0xFFF2F3FF);
   static const Color surfaceContainer = Color(0xFFEAEDFF);
+  static const Color surfaceContainerHigh = Color(0xFFE2E7FF);
   static const Color textMain = Color(0xFF131B2E);
   static const Color textVariant = Color(0xFF3F4850);
   static const Color outline = Color(0xFF707881);

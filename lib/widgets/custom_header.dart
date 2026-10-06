@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
+import 'aqua_logo.dart';
 import 'notification_bell.dart';
 
 class CustomHeader extends StatelessWidget {
@@ -108,35 +109,7 @@ class CustomHeader extends StatelessWidget {
   }
 
   Widget _buildLogo() {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Image.network(
-          'https://lh3.googleusercontent.com/aida/AEtjO1Vas2R0e1buuUvrIGqWLEEG0V0H59JlDQkO7FLkBmQzzjU6g26vP8Vv7gwG-zwqNkOL5Vt1aieuZmY-keD-332BDvKo4Z8ch1r2Z7W3pz6ghvbkWPY-sQm-2ontpVO2Z0b9NvfhmBnHq1jLSXB2mnbFWuM3sUEcZ_TJ5j4mVJ5lkfDlfHOyIawrb8SIKfLdFmrE0s7ClNCu5B6QaR2lQJbjdb5uK7kB164Ivpb7blvt0VqnGXTiGtHdeq0',
-          width: 44,
-          height: 44,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Container(
-            width: 44,
-            height: 44,
-            color: const Color(0xFF0284C7),
-            child: const Icon(Icons.water_drop, color: Colors.white, size: 24),
-          ),
-        ),
-      ),
-    );
+    return const AquaLogo(size: 44);
   }
 
   Widget _buildTitleBlock(bool isDark) {
@@ -235,11 +208,19 @@ class CustomHeader extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFF0284C7), // Matches login screen primary color
               borderRadius: BorderRadius.circular(12),
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFF0284C7),
+                  Color(0xFF0099E5),
+                  Color(0xFF00B4D8),
+                ],
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF0284C7).withValues(alpha: 0.25),
+                  color: const Color(0xFF0099E5).withValues(alpha: 0.35),
                   blurRadius: 6,
                   offset: const Offset(0, 2),
                 ),

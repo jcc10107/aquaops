@@ -4,6 +4,7 @@ import '../../main.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/aqua_logo.dart';
 import 'reset_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -186,19 +187,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.network(
-                      'https://lh3.googleusercontent.com/aida/AEtjO1Vas2R0e1buuUvrIGqWLEEG0V0H59JlDQkO7FLkBmQzzjU6g26vP8Vv7gwG-zwqNkOL5Vt1aieuZmY-keD-332BDvKo4Z8ch1r2Z7W3pz6ghvbkWPY-sQm-2ontpVO2Z0b9NvfhmBnHq1jLSXB2mnbFWuM3sUEcZ_TJ5j4mVJ5lkfDlfHOyIawrb8SIKfLdFmrE0s7ClNCu5B6QaR2lQJbjdb5uK7kB164Ivpb7blvt0VqnGXTiGtHdeq0',
-                      width: 80,
-                      height: 80,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        width: 80, height: 80, color: Colors.blueGrey,
-                        child: const Icon(Icons.water_drop, color: Colors.white, size: 40),
-                      ),
-                    ),
-                  ),
+                  const AquaLogo(size: 80),
                   const SizedBox(height: 16),
                   const Text(
                     'AquaOps',

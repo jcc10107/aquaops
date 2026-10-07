@@ -12,7 +12,20 @@
           "package_name": "com.example.aquaops"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "344330549483-tqu6i33hrmgt9nk9c25lk0sge9jpp4at.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.aquaops",
+            "certificate_hash": "f66c40589cc6e75699936511aaa81856c268efbe"
+          }
+        },
+        {
+          "client_id": "344330549483-rn63r85vdji0hdgd2g7odnfomd3itf9l.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAycNB9kguvmRWPN2YONLhmB6Q9LLZ4H9U"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "344330549483-rn63r85vdji0hdgd2g7odnfomd3itf9l.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

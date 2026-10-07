@@ -5,8 +5,6 @@ import '../models/inventory_model.dart';
 import '../models/order_model.dart';
 import '../services/firestore_service.dart';
 
-// Real, live operational alerts (low stock, overdue maintenance, unassigned
-// deliveries) for owner/staff — replaces the old hardcoded notification list.
 class NotificationBell extends StatefulWidget {
   final bool isDark;
   const NotificationBell({super.key, this.isDark = false});

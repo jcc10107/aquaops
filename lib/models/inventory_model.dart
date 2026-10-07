@@ -4,7 +4,7 @@ class InventoryModel {
   final String id;
   final String sku;
   final String name;
-  final String category; // 'water', 'packaging'
+  final String category;
   final int currentStock;
   final int maxCapacity;
   final String unit;

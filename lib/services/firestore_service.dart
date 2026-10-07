@@ -208,8 +208,6 @@ class FirestoreService {
       'areaZone': areaZone,
       'items': items.map((i) => i.toMap()).toList(),
       'totalAmount': totalAmount,
-      // Waits for staff/owner to assign a rider (assignRider() then moves it
-      // to outForDelivery) so the customer's tracker reflects reality.
       'status': 'pending',
       'paymentMethod': paymentMethod,
       'gcashReference': gcashReference,

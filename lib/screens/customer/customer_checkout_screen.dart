@@ -51,12 +51,22 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
   static const Color _errorContainer = Color(0xFFFFDAD6);
   static const Color _outline = Color(0xFF707881);
 
-  static const Map<String, String> _areaZoneByAddress = {
-    'Barangay San Isidro': 'si',
-    'Barangay Del Remedio': 'dr',
-    'Barangay San Roque': 'sr',
-    'Barangay San Marcos': 'sm',
+  static const Map<String, String> _areaZoneKeywords = {
+    'san isidro': 'si',
+    'del remedio': 'dr',
+    'san roque': 'sr',
+    'san marcos': 'sm',
   };
+
+  // Addresses are now free text from the customer's real Saved Addresses
+  // (not a fixed list), so match by keyword instead of exact string.
+  String _resolveAreaZone(String address) {
+    final lower = address.toLowerCase();
+    for (final entry in _areaZoneKeywords.entries) {
+      if (lower.contains(entry.key)) return entry.value;
+    }
+    return 'other';
+  }
 
   @override
   void initState() {
@@ -133,7 +143,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
         customerName: profile?.name ?? 'Customer',
         customerPhone: profile?.phone ?? '',
         deliveryAddress: widget.currentAddress,
-        areaZone: _areaZoneByAddress[widget.currentAddress] ?? 'other',
+        areaZone: _resolveAreaZone(widget.currentAddress),
         items: items,
         totalAmount: _checkoutTotal,
         paymentMethod: _paymentMethod,

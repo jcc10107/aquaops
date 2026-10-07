@@ -423,6 +423,7 @@ class CustomerStoreScreen extends StatelessWidget {
   Widget _buildProductCard(Map<String, dynamic> p, int qty) {
     final String id = p['id'] as String;
     final bool isRefill = id == 'r_slim' || id == 'r_round';
+    final bool inStock = (p['inStock'] as bool?) ?? true;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -593,13 +594,13 @@ class CustomerStoreScreen extends StatelessWidget {
                     ),
                   ),
                   Material(
-                    color: _blue,
+                    color: inStock ? _blue : const Color(0xFFBFC7D2),
                     shape: const CircleBorder(),
                     elevation: 1,
                     shadowColor: Colors.black12,
                     child: InkWell(
                       customBorder: const CircleBorder(),
-                      onTap: () => onAddToCart(id),
+                      onTap: inStock ? () => onAddToCart(id) : null,
                       child: const SizedBox(
                         width: 28,
                         height: 28,
@@ -615,36 +616,40 @@ class CustomerStoreScreen extends StatelessWidget {
               width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(100),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x1A000000),
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
-                  ),
-                ],
+                boxShadow: inStock
+                    ? const [
+                        BoxShadow(
+                          color: Color(0x1A000000),
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
+                      ]
+                    : null,
               ),
               child: Material(
-                color: _blue,
+                color: inStock ? _blue : const Color(0xFFE2E8F0),
                 borderRadius: BorderRadius.circular(100),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(100),
-                  onTap: () => onAddToCart(id),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
+                  onTap: inStock ? () => onAddToCart(id) : null,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.add, size: 16, color: Colors.white),
-                        SizedBox(width: 4),
+                        Icon(inStock ? Icons.add : Icons.block,
+                            size: 16,
+                            color: inStock ? Colors.white : _onSurfaceVariant),
+                        const SizedBox(width: 4),
                         Text(
-                          'Add to Cart',
+                          inStock ? 'Add to Cart' : 'Out of Stock',
                           style: TextStyle(
                             fontFamily: _font,
                             fontSize: 11,
                             height: 14 / 11,
                             letterSpacing: 0.22,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                            color: inStock ? Colors.white : _onSurfaceVariant,
                           ),
                         ),
                       ],

@@ -78,7 +78,9 @@ service cloud.firestore {
     }
 
     match /inventory/{itemId} {
-      allow read: if isStaff() || isRider();
+      // Customers need read access too — the Store screen shows real-time
+      // stock availability per item, sourced from this same collection.
+      allow read: if isSignedIn();
       allow create, delete: if isStaff();
       // Riders decrement packaging stock (caps/seals) as part of fulfillDelivery(),
       // but can only lower currentStock, never edit anything else or raise it.

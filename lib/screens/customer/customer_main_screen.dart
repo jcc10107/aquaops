@@ -2,7 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../widgets/aqua_bottom_nav.dart';
 import '../../widgets/custom_header.dart';
+import '../../models/inventory_model.dart';
 import '../../models/order_model.dart';
+import '../../models/saved_address_model.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../profile/profile_screen.dart';
@@ -22,19 +24,25 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   int _navIndex = 0;
   bool _isCheckoutView = false;
   final Map<String, int> _cart = {};
-  String _currentAddress = 'Barangay San Isidro';
+  String _currentAddress = 'Select delivery address';
 
   final FirestoreService _firestoreService = FirestoreService();
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
   late final Future<UserModel?> _userFuture;
   late final Stream<List<OrderModel>> _ordersStream;
+  late final Stream<List<InventoryModel>> _inventoryStream;
 
-  static const List<String> _availableAddresses = [
-    'Barangay San Isidro',
-    'Barangay Del Remedio',
-    'Barangay San Roque',
-  ];
+  // Maps each catalog product to the real inventory SKU(s) whose stock
+  // determines whether it can still be ordered. Prices stay hardcoded here
+  // (there's no sellingPrice field in Firestore yet — see backend audit) but
+  // availability now reflects the same inventory the owner/staff manage.
+  static const Map<String, List<String>> _stockDependsOn = {
+    'r_slim': ['inv_water_slim'],
+    'r_round': ['inv_water_round'],
+    'n_slim': ['inv_water_slim', 'inv_pkg_caps', 'inv_pkg_seals'],
+    'n_round': ['inv_water_round', 'inv_pkg_caps', 'inv_pkg_seals'],
+  };
 
   final List<Map<String, dynamic>> _products = const [
     {
@@ -82,6 +90,23 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
     _ordersStream = uid == null
         ? const Stream.empty()
         : _firestoreService.getOrdersForCustomerStream(uid);
+    _inventoryStream = _firestoreService.getInventoryStream();
+    if (uid != null) {
+      _firestoreService.getSavedAddressesStream(uid).first.then((addresses) {
+        if (mounted && addresses.isNotEmpty) {
+          setState(() => _currentAddress = addresses.first.addressText);
+        }
+      });
+    }
+  }
+
+  List<Map<String, dynamic>> _productsWithStock(List<InventoryModel> inventory) {
+    final stockById = {for (final item in inventory) item.id: item.currentStock};
+    return _products.map((product) {
+      final deps = _stockDependsOn[product['id']] ?? const <String>[];
+      final inStock = deps.every((skuId) => (stockById[skuId] ?? 0) > 0);
+      return {...product, 'inStock': inStock};
+    }).toList();
   }
 
   void _addToCart(String id) {
@@ -103,6 +128,62 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
       _navIndex = index;
       _isCheckoutView = false;
     });
+  }
+
+  Widget _buildQuickAddAddress(BuildContext sheetContext) {
+    final addressCtrl = TextEditingController();
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: addressCtrl,
+            decoration: InputDecoration(
+              hintText: 'Type your address...',
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              filled: true,
+              fillColor: const Color(0xFFF2F3FF),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Material(
+          color: const Color(0xFF006194),
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () async {
+              final text = addressCtrl.text.trim();
+              final uid = _uid;
+              if (text.isEmpty || uid == null) return;
+              final navigator = Navigator.of(sheetContext);
+              final messenger = ScaffoldMessenger.of(sheetContext);
+              try {
+                await _firestoreService.addSavedAddress(
+                  uid: uid,
+                  label: 'Home',
+                  addressText: text,
+                );
+                setState(() => _currentAddress = text);
+                navigator.pop();
+              } catch (e) {
+                messenger.showSnackBar(
+                  SnackBar(content: Text('Failed to save address: $e')),
+                );
+              }
+            },
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Icon(Icons.check, color: Colors.white, size: 20),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   void _showLocationPicker(bool isDark) {
@@ -188,70 +269,126 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  ..._availableAddresses.map((address) {
-                    final bool isSelected = address == _currentAddress;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Material(
-                        color: isSelected
-                            ? const Color(0xFFE0F2FE)
-                            : const Color(0xFFF2F3FF),
-                        borderRadius: BorderRadius.circular(16),
-                        child: InkWell(
-                          onTap: () {
-                            setState(() => _currentAddress = address);
-                            Navigator.pop(sheetContext);
-                          },
-                          borderRadius: BorderRadius.circular(16),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? const Color(0xFF006194)
-                                        : const Color(0xFFE0F2FE),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.location_on,
-                                    size: 20,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : const Color(0xFF006194),
-                                  ),
+                  StreamBuilder<List<SavedAddressModel>>(
+                    stream: _uid == null
+                        ? const Stream.empty()
+                        : _firestoreService.getSavedAddressesStream(_uid!),
+                    builder: (context, addrSnapshot) {
+                      if (!addrSnapshot.hasData) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      final addresses = addrSnapshot.data!;
+                      if (addresses.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'No saved addresses yet. Add one in your Profile, or quick-add below.',
+                                style: TextStyle(
+                                  fontFamily: 'Plus Jakarta Sans',
+                                  fontSize: 12,
+                                  color: Color(0xFF3F4850),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    address,
-                                    style: const TextStyle(
-                                      fontFamily: 'Plus Jakarta Sans',
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF131B2E),
-                                    ),
-                                  ),
-                                ),
-                                Icon(
-                                  isSelected
-                                      ? Icons.check_circle
-                                      : Icons.radio_button_unchecked,
-                                  size: 22,
-                                  color: isSelected
-                                      ? const Color(0xFF006194)
-                                      : const Color(0xFFBFC7D2),
-                                ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildQuickAddAddress(sheetContext),
+                            ],
                           ),
-                        ),
-                      ),
-                    );
-                  }),
+                        );
+                      }
+                      return Column(
+                        children: addresses.map((address) {
+                          final bool isSelected =
+                              address.addressText == _currentAddress;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Material(
+                              color: isSelected
+                                  ? const Color(0xFFE0F2FE)
+                                  : const Color(0xFFF2F3FF),
+                              borderRadius: BorderRadius.circular(16),
+                              child: InkWell(
+                                onTap: () {
+                                  setState(() =>
+                                      _currentAddress = address.addressText);
+                                  Navigator.pop(sheetContext);
+                                },
+                                borderRadius: BorderRadius.circular(16),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 36,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? const Color(0xFF006194)
+                                              : const Color(0xFFE0F2FE),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          Icons.location_on,
+                                          size: 20,
+                                          color: isSelected
+                                              ? Colors.white
+                                              : const Color(0xFF006194),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              address.label,
+                                              style: const TextStyle(
+                                                fontFamily:
+                                                    'Plus Jakarta Sans',
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF131B2E),
+                                              ),
+                                            ),
+                                            Text(
+                                              address.addressText,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontFamily:
+                                                    'Plus Jakarta Sans',
+                                                fontSize: 11,
+                                                color: Color(0xFF3F4850),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Icon(
+                                        isSelected
+                                            ? Icons.check_circle
+                                            : Icons.radio_button_unchecked,
+                                        size: 22,
+                                        color: isSelected
+                                            ? const Color(0xFF006194)
+                                            : const Color(0xFFBFC7D2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
@@ -293,13 +430,20 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
 
     return StreamBuilder<List<OrderModel>>(
       stream: _ordersStream,
-      builder: (context, snapshot) {
-        final myOrders = snapshot.data ?? const <OrderModel>[];
+      builder: (context, ordersSnapshot) {
+        final myOrders = ordersSnapshot.data ?? const <OrderModel>[];
         final hasActiveOrder = myOrders.any(
               (o) =>
           o.status != OrderStatus.delivered &&
               o.status != OrderStatus.cancelled,
         );
+
+        return StreamBuilder<List<InventoryModel>>(
+          stream: _inventoryStream,
+          builder: (context, inventorySnapshot) {
+            final products = inventorySnapshot.hasData
+                ? _productsWithStock(inventorySnapshot.data!)
+                : _products;
 
         return Scaffold(
           backgroundColor: const Color(0xFFF6FAFC),
@@ -311,7 +455,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
               child: _isCheckoutView
                   ? CustomerCheckoutScreen(
                 cart: _cart,
-                products: _products,
+                products: products,
                 currentAddress: _currentAddress,
                 onBack: () => setState(() => _isCheckoutView = false),
                 onChangeAddress: () => _showLocationPicker(isDark),
@@ -325,7 +469,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
               )
                   : Stack(
                 children: [
-                  _buildMainBody(isDark, myOrders, hasActiveOrder),
+                  _buildMainBody(isDark, myOrders, hasActiveOrder, products),
                   Positioned(
                     top: 0,
                     left: 0,
@@ -353,12 +497,14 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
           floatingActionButtonLocation:
           FloatingActionButtonLocation.centerFloat,
         );
+          },
+        );
       },
     );
   }
 
-  Widget _buildMainBody(
-      bool isDark, List<OrderModel> myOrders, bool hasActiveOrder) {
+  Widget _buildMainBody(bool isDark, List<OrderModel> myOrders,
+      bool hasActiveOrder, List<Map<String, dynamic>> products) {
     return IndexedStack(
       index: _navIndex,
       children: [
@@ -366,7 +512,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
           userFuture: _userFuture,
           currentAddress: _currentAddress,
           onAddressTap: () => _showLocationPicker(isDark),
-          products: _products,
+          products: products,
           cart: _cart,
           onAddToCart: _addToCart,
           onRemoveFromCart: _removeFromCart,
@@ -374,7 +520,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
         CustomerOrdersScreen(
           myOrders: myOrders,
           hasActiveOrder: hasActiveOrder,
-          products: _products,
+          products: products,
           onReorder: (cartUpdates) {
             setState(() {
               cartUpdates.forEach((key, value) {

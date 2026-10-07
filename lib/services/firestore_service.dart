@@ -26,6 +26,9 @@ class FirestoreService {
   Future<void> restockItem(String itemId, int quantityToAdd) async {
     await _db.collection('inventory').doc(itemId).update({
       'currentStock': FieldValue.increment(quantityToAdd),
+      // Clears the low-stock push-notification flag so a future dip below
+      // threshold notifies again instead of staying silently suppressed.
+      'notifiedLowStock': false,
     });
   }
 
@@ -317,6 +320,13 @@ class FirestoreService {
 
   Future<void> createUser(UserModel user) async {
     await _db.collection('users').doc(user.id).set(user.toMap());
+  }
+
+  // Saves this device's FCM token so the notification-check script (run on
+  // a schedule by GitHub Actions, since this project doesn't use Cloud
+  // Functions) knows where to send a push for this user.
+  Future<void> saveFcmToken(String uid, String token) async {
+    await _db.collection('users').doc(uid).update({'fcmToken': token});
   }
 
   // Removes a team member's AquaOps profile document. Does NOT delete their

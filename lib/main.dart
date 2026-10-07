@@ -7,7 +7,7 @@ import 'firebase_options.dart';
 import 'core/constants/app_colors.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
-import 'screens/customer/customer_order_screen.dart';
+import 'screens/customer/customer_main_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/profile/profile_screen.dart';
 
@@ -109,7 +109,7 @@ class AquaOpsApp extends StatelessWidget {
             '/pos': (context) => shellAt(ShellTab.pos),
             '/dispatch': (context) => shellAt(ShellTab.queue),
             '/inventory': (context) => shellAt(ShellTab.stock),
-            '/customer': (context) => const CustomerOrderScreen(),
+            '/customer': (context) => const CustomerMainScreen(),
           },
         );
       },

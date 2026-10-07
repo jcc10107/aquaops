@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
+import '../screens/profile/profile_screen.dart';
 import 'aqua_logo.dart';
 import 'notification_bell.dart';
 
-class CustomHeader extends StatelessWidget {
+class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
   final String hubName;
   final VoidCallback? onProfileTap;
 
@@ -19,6 +20,9 @@ class CustomHeader extends StatelessWidget {
 
   static const double contentHeight = 76;
 
+  @override
+  Size get preferredSize => const Size.fromHeight(contentHeight);
+
   String _getInitials(String fullName) {
     if (fullName.trim().isEmpty) return 'U';
     final List<String> parts = fullName.trim().split(RegExp(r'\s+'));
@@ -26,6 +30,19 @@ class CustomHeader extends StatelessWidget {
       return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
     }
     return parts.first.substring(0, parts.first.length >= 2 ? 2 : 1).toUpperCase();
+  }
+
+  void _navigateToProfile(BuildContext context) {
+    if (onProfileTap != null) {
+      onProfileTap!();
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const ProfileScreen(),
+        ),
+      );
+    }
   }
 
   @override
@@ -96,7 +113,7 @@ class CustomHeader extends StatelessWidget {
                     children: [
                       NotificationBell(isDark: isDark),
                       const SizedBox(width: 8),
-                      _buildAvatar(initials),
+                      _buildAvatar(context, initials),
                     ],
                   ),
                 ],
@@ -197,61 +214,65 @@ class CustomHeader extends StatelessWidget {
     );
   }
 
-  Widget _buildAvatar(String initials) {
-    return InkWell(
+  Widget _buildAvatar(BuildContext context, String initials) {
+    return Material(
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(12),
-      onTap: onProfileTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF0284C7),
-                  Color(0xFF0099E5),
-                  Color(0xFF00B4D8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _navigateToProfile(context),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFF0284C7),
+                    Color(0xFF0099E5),
+                    Color(0xFF00B4D8),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0099E5).withValues(alpha: 0.35),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
                 ],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF0099E5).withValues(alpha: 0.35),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Text(
-                initials,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                  letterSpacing: 1,
+              child: Center(
+                child: Text(
+                  initials,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    letterSpacing: 1,
+                  ),
                 ),
               ),
             ),
-          ),
-          Positioned(
-            bottom: -2,
-            right: -2,
-            child: Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: AppColors.accentTeal,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
+            Positioned(
+              bottom: -2,
+              right: -2,
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: AppColors.accentTeal,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

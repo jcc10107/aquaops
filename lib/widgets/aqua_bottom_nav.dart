@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
 
-class AquaBottomNav extends StatelessWidget {
+class AquaBottomNav extends StatelessWidget implements PreferredSizeWidget {
   final bool isOwner;
   final bool isStaff;
   final bool isRider;
+  final bool hasActiveOrder;
   final int currentIndex;
   final ValueChanged<int> onTap;
 
@@ -15,9 +16,13 @@ class AquaBottomNav extends StatelessWidget {
     required this.isOwner,
     this.isStaff = false,
     this.isRider = false,
+    this.hasActiveOrder = false,
     required this.currentIndex,
     required this.onTap,
   });
+
+  @override
+  Size get preferredSize => const Size.fromHeight(80);
 
   @override
   Widget build(BuildContext context) {
@@ -43,15 +48,37 @@ class AquaBottomNav extends StatelessWidget {
         BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
       ];
     } else {
-      items = const [
-        BottomNavigationBarItem(icon: Icon(Icons.water_drop), label: 'Order'),
-        BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: 'Orders'),
-        BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet), label: 'Payments'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+      items = [
+        const BottomNavigationBarItem(icon: Icon(Icons.local_mall), label: 'Store'),
+        BottomNavigationBarItem(
+          icon: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(Icons.receipt_long),
+              if (hasActiveOrder)
+                Positioned(
+                  top: -2,
+                  right: -4,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: AppColors.cyanElectric,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                )
+            ],
+          ),
+          label: 'Orders',
+        ),
+        const BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet), label: 'Payments'),
+        const BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Profile'),
       ];
     }
 
     return SafeArea(
+      top: false,
       child: Padding(
         padding: const EdgeInsets.only(left: 24, right: 24, bottom: 16),
         child: Row(

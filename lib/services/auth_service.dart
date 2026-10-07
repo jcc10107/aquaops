@@ -11,11 +11,23 @@ class AuthService {
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   Future<UserModel?> signIn(String email, String password) async {
-    final credential = await _auth.signInWithEmailAndPassword(email: email, password: password);
-    if (credential.user != null) {
-      return await _firestore.getUser(credential.user!.uid);
+    try {
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      if (credential.user != null) {
+        return await _firestore.getUser(credential.user!.uid);
+      }
+      return null;
+    } on FirebaseAuthException catch (e) {
+      print('Firebase Auth Error Code: ${e.code}');
+      print('Firebase Auth Error Message: ${e.message}');
+      rethrow;
+    } catch (e) {
+      print('General Error: $e');
+      rethrow;
     }
-    return null;
   }
 
   Future<UserModel> signUp({
@@ -52,10 +64,6 @@ class AuthService {
     await _auth.sendPasswordResetEmail(email: email);
   }
 
-  // Creates a Staff or Rider account on the owner's behalf. Runs the
-  // Auth creation on a throwaway secondary Firebase App instance so it
-  // doesn't sign the owner out of their own session (the client SDK
-  // otherwise signs in as whichever user it just created).
   Future<UserModel> createTeamAccount({
     required String name,
     required String email,

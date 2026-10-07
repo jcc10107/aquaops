@@ -39,8 +39,8 @@ class UserModel {
       phone: data['phone'] ?? '',
       address: data['address'],
       assignedArea: data['assignedArea'],
-      unreturnedContainers: data['unreturnedContainers'] ?? 0,
-      activeDepositAmount: (data['activeDepositAmount'] ?? 0).toDouble(),
+      unreturnedContainers: (data['unreturnedContainers'] as num?)?.toInt() ?? 0,
+      activeDepositAmount: (data['activeDepositAmount'] as num?)?.toDouble() ?? 0.0,
       notificationsEnabled: data['notificationsEnabled'] ?? true,
       hasOwnContainers: data['hasOwnContainers'],
     );

@@ -716,15 +716,24 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           ),
                           const SizedBox(height: 16),
                           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                            Row(children: [
-                              Text('Tracked Supply Lines', style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.bold, color: textMain)),
-                              const SizedBox(width: 8),
-                              Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(color: const Color(0xFFF0F9FF), borderRadius: BorderRadius.circular(100)),
-                                  child: Text('${filteredInvItems.length} Items',
-                                      style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7))))
-                            ]),
+                            Flexible(
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text('Tracked Supply Lines', maxLines: 1, style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.bold, color: textMain)),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(color: const Color(0xFFF0F9FF), borderRadius: BorderRadius.circular(100)),
+                                    child: Text('${filteredInvItems.length} Items',
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7))))
+                              ]),
+                            ),
+                            const SizedBox(width: 8),
                             _buildFilterDropdown(),
                           ]),
                           const SizedBox(height: 16),

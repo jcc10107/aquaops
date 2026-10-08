@@ -19,10 +19,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
   String _capitalize(String s) =>
       s.isNotEmpty ? '${s[0].toUpperCase()}${s.substring(1).toLowerCase()}' : s;
 
-  Color _colorForItem(InventoryModel item) {
-    return const Color(0xFF0284C7);
-  }
-
   IconData _iconForItem(InventoryModel item) {
     final name = item.name.toLowerCase();
     if (item.category == 'packaging') {
@@ -545,250 +541,264 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textMain = isDark ? Colors.white : AppColors.textLight;
     final isOwner = currentUserRoleNotifier.value == 'owner';
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 450),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 130),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(color: const Color(0xFFEAEDFF), borderRadius: BorderRadius.circular(100)),
-                  child: Row(
-                    children: [
-                      Expanded(
-                          child: InkWell(
-                              onTap: () => setState(() => _activeTab = 'inventory'),
-                              child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  decoration: BoxDecoration(
-                                      gradient: _activeTab == 'inventory' ? AppColors.vividGradient : null,
-                                      borderRadius: BorderRadius.circular(100),
-                                      boxShadow: _activeTab == 'inventory' ? [BoxShadow(color: AppColors.cyanElectric.withValues(alpha: 0.3), blurRadius: 16)] : []),
-                                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                    Icon(Icons.inventory_2, size: 18, color: _activeTab == 'inventory' ? Colors.white : AppColors.textSecondary),
-                                    const SizedBox(width: 6),
-                                    Text('Stock Inventory',
-                                        style: GoogleFonts.plusJakartaSans(
-                                            fontSize: 13, fontWeight: FontWeight.bold, color: _activeTab == 'inventory' ? Colors.white : AppColors.textSecondary))
-                                  ])))),
-                      Expanded(
-                          child: InkWell(
-                              onTap: () => setState(() => _activeTab = 'machinery'),
-                              child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  decoration: BoxDecoration(
-                                      gradient: _activeTab == 'machinery' ? AppColors.vividGradient : null,
-                                      borderRadius: BorderRadius.circular(100),
-                                      boxShadow: _activeTab == 'machinery' ? [BoxShadow(color: AppColors.cyanElectric.withValues(alpha: 0.3), blurRadius: 16)] : []),
-                                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                    Icon(Icons.precision_manufacturing, size: 18, color: _activeTab == 'machinery' ? Colors.white : AppColors.textSecondary),
-                                    const SizedBox(width: 6),
-                                    Text('Machinery Alerts',
-                                        style: GoogleFonts.plusJakartaSans(
-                                            fontSize: 13, fontWeight: FontWeight.bold, color: _activeTab == 'machinery' ? Colors.white : AppColors.textSecondary)),
-                                    const SizedBox(width: 4),
-                                    Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.coralAlert, shape: BoxShape.circle))
-                                  ])))),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (_activeTab == 'inventory') ...[
-                  StreamBuilder<List<InventoryModel>>(
-                    stream: _firestoreService.getInventoryStream(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          child: Text('Failed to load inventory: ${snapshot.error}', style: GoogleFonts.plusJakartaSans(color: AppColors.error)),
-                        );
-                      }
-                      if (!snapshot.hasData) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 48),
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      }
-
-                      final invItems = snapshot.data!;
-                      final waterItems = invItems.where((i) => i.category == 'water');
-                      final totalWaterStock = waterItems.fold<int>(0, (sum, i) => sum + i.currentStock);
-                      final totalWaterCapacity = waterItems.fold<int>(0, (sum, i) => sum + i.maxCapacity);
-                      final waterPct = totalWaterCapacity == 0 ? 0.0 : totalWaterStock / totalWaterCapacity;
-                      final criticalItems = invItems.where((i) => i.isLowStock).toList();
-                      final filteredInvItems = _stockFilter == 'all' ? invItems : invItems.where((i) => i.category == _stockFilter).toList();
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6FAFC),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 450),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(16, 16, 16, 130 + bottomInset),
+                      child: Column(
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                  child: Container(
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(16),
-                                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)]),
-                                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                          Text('TOTAL VOLUME', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary, letterSpacing: 1)),
-                                          Container(
-                                              width: 28,
-                                              height: 28,
-                                              decoration: const BoxDecoration(color: Color(0xFFF0F9FF), shape: BoxShape.circle),
-                                              child: const Icon(Icons.water_drop, size: 16, color: Color(0xFF0284C7)))
-                                        ]),
-                                        const SizedBox(height: 8),
-                                        Text.rich(TextSpan(children: [
-                                          TextSpan(
-                                              text: '$totalWaterStock',
-                                              style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textLight)),
-                                          TextSpan(text: ' / $totalWaterCapacity Gal', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textSecondary))
-                                        ])),
-                                        const SizedBox(height: 8),
-                                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                          Text('${(waterPct * 100).toStringAsFixed(0)}% Cap',
-                                              style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7))),
-                                          Text('Optimal', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary))
-                                        ]),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                            height: 8,
-                                            decoration: BoxDecoration(color: const Color(0xFFEAEDFF), borderRadius: BorderRadius.circular(100)),
-                                            child: FractionallySizedBox(
-                                                alignment: Alignment.centerLeft,
-                                                widthFactor: waterPct.clamp(0.0, 1.0),
-                                                child: Container(decoration: BoxDecoration(gradient: AppColors.vividGradient, borderRadius: BorderRadius.circular(100))))),
-                                      ]))),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                  child: Container(
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(16),
-                                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)]),
-                                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                          Text('WARNING',
-                                              style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.coralAlert, letterSpacing: 1)),
-                                          Container(
-                                              width: 28,
-                                              height: 28,
-                                              decoration: const BoxDecoration(color: Color(0xFFFFDAD6), shape: BoxShape.circle),
-                                              child: const Icon(Icons.warning, size: 16, color: AppColors.coralAlert))
-                                        ]),
-                                        const SizedBox(height: 8),
-                                        Text.rich(TextSpan(children: [
-                                          TextSpan(
-                                              text: '${criticalItems.length}',
-                                              style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.coralAlert)),
-                                          TextSpan(text: ' Line Critical', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textSecondary))
-                                        ])),
-                                        const SizedBox(height: 8),
-                                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                          Expanded(
-                                              child: Text(criticalItems.isEmpty ? 'All clear' : criticalItems.first.name,
-                                                  overflow: TextOverflow.ellipsis,
-                                                  style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.coralAlert))),
-                                          Text(criticalItems.isEmpty ? '' : '< ${criticalItems.first.minimumThreshold} left',
-                                              style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
-                                        ]),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                            height: 8,
-                                            decoration: BoxDecoration(color: const Color(0xFFEAEDFF), borderRadius: BorderRadius.circular(100)),
-                                            child: FractionallySizedBox(
-                                                alignment: Alignment.centerLeft,
-                                                widthFactor: criticalItems.isEmpty
-                                                    ? 0.0
-                                                    : (criticalItems.first.currentStock / (criticalItems.first.maxCapacity == 0 ? 1 : criticalItems.first.maxCapacity))
-                                                    .clamp(0.0, 1.0),
-                                                child: Container(decoration: BoxDecoration(color: AppColors.coralAlert, borderRadius: BorderRadius.circular(100))))),
-                                      ]))),
-                            ],
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(color: const Color(0xFFEAEDFF), borderRadius: BorderRadius.circular(100)),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                    child: InkWell(
+                                        onTap: () => setState(() => _activeTab = 'inventory'),
+                                        child: Container(
+                                            padding: const EdgeInsets.symmetric(vertical: 10),
+                                            decoration: BoxDecoration(
+                                                gradient: _activeTab == 'inventory' ? AppColors.vividGradient : null,
+                                                borderRadius: BorderRadius.circular(100),
+                                                boxShadow: _activeTab == 'inventory' ? [BoxShadow(color: AppColors.cyanElectric.withValues(alpha: 0.3), blurRadius: 16)] : []),
+                                            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                              Icon(Icons.inventory_2, size: 18, color: _activeTab == 'inventory' ? Colors.white : AppColors.textSecondary),
+                                              const SizedBox(width: 6),
+                                              Text('Stock Inventory',
+                                                  style: GoogleFonts.plusJakartaSans(
+                                                      fontSize: 13, fontWeight: FontWeight.bold, color: _activeTab == 'inventory' ? Colors.white : AppColors.textSecondary))
+                                            ])))),
+                                Expanded(
+                                    child: InkWell(
+                                        onTap: () => setState(() => _activeTab = 'machinery'),
+                                        child: Container(
+                                            padding: const EdgeInsets.symmetric(vertical: 10),
+                                            decoration: BoxDecoration(
+                                                gradient: _activeTab == 'machinery' ? AppColors.vividGradient : null,
+                                                borderRadius: BorderRadius.circular(100),
+                                                boxShadow: _activeTab == 'machinery' ? [BoxShadow(color: AppColors.cyanElectric.withValues(alpha: 0.3), blurRadius: 16)] : []),
+                                            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                              Icon(Icons.precision_manufacturing, size: 18, color: _activeTab == 'machinery' ? Colors.white : AppColors.textSecondary),
+                                              const SizedBox(width: 6),
+                                              Text('Machinery Alerts',
+                                                  style: GoogleFonts.plusJakartaSans(
+                                                      fontSize: 13, fontWeight: FontWeight.bold, color: _activeTab == 'machinery' ? Colors.white : AppColors.textSecondary)),
+                                              const SizedBox(width: 4),
+                                              Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.coralAlert, shape: BoxShape.circle))
+                                            ])))),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 16),
-                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                            Flexible(
-                              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                Flexible(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: Text('Tracked Supply Lines', maxLines: 1, style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.bold, color: textMain)),
-                                  ),
+                          if (_activeTab == 'inventory') ...[
+                            StreamBuilder<List<InventoryModel>>(
+                              stream: _firestoreService.getInventoryStream(),
+                              builder: (context, snapshot) {
+                                if (snapshot.hasError) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 24),
+                                    child: Text('Failed to load inventory: ${snapshot.error}', style: GoogleFonts.plusJakartaSans(color: AppColors.error)),
+                                  );
+                                }
+                                if (!snapshot.hasData) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 48),
+                                    child: Center(child: CircularProgressIndicator()),
+                                  );
+                                }
+
+                                final invItems = snapshot.data!;
+                                final waterItems = invItems.where((i) => i.category == 'water');
+                                final totalWaterStock = waterItems.fold<int>(0, (sum, i) => sum + i.currentStock);
+                                final totalWaterCapacity = waterItems.fold<int>(0, (sum, i) => sum + i.maxCapacity);
+                                final waterPct = totalWaterCapacity == 0 ? 0.0 : totalWaterStock / totalWaterCapacity;
+                                final criticalItems = invItems.where((i) => i.isLowStock).toList();
+                                final filteredInvItems = _stockFilter == 'all' ? invItems : invItems.where((i) => i.category == _stockFilter).toList();
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                            child: Container(
+                                                padding: const EdgeInsets.all(16),
+                                                decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius: BorderRadius.circular(16),
+                                                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)]),
+                                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                                                    Text('TOTAL VOLUME', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary, letterSpacing: 1)),
+                                                    Container(
+                                                        width: 28,
+                                                        height: 28,
+                                                        decoration: const BoxDecoration(color: Color(0xFFF0F9FF), shape: BoxShape.circle),
+                                                        child: const Icon(Icons.water_drop, size: 16, color: Color(0xFF0284C7)))
+                                                  ]),
+                                                  const SizedBox(height: 8),
+                                                  Text.rich(TextSpan(children: [
+                                                    TextSpan(
+                                                        text: '$totalWaterStock',
+                                                        style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textLight)),
+                                                    TextSpan(text: ' / $totalWaterCapacity Gal', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textSecondary))
+                                                  ])),
+                                                  const SizedBox(height: 8),
+                                                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                                                    Text('${(waterPct * 100).toStringAsFixed(0)}% Cap',
+                                                        style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7))),
+                                                    Text('Optimal', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary))
+                                                  ]),
+                                                  const SizedBox(height: 4),
+                                                  Container(
+                                                      height: 8,
+                                                      decoration: BoxDecoration(color: const Color(0xFFEAEDFF), borderRadius: BorderRadius.circular(100)),
+                                                      child: FractionallySizedBox(
+                                                          alignment: Alignment.centerLeft,
+                                                          widthFactor: waterPct.clamp(0.0, 1.0),
+                                                          child: Container(decoration: BoxDecoration(gradient: AppColors.vividGradient, borderRadius: BorderRadius.circular(100))))),
+                                                ]))),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                            child: Container(
+                                                padding: const EdgeInsets.all(16),
+                                                decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius: BorderRadius.circular(16),
+                                                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)]),
+                                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                                                    Text('WARNING',
+                                                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.coralAlert, letterSpacing: 1)),
+                                                    Container(
+                                                        width: 28,
+                                                        height: 28,
+                                                        decoration: const BoxDecoration(color: Color(0xFFFFDAD6), shape: BoxShape.circle),
+                                                        child: const Icon(Icons.warning, size: 16, color: AppColors.coralAlert))
+                                                  ]),
+                                                  const SizedBox(height: 8),
+                                                  Text.rich(TextSpan(children: [
+                                                    TextSpan(
+                                                        text: '${criticalItems.length}',
+                                                        style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.coralAlert)),
+                                                    TextSpan(text: ' Line Critical', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textSecondary))
+                                                  ])),
+                                                  const SizedBox(height: 8),
+                                                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                                                    Expanded(
+                                                        child: Text(criticalItems.isEmpty ? 'All clear' : criticalItems.first.name,
+                                                            overflow: TextOverflow.ellipsis,
+                                                            style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.coralAlert))),
+                                                    Text(criticalItems.isEmpty ? '' : '< ${criticalItems.first.minimumThreshold} left',
+                                                        style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
+                                                  ]),
+                                                  const SizedBox(height: 4),
+                                                  Container(
+                                                      height: 8,
+                                                      decoration: BoxDecoration(color: const Color(0xFFEAEDFF), borderRadius: BorderRadius.circular(100)),
+                                                      child: FractionallySizedBox(
+                                                          alignment: Alignment.centerLeft,
+                                                          widthFactor: criticalItems.isEmpty
+                                                              ? 0.0
+                                                              : (criticalItems.first.currentStock / (criticalItems.first.maxCapacity == 0 ? 1 : criticalItems.first.maxCapacity))
+                                                              .clamp(0.0, 1.0),
+                                                          child: Container(decoration: BoxDecoration(color: AppColors.coralAlert, borderRadius: BorderRadius.circular(100))))),
+                                                ]))),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                                      Flexible(
+                                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                          Flexible(
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              alignment: Alignment.centerLeft,
+                                              child: Text('Tracked Supply Lines', maxLines: 1, style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.bold, color: textMain)),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(color: const Color(0xFFF0F9FF), borderRadius: BorderRadius.circular(100)),
+                                              child: Text('${filteredInvItems.length} Items',
+                                                  style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7))))
+                                        ]),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      _buildFilterDropdown(),
+                                    ]),
+                                    const SizedBox(height: 16),
+                                    if (filteredInvItems.isEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 24),
+                                        child: Text('No items in this category.', style: GoogleFonts.plusJakartaSans(color: isDark ? Colors.white70 : AppColors.textSecondary)),
+                                      ),
+                                    ...filteredInvItems.map((item) => _buildInvCard(item)),
+                                  ],
+                                );
+                              },
+                            ),
+                          ] else ...[
+                            if (isOwner)
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: OutlinedButton.icon(
+                                  onPressed: _showAddMaintenanceAlertDialog,
+                                  icon: const Icon(Icons.add, size: 16, color: Color(0xFF0284C7)),
+                                  label: Text('Schedule Maintenance', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7))),
+                                  style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(color: Color(0xFF0284C7)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
                                 ),
-                                const SizedBox(width: 8),
-                                Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(color: const Color(0xFFF0F9FF), borderRadius: BorderRadius.circular(100)),
-                                    child: Text('${filteredInvItems.length} Items',
-                                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7))))
-                              ]),
+                              ),
+                            const SizedBox(height: 16),
+                            StreamBuilder<List<MaintenanceAlertModel>>(
+                              stream: _firestoreService.getMaintenanceAlertsStream(),
+                              builder: (context, snapshot) {
+                                if (snapshot.hasError) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 24),
+                                    child: Text('Failed to load alerts: ${snapshot.error}', style: GoogleFonts.plusJakartaSans(color: AppColors.error)),
+                                  );
+                                }
+                                if (!snapshot.hasData) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 48),
+                                    child: Center(child: CircularProgressIndicator()),
+                                  );
+                                }
+                                final alerts = snapshot.data!;
+                                if (alerts.isEmpty) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 24),
+                                    child: Text('No maintenance scheduled.', style: GoogleFonts.plusJakartaSans(color: isDark ? Colors.white70 : AppColors.textSecondary)),
+                                  );
+                                }
+                                return Column(children: alerts.map((a) => _buildMaintenanceCard(a)).toList());
+                              },
                             ),
-                            const SizedBox(width: 8),
-                            _buildFilterDropdown(),
-                          ]),
-                          const SizedBox(height: 16),
-                          if (filteredInvItems.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 24),
-                              child: Text('No items in this category.', style: GoogleFonts.plusJakartaSans(color: isDark ? Colors.white70 : AppColors.textSecondary)),
-                            ),
-                          ...filteredInvItems.map((item) => _buildInvCard(item)),
+                          ]
                         ],
-                      );
-                    },
-                  ),
-                ] else ...[
-                  if (isOwner)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: OutlinedButton.icon(
-                        onPressed: _showAddMaintenanceAlertDialog,
-                        icon: const Icon(Icons.add, size: 16, color: Color(0xFF0284C7)),
-                        label: Text('Schedule Maintenance', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7))),
-                        style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFF0284C7)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
                       ),
                     ),
-                  const SizedBox(height: 16),
-                  StreamBuilder<List<MaintenanceAlertModel>>(
-                    stream: _firestoreService.getMaintenanceAlertsStream(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          child: Text('Failed to load alerts: ${snapshot.error}', style: GoogleFonts.plusJakartaSans(color: AppColors.error)),
-                        );
-                      }
-                      if (!snapshot.hasData) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 48),
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      }
-                      final alerts = snapshot.data!;
-                      if (alerts.isEmpty) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          child: Text('No maintenance scheduled.', style: GoogleFonts.plusJakartaSans(color: isDark ? Colors.white70 : AppColors.textSecondary)),
-                        );
-                      }
-                      return Column(children: alerts.map((a) => _buildMaintenanceCard(a)).toList());
-                    },
                   ),
-                ]
-              ],
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -799,7 +809,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final int max = item.maxCapacity;
     final String unit = item.unit;
     final String title = item.name;
-    final Color color = _colorForItem(item);
     final IconData icon = _iconForItem(item);
     final double pct = max == 0 ? 0.0 : (val / max).clamp(0.0, 1.0);
     final bool isCrit = item.isLowStock;

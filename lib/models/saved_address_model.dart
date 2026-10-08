@@ -5,6 +5,9 @@ class SavedAddressModel {
   final String label;
   final String addressText;
   final String? note;
+  final String? contactName;
+  final String? phone;
+  final bool isPrimary;
   final DateTime? createdAt;
 
   SavedAddressModel({
@@ -12,6 +15,9 @@ class SavedAddressModel {
     required this.label,
     required this.addressText,
     this.note,
+    this.contactName,
+    this.phone,
+    this.isPrimary = false,
     this.createdAt,
   });
 
@@ -21,6 +27,9 @@ class SavedAddressModel {
       label: data['label'] ?? 'Address',
       addressText: data['addressText'] ?? '',
       note: data['note'],
+      contactName: data['contactName'],
+      phone: data['phone'],
+      isPrimary: data['isPrimary'] == true,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -30,6 +39,9 @@ class SavedAddressModel {
       'label': label,
       'addressText': addressText,
       'note': note,
+      'contactName': contactName,
+      'phone': phone,
+      'isPrimary': isPrimary,
       'createdAt': FieldValue.serverTimestamp(),
     };
   }

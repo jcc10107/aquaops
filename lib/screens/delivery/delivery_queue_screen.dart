@@ -8,6 +8,7 @@ import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import 'rider_cash_out_modal.dart';
 import 'emergency_transfer_modal.dart';
+import 'fulfill_delivery_screen.dart';
 
 class _BlinkingDot extends StatefulWidget {
   final Color color;
@@ -121,357 +122,6 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
     showDialog(context: context, builder: (context) => const EmergencyTransferModal());
   }
 
-  void _showFulfillDropoffModal(OrderModel order) {
-    final int droppedOff = order.items.fold<int>(0, (sum, i) => sum + i.quantity);
-    int emptyCollected = droppedOff;
-    bool paymentConfirmed = true;
-    bool isSubmitting = false;
-    String paymentMethod = order.paymentMethod == PaymentMethod.gcash ? 'gcash' : 'cash';
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateModal) {
-            final int unreturnedDiff = droppedOff - emptyCollected;
-
-            return Dialog(
-              backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: 390,
-                    maxHeight: MediaQuery.of(context).size.height * 0.85,
-                  ),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(28),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 40, offset: const Offset(0, 16))],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(colors: [Color(0xFF0284C7), Color(0xFF00B4D8), Color(0xFF06B6D4)]),
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
-                                child: const Icon(Icons.water_drop, color: Colors.white, size: 26),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Text('Fulfill Drop-off', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
-                                        const SizedBox(width: 6),
-                                        Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF6CF8BB), shape: BoxShape.circle)),
-                                      ],
-                                    ),
-                                    Text(order.customerName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFE0F2FE))),
-                                    Text(order.orderNumber, style: const TextStyle(fontSize: 11, color: Color(0xFFE0F2FE))),
-                                  ],
-                                ),
-                              ),
-                              InkWell(
-                                onTap: () => Navigator.pop(context),
-                                child: Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), shape: BoxShape.circle),
-                                  child: const Icon(Icons.close, color: Colors.white, size: 18),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Flexible(
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.all(24.0),
-                            child: Column(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(color: const Color(0xFFF2F3FF), borderRadius: BorderRadius.circular(16)),
-                                  child: Column(
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          const Row(
-                                            children: [
-                                              Icon(Icons.inventory_2, size: 16, color: Color(0xFF0284C7)),
-                                              SizedBox(width: 4),
-                                              Text('CONTAINER TELEMATICS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                                            ],
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: unreturnedDiff == 0 ? const Color(0xFF10B981) : const Color(0xFFF43F5E),
-                                              borderRadius: BorderRadius.circular(100),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(Icons.check_circle, size: 12, color: Colors.white),
-                                                const SizedBox(width: 4),
-                                                Text(unreturnedDiff == 0 ? 'Balanced (0)' : 'Diff ($unreturnedDiff)', style: const TextStyle(fontSize: 10, color: Colors.white)),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Container(
-                                              padding: const EdgeInsets.all(10),
-                                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)]),
-                                              child: Column(
-                                                children: [
-                                                  const Text('Delivered', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                                                  Text('$droppedOff', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
-                                                  const Text('5-Gal Full', style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Container(
-                                              padding: const EdgeInsets.all(10),
-                                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)]),
-                                              child: Column(
-                                                children: [
-                                                  const Text('Collected', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                                                  const SizedBox(height: 4),
-                                                  Row(
-                                                    mainAxisAlignment: MainAxisAlignment.center,
-                                                    children: [
-                                                      InkWell(
-                                                        onTap: () => setStateModal(() => emptyCollected = emptyCollected > 0 ? emptyCollected - 1 : 0),
-                                                        child: Container(
-                                                          width: 26,
-                                                          height: 26,
-                                                          decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
-                                                          child: const Icon(Icons.remove, size: 14, color: Color(0xFF0284C7)),
-                                                        ),
-                                                      ),
-                                                      Container(width: 28, alignment: Alignment.center, child: Text('$emptyCollected', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)))),
-                                                      InkWell(
-                                                        onTap: () => setStateModal(() => emptyCollected++),
-                                                        child: Container(
-                                                          width: 26,
-                                                          height: 26,
-                                                          decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
-                                                          child: const Icon(Icons.add, size: 14, color: Color(0xFF0284C7)),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  const Text('Empty Return', style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(color: const Color(0xFFF2F3FF), borderRadius: BorderRadius.circular(16)),
-                                  child: Column(
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          const Row(
-                                            children: [
-                                              Icon(Icons.payments, size: 16, color: Color(0xFF0284C7)),
-                                              SizedBox(width: 4),
-                                              Text('PAYMENT COLLECTION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                                            ],
-                                          ),
-                                          Text('₱${order.totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: InkWell(
-                                              onTap: () => setStateModal(() => paymentMethod = 'cash'),
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(vertical: 10),
-                                                decoration: BoxDecoration(color: paymentMethod == 'cash' ? const Color(0xFF0284C7) : Colors.white, borderRadius: BorderRadius.circular(100)),
-                                                child: Row(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(Icons.payments, size: 16, color: paymentMethod == 'cash' ? Colors.white : const Color(0xFF0F172A)),
-                                                    const SizedBox(width: 4),
-                                                    Text('Cash', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: paymentMethod == 'cash' ? Colors.white : const Color(0xFF0F172A))),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: InkWell(
-                                              onTap: () => setStateModal(() => paymentMethod = 'gcash'),
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(vertical: 10),
-                                                decoration: BoxDecoration(color: paymentMethod == 'gcash' ? const Color(0xFF0284C7) : Colors.white, borderRadius: BorderRadius.circular(100)),
-                                                child: Row(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(Icons.account_balance_wallet, size: 16, color: paymentMethod == 'gcash' ? Colors.white : const Color(0xFF06B6D4)),
-                                                    const SizedBox(width: 4),
-                                                    Text('GCash QR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: paymentMethod == 'gcash' ? Colors.white : const Color(0xFF0F172A))),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      if (order.gcashReference != null && order.gcashReference!.isNotEmpty) ...[
-                                        const SizedBox(height: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
-                                          child: Row(
-                                            children: [
-                                              const Icon(Icons.tag, size: 15, color: Color(0xFF06B6D4)),
-                                              const SizedBox(width: 6),
-                                              const Text('Customer-provided ref: ', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                                              Text(order.gcashReference!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                      const SizedBox(height: 8),
-                                      InkWell(
-                                        onTap: () => setStateModal(() => paymentConfirmed = !paymentConfirmed),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)]),
-                                          child: Row(
-                                            children: [
-                                              Icon(paymentConfirmed ? Icons.check_box : Icons.check_box_outline_blank, color: const Color(0xFF10B981), size: 16),
-                                              const SizedBox(width: 8),
-                                              const Text('Confirm full payment received', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(color: const Color(0xFFF2F3FF), borderRadius: BorderRadius.circular(16)),
-                                  child: const Row(
-                                    children: [
-                                      Icon(Icons.photo_camera_outlined, size: 20, color: Color(0xFF64748B)),
-                                      SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          'Photo proof of delivery isn\'t captured yet — this needs camera/upload support in the rider app.',
-                                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: OutlinedButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(vertical: 16),
-                                          side: BorderSide(color: const Color(0xFF94A3B8).withValues(alpha: 0.5)),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                                        ),
-                                        child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      flex: 2,
-                                      child: ElevatedButton.icon(
-                                        onPressed: (paymentConfirmed && !isSubmitting)
-                                            ? () async {
-                                          setStateModal(() => isSubmitting = true);
-                                          final messenger = ScaffoldMessenger.of(this.context);
-                                          final dialogNavigator = Navigator.of(context);
-                                          try {
-                                            await _firestoreService.fulfillDelivery(
-                                              orderId: order.id,
-                                              customerId: order.customerId ?? '',
-                                              gallonsDelivered: droppedOff,
-                                              emptyReturned: emptyCollected,
-                                              paymentMethod: paymentMethod,
-                                            );
-                                            if (!mounted) return;
-                                            dialogNavigator.pop();
-                                            messenger.showSnackBar(const SnackBar(content: Text('Delivery Completed!')));
-                                          } catch (e) {
-                                            setStateModal(() => isSubmitting = false);
-                                            messenger.showSnackBar(SnackBar(content: Text('Failed to complete delivery: $e'), backgroundColor: AppColors.error));
-                                          }
-                                        }
-                                            : null,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF0284C7),
-                                          padding: const EdgeInsets.symmetric(vertical: 16),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                                        ),
-                                        icon: isSubmitting
-                                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                            : const Icon(Icons.check_circle_outline, size: 18, color: Colors.white),
-                                        label: const Text('Delivered', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   int _countForArea(List<OrderModel> orders, String area) {
     if (area == 'all') return orders.length;
     return orders.where((d) => d.areaZone == area).length;
@@ -482,228 +132,239 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
     final role = currentUserRoleNotifier.value;
     final isDispatcher = role == 'owner' || role == 'staff';
     final canCashOut = role == 'owner' || role == 'staff' || role == 'rider';
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return Container(
-      color: const Color(0xFFF8FAFC),
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 450),
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 130),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6FAFC),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 450),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(16, 16, 16, 130 + bottomInset),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 36, height: 36,
-                            decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
-                            child: const Center(child: Icon(Icons.local_shipping, color: Color(0xFF0284C7), size: 22)),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF0F9FF),
-                              borderRadius: BorderRadius.circular(100),
-                              border: Border.all(color: const Color(0xFFBAE6FD)),
-                            ),
-                            child: const Text('DISPATCH HUB', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), letterSpacing: 0.5)),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Text('Area-Based Delivery Queue & Dispatch', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A), height: 1.2)),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      if (isDispatcher) ...[
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => _showEmergencyTransfer(context),
-                            borderRadius: BorderRadius.circular(100),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFFBEB).withValues(alpha: 0.8),
-                                border: Border.all(color: const Color(0xFFFCD34D)),
-                                borderRadius: BorderRadius.circular(100),
-                                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.swap_horiz, size: 17, color: Color(0xFFB45309)),
-                                  SizedBox(width: 6),
-                                  Text('Emergency Transfer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                      ],
-                      if (canCashOut)
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => _showCashOut(context),
-                            borderRadius: BorderRadius.circular(100),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFECFDF5).withValues(alpha: 0.8),
-                                border: Border.all(color: const Color(0xFF6EE7B7)),
-                                borderRadius: BorderRadius.circular(100),
-                                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.attach_money, size: 17, color: Color(0xFF047857)),
-                                  SizedBox(width: 6),
-                                  Text('Shift Cash-Out', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF047857))),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  StreamBuilder<List<UserModel>>(
-                    stream: _firestoreService.getRidersStream(),
-                    builder: (context, riderSnapshot) {
-                      final riders = riderSnapshot.data ?? const <UserModel>[];
-
-                      return StreamBuilder<List<OrderModel>>(
-                        stream: _firestoreService.getActiveOrdersStream(),
-                        builder: (context, snapshot) {
-                          if (snapshot.hasError) {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 24),
-                              child: Text('Failed to load deliveries: ${snapshot.error}', style: const TextStyle(color: Color(0xFFF43F5E))),
-                            );
-                          }
-                          if (!snapshot.hasData) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 48),
-                              child: Center(child: CircularProgressIndicator()),
-                            );
-                          }
-
-                          final allOrders = snapshot.data!;
-                          final isRider = currentUserRoleNotifier.value == 'rider';
-                          final orders = isRider ? allOrders.where((o) => o.assignedRiderId == _uid).toList() : allOrders;
-                          final filteredDeliveries = orders.where((d) => _area == 'all' || d.areaZone == _area).toList();
-
-                          return Column(
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: const Color(0xFFF1F5F9)),
-                                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 1))],
-                                ),
-                                child: Column(
-                                  children: [
-                                    const Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Icon(Icons.near_me, size: 17, color: Color(0xFF0284C7)),
-                                            SizedBox(width: 6),
-                                            Text('Dispatch Zone', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
-                                          ],
-                                        ),
-                                        Row(
-                                          children: [
-                                            _BlinkingDot(color: Color(0xFF10B981)),
-                                            SizedBox(width: 4),
-                                            Text('Live Dispatch', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
-                                          ],
-                                        ),
-                                      ],
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 36, height: 36,
+                                    decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
+                                    child: const Center(child: Icon(Icons.local_shipping, color: Color(0xFF0284C7), size: 22)),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF0F9FF),
+                                      borderRadius: BorderRadius.circular(100),
+                                      border: Border.all(color: const Color(0xFFBAE6FD)),
                                     ),
-                                    const SizedBox(height: 10),
-                                    SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: Row(
+                                    child: const Text('DISPATCH HUB', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), letterSpacing: 0.5)),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              const Text('Area-Based Delivery Queue & Dispatch', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A), height: 1.2)),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              if (isDispatcher) ...[
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () => _showEmergencyTransfer(context),
+                                    borderRadius: BorderRadius.circular(100),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFFBEB).withValues(alpha: 0.8),
+                                        border: Border.all(color: const Color(0xFFFCD34D)),
+                                        borderRadius: BorderRadius.circular(100),
+                                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
+                                      ),
+                                      child: const Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
-                                          _buildFilterTab('all', 'All Areas', _countForArea(orders, 'all')),
-                                          const SizedBox(width: 8),
-                                          _buildFilterTab('si', 'Barangay San Isidro', _countForArea(orders, 'si')),
-                                          const SizedBox(width: 8),
-                                          _buildFilterTab('dr', 'Barangay Del Remedio', _countForArea(orders, 'dr')),
-                                          const SizedBox(width: 8),
-                                          _buildFilterTab('sr', 'Barangay San Roque', _countForArea(orders, 'sr')),
-                                          const SizedBox(width: 8),
-                                          _buildFilterTab('sm', 'Barangay San Marcos', _countForArea(orders, 'sm')),
+                                          Icon(Icons.swap_horiz, size: 17, color: Color(0xFFB45309)),
+                                          SizedBox(width: 6),
+                                          Text('Emergency Transfer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
                                         ],
                                       ),
                                     ),
-                                    if (!isRider) ...[
-                                      const SizedBox(height: 12),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              if (canCashOut)
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () => _showCashOut(context),
+                                    borderRadius: BorderRadius.circular(100),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFECFDF5).withValues(alpha: 0.8),
+                                        border: Border.all(color: const Color(0xFF6EE7B7)),
+                                        borderRadius: BorderRadius.circular(100),
+                                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
+                                      ),
+                                      child: const Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.attach_money, size: 17, color: Color(0xFF047857)),
+                                          SizedBox(width: 6),
+                                          Text('Shift Cash-Out', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF047857))),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          StreamBuilder<List<UserModel>>(
+                            stream: _firestoreService.getRidersStream(),
+                            builder: (context, riderSnapshot) {
+                              final riders = riderSnapshot.data ?? const <UserModel>[];
+
+                              return StreamBuilder<List<OrderModel>>(
+                                stream: _firestoreService.getActiveOrdersStream(),
+                                builder: (context, snapshot) {
+                                  if (snapshot.hasError) {
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 24),
+                                      child: Text('Failed to load deliveries: ${snapshot.error}', style: const TextStyle(color: Color(0xFFF43F5E))),
+                                    );
+                                  }
+                                  if (!snapshot.hasData) {
+                                    return const Padding(
+                                      padding: EdgeInsets.symmetric(vertical: 48),
+                                      child: Center(child: CircularProgressIndicator()),
+                                    );
+                                  }
+
+                                  final allOrders = snapshot.data!;
+                                  final isRider = currentUserRoleNotifier.value == 'rider';
+                                  final orders = isRider ? allOrders.where((o) => o.assignedRiderId == _uid).toList() : allOrders;
+                                  final filteredDeliveries = orders.where((d) => _area == 'all' || d.areaZone == _area).toList();
+
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
                                       Container(
-                                        padding: const EdgeInsets.only(top: 10),
-                                        decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF1F5F9)))),
-                                        child: Row(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(16),
+                                          border: Border.all(color: const Color(0xFFF1F5F9)),
+                                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 1))],
+                                        ),
+                                        child: Column(
                                           children: [
-                                            const Icon(Icons.two_wheeler, size: 17, color: Color(0xFF0284C7)),
-                                            const SizedBox(width: 6),
-                                            Expanded(
-                                              child: RichText(
-                                                text: TextSpan(
-                                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontFamily: 'Plus Jakarta Sans'),
+                                            const Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Row(
                                                   children: [
-                                                    TextSpan(text: '${riders.length} riders available', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF334155))),
-                                                    const TextSpan(text: ' • tap "Assigned Rider" on an order to dispatch'),
+                                                    Icon(Icons.near_me, size: 17, color: Color(0xFF0284C7)),
+                                                    SizedBox(width: 6),
+                                                    Text('Dispatch Zone', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                                                  ],
+                                                ),
+                                                Row(
+                                                  children: [
+                                                    _BlinkingDot(color: Color(0xFF10B981)),
+                                                    SizedBox(width: 4),
+                                                    Text('Live Dispatch', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 10),
+                                            SingleChildScrollView(
+                                              scrollDirection: Axis.horizontal,
+                                              child: Row(
+                                                children: [
+                                                  _buildFilterTab('all', 'All Areas', _countForArea(orders, 'all')),
+                                                  const SizedBox(width: 8),
+                                                  _buildFilterTab('si', 'Barangay San Isidro', _countForArea(orders, 'si')),
+                                                  const SizedBox(width: 8),
+                                                  _buildFilterTab('dr', 'Barangay Del Remedio', _countForArea(orders, 'dr')),
+                                                  const SizedBox(width: 8),
+                                                  _buildFilterTab('sr', 'Barangay San Roque', _countForArea(orders, 'sr')),
+                                                  const SizedBox(width: 8),
+                                                  _buildFilterTab('sm', 'Barangay San Marcos', _countForArea(orders, 'sm')),
+                                                ],
+                                              ),
+                                            ),
+                                            if (!isRider) ...[
+                                              const SizedBox(height: 12),
+                                              Container(
+                                                padding: const EdgeInsets.only(top: 10),
+                                                decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF1F5F9)))),
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.two_wheeler, size: 17, color: Color(0xFF0284C7)),
+                                                    const SizedBox(width: 6),
+                                                    Expanded(
+                                                      child: RichText(
+                                                        text: TextSpan(
+                                                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontFamily: 'Plus Jakarta Sans'),
+                                                          children: [
+                                                            TextSpan(text: '${riders.length} riders available', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                                                            const TextSpan(text: ' • tap "Assigned Rider" on an order to dispatch'),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
                                                   ],
                                                 ),
                                               ),
-                                            ),
+                                            ],
                                           ],
                                         ),
                                       ),
+                                      const SizedBox(height: 24),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.schedule, size: 16, color: Color(0xFF0284C7)),
+                                          const SizedBox(width: 8),
+                                          Text('ACTIVE DELIVERY QUEUE (${filteredDeliveries.length} PENDING)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), letterSpacing: 0.5)),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      if (filteredDeliveries.isEmpty)
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(vertical: 24),
+                                          child: Text('No active deliveries in this area.', style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+                                        ),
+                                      ...filteredDeliveries.map((d) => _buildQueueCard(d, riders)),
                                     ],
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              Row(
-                                children: [
-                                  const Icon(Icons.schedule, size: 16, color: Color(0xFF0284C7)),
-                                  const SizedBox(width: 8),
-                                  Text('ACTIVE DELIVERY QUEUE (${filteredDeliveries.length} PENDING)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), letterSpacing: 0.5)),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              if (filteredDeliveries.isEmpty)
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 24),
-                                  child: Text('No active deliveries in this area.', style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
-                                ),
-                              ...filteredDeliveries.map((d) => _buildQueueCard(d, riders)),
-                            ],
-                          );
-                        },
-                      );
-                    },
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ],
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -960,7 +621,14 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: InkWell(
-                    onTap: () => _showFulfillDropoffModal(order),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FulfillDeliveryScreen(order: order),
+                        ),
+                      );
+                    },
                     borderRadius: BorderRadius.circular(100),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),

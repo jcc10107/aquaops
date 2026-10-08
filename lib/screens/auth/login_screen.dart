@@ -92,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           Navigator.pushReplacementNamed(context, '/owner_dashboard');
           break;
         case UserRole.staff:
-          Navigator.pushReplacementNamed(context, '/pos');
+          Navigator.pushReplacementNamed(context, '/dispatch');
           break;
         case UserRole.rider:
           Navigator.pushReplacementNamed(context, '/dispatch');

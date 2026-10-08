@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
+import '../screens/refund/owner_request_screen.dart';
+
+class _NavEntry {
+  final Widget icon;
+  final String label;
+
+  const _NavEntry({required this.icon, required this.label});
+}
 
 class AquaBottomNav extends StatelessWidget implements PreferredSizeWidget {
   final bool isOwner;
@@ -10,6 +18,7 @@ class AquaBottomNav extends StatelessWidget implements PreferredSizeWidget {
   final ValueChanged<int> onTap;
 
   static const Color brandLoginBlue = Color(0xFF0284C7);
+  static const int _ownerRefundIndex = 4;
 
   const AquaBottomNav({
     super.key,
@@ -24,58 +33,106 @@ class AquaBottomNav extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(80);
 
-  @override
-  Widget build(BuildContext context) {
-    List<BottomNavigationBarItem> items;
-
+  List<_NavEntry> _buildEntries() {
     if (isOwner) {
-      items = const [
-        BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-        BottomNavigationBarItem(icon: Icon(Icons.point_of_sale), label: 'POS'),
-        BottomNavigationBarItem(icon: Icon(Icons.local_shipping), label: 'Queue'),
-        BottomNavigationBarItem(icon: Icon(Icons.inventory_2), label: 'Stock'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-      ];
-    } else if (isStaff) {
-      items = const [
-        BottomNavigationBarItem(icon: Icon(Icons.point_of_sale), label: 'POS'),
-        BottomNavigationBarItem(icon: Icon(Icons.inventory_2), label: 'Inventory'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-      ];
-    } else if (isRider) {
-      items = const [
-        BottomNavigationBarItem(icon: Icon(Icons.local_shipping), label: 'Queue'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-      ];
-    } else {
-      items = [
-        const BottomNavigationBarItem(icon: Icon(Icons.local_mall), label: 'Store'),
-        BottomNavigationBarItem(
-          icon: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              const Icon(Icons.receipt_long),
-              if (hasActiveOrder)
-                Positioned(
-                  top: -2,
-                  right: -4,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: AppColors.cyanElectric,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                )
-            ],
-          ),
-          label: 'Orders',
-        ),
-        const BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet), label: 'Payments'),
-        const BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Profile'),
+      return const [
+        _NavEntry(icon: Icon(Icons.dashboard), label: 'Dashboard'),
+        _NavEntry(icon: Icon(Icons.point_of_sale), label: 'POS'),
+        _NavEntry(icon: Icon(Icons.local_shipping), label: 'Queue'),
+        _NavEntry(icon: Icon(Icons.inventory_2), label: 'Stock'),
+        _NavEntry(icon: Icon(Icons.assignment_return), label: 'Refund'),
       ];
     }
+    if (isStaff) {
+      return const [
+        _NavEntry(icon: Icon(Icons.point_of_sale), label: 'POS'),
+        _NavEntry(icon: Icon(Icons.inventory_2), label: 'Inventory'),
+      ];
+    }
+    if (isRider) {
+      return const [
+        _NavEntry(icon: Icon(Icons.local_shipping), label: 'Queue'),
+      ];
+    }
+    return [
+      const _NavEntry(icon: Icon(Icons.local_mall), label: 'Store'),
+      _NavEntry(
+        icon: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Icon(Icons.receipt_long),
+            if (hasActiveOrder)
+              Positioned(
+                top: -2,
+                right: -4,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: AppColors.cyanElectric,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        label: 'Orders',
+      ),
+      const _NavEntry(icon: Icon(Icons.account_balance_wallet), label: 'Payments'),
+    ];
+  }
+
+  void _handleTap(BuildContext context, int index) {
+    if (isOwner && index == _ownerRefundIndex) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const OwnerRequestScreen(),
+        ),
+      );
+      return;
+    }
+    onTap(index);
+  }
+
+  Widget _buildItem(BuildContext context, int index, _NavEntry entry) {
+    final bool selected = index == currentIndex;
+    final Color color = selected ? brandLoginBlue : AppColors.textVariant;
+
+    return Expanded(
+      child: InkWell(
+        onTap: () => _handleTap(context, index),
+        borderRadius: BorderRadius.circular(40),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconTheme(
+                data: IconThemeData(color: color, size: 24),
+                child: entry.icon,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                entry.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                  fontSize: 11,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<_NavEntry> entries = _buildEntries();
 
     return SafeArea(
       top: false,
@@ -101,28 +158,14 @@ class AquaBottomNav extends StatelessWidget implements PreferredSizeWidget {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(40),
-                    child: BottomNavigationBar(
-                      elevation: 0,
-                      backgroundColor: Colors.transparent,
-                      type: BottomNavigationBarType.fixed,
-                      currentIndex: currentIndex,
-                      onTap: onTap,
-                      showSelectedLabels: true,
-                      showUnselectedLabels: true,
-                      selectedItemColor: brandLoginBlue,
-                      unselectedItemColor: AppColors.textVariant,
-                      selectedIconTheme: const IconThemeData(color: brandLoginBlue),
-                      unselectedIconTheme: const IconThemeData(color: AppColors.textVariant),
-                      selectedLabelStyle: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                        color: brandLoginBlue,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: Row(
+                        children: [
+                          for (int i = 0; i < entries.length; i++)
+                            _buildItem(context, i, entries[i]),
+                        ],
                       ),
-                      unselectedLabelStyle: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textVariant,
-                      ),
-                      items: items,
                     ),
                   ),
                 ),

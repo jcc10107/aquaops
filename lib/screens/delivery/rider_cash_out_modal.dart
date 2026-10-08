@@ -20,20 +20,23 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
   static const double _gap = 16;
   static const double _headerHeight = 64;
 
-  static const Color _primary = Color(0xFF006194);
-  static const Color _primaryContainer = Color(0xFF007BB9);
-  static const Color _cyanElectric = Color(0xFF06B6D4);
+  static const Color _emerald = Color(0xFF059669);
+  static const Color _emeraldLight = Color(0xFF10B981);
+  static const Color _heroLabel = Color(0xFFA7F3D0);
+  static const Color _emerald100 = Color(0xFFD1FAE5);
+  static const Color _emerald700 = Color(0xFF047857);
   static const Color _cyanHighlight = Color(0xFF22D3EE);
   static const Color _secondary = Color(0xFF006C49);
-  static const Color _accent = Color(0xFF0284C7);
   static const Color _onSurface = Color(0xFF131B2E);
   static const Color _onSurfaceVariant = Color(0xFF3F4850);
-  static const Color _surfaceFrost = Color(0xFFE0F2FE);
-  static const Color _surfaceIce = Color(0xFFF0F9FF);
+  static const Color _surfaceContainerLow = Color(0xFFF2F3FF);
   static const Color _surfaceCanvas = Color(0xFFF8FAFC);
   static const Color _background = Color(0xFFF6FAFC);
   static const Color _faint = Color(0xFF94A3B8);
   static const Color _fieldBorder = Color(0xFFE2E8F0);
+  static const Color _handle = Color(0xFFBFC7D2);
+  static const Color _slate100 = Color(0xFFF1F5F9);
+  static const Color _slate600 = Color(0xFF475569);
   static const Color _amber = Color(0xFFB45309);
   static const Color _greenDark = Color(0xFF047857);
   static const Color _greenLight = Color(0xFFECFDF5);
@@ -136,9 +139,9 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
 
   BoxDecoration _fieldDecoration() {
     return BoxDecoration(
-      color: _surfaceCanvas,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: _fieldBorder),
+      color: _surfaceContainerLow,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: _fieldBorder.withValues(alpha: 0.8)),
     );
   }
 
@@ -189,7 +192,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                                     const SizedBox(
                                       width: 6,
                                       height: 6,
-                                      child: DecoratedBox(decoration: BoxDecoration(color: _cyanElectric, shape: BoxShape.circle)),
+                                      child: DecoratedBox(decoration: BoxDecoration(color: _emeraldLight, shape: BoxShape.circle)),
                                     ),
                                     const SizedBox(width: 6),
                                     Flexible(
@@ -197,7 +200,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                                         'Shift Reconciliation Protocol',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: _primary),
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: _emerald),
                                       ),
                                     ),
                                   ],
@@ -251,9 +254,9 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [_primary, _primaryContainer, _cyanElectric],
+          colors: [_emerald, _emeraldLight],
         ),
-        boxShadow: [BoxShadow(color: _primary.withValues(alpha: 0.2), blurRadius: 15, spreadRadius: -3, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: _emeraldLight.withValues(alpha: 0.3), blurRadius: 25, spreadRadius: -5, offset: const Offset(0, 10))],
       ),
       child: Stack(
         clipBehavior: Clip.none,
@@ -275,7 +278,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                   children: [
                     Text(
                       'CASH RECONCILIATION',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 10, height: 1.2, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: _cyanHighlight),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 10, height: 1.2, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: _heroLabel),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -292,70 +295,230 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
     );
   }
 
-  Widget _buildRiderDropdown(List<UserModel> riders, UserModel rider) {
-    final nameStyle = GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: _onSurface);
+  void _showCourierSheet(List<UserModel> riders, UserModel rider) {
+    String pendingId = rider.id;
 
-    return Theme(
-      data: Theme.of(context).copyWith(
-        highlightColor: _surfaceIce,
-        splashColor: _surfaceFrost,
-        hoverColor: _surfaceIce,
-        focusColor: Colors.transparent,
-        shadowColor: _onSurface.withValues(alpha: 0.12),
-      ),
-      child: Container(
-        decoration: _fieldDecoration(),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            isExpanded: true,
-            value: rider.id,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            dropdownColor: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            elevation: 8,
-            itemHeight: 52,
-            menuMaxHeight: 52 * 5,
-            icon: const Icon(Icons.keyboard_arrow_down, size: 20, color: _onSurfaceVariant),
-            selectedItemBuilder: (_) => riders
-                .map((r) => Align(alignment: Alignment.centerLeft, child: Text(r.name, style: nameStyle)))
-                .toList(),
-            items: riders.map((r) {
-              final isSelected = r.id == rider.id;
-              return DropdownMenuItem<String>(
-                value: r.id,
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Align(
+              alignment: Alignment.bottomCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: _maxWidth),
                 child: Container(
-                  height: 44,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: isSelected ? _surfaceIce : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 24 + MediaQuery.of(sheetContext).padding.bottom),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0x40000000),
+                        blurRadius: 50,
+                        spreadRadius: -12,
+                        offset: Offset(0, 25),
+                      ),
+                    ],
                   ),
-                  child: Row(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          r.name,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
-                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                            color: isSelected ? _accent : _onSurface,
+                      Center(
+                        child: Container(
+                          width: 48,
+                          height: 6,
+                          decoration: BoxDecoration(color: _handle, borderRadius: BorderRadius.circular(100)),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Choose Active Courier',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 18, height: 1.25, fontWeight: FontWeight.w700, color: _onSurface),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Select rider to reconcile shift cash-out',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _onSurfaceVariant),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Material(
+                            color: _surfaceContainerLow,
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: () => Navigator.pop(sheetContext),
+                              child: const SizedBox(
+                                width: 32,
+                                height: 32,
+                                child: Icon(Icons.close, size: 18, color: _onSurfaceVariant),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: riders.map((r) {
+                              final isSelected = r.id == pendingId;
+                              final zone = (r.assignedArea != null && r.assignedArea!.isNotEmpty)
+                                  ? r.assignedArea!
+                                  : 'No specific area assigned';
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(16),
+                                    onTap: () => setSheetState(() => pendingId = r.id),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? _greenLight.withValues(alpha: 0.4) : _surfaceContainerLow,
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: isSelected ? _emeraldLight : _fieldBorder.withValues(alpha: 0.8),
+                                          width: isSelected ? 2 : 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 40,
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              color: isSelected ? _emerald100 : _slate100,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Icon(
+                                              Icons.sports_motorsports,
+                                              size: 20,
+                                              color: isSelected ? _emerald700 : _slate600,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  r.name,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700, color: _onSurface),
+                                                ),
+                                                Text(
+                                                  zone,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _onSurfaceVariant),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          if (isSelected) const Icon(Icons.check_circle, size: 22, color: _emerald),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
                           ),
                         ),
                       ),
-                      if (isSelected) const Icon(Icons.check, size: 18, color: _accent),
+                      const SizedBox(height: 4),
+                      Container(
+                        width: double.infinity,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [_emerald, _emeraldLight]),
+                          borderRadius: BorderRadius.circular(100),
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 6, offset: const Offset(0, 4))],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(100),
+                            onTap: () {
+                              Navigator.pop(sheetContext);
+                              if (pendingId != rider.id) {
+                                setState(() {
+                                  _selectedRiderId = pendingId;
+                                  _isDone = false;
+                                  _cashHandedOverCtrl.clear();
+                                });
+                              }
+                            },
+                            child: Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.check, size: 20, color: Colors.white),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Confirm Courier Selection',
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              );
-            }).toList(),
-            onChanged: (v) {
-              setState(() {
-                _selectedRiderId = v;
-                _isDone = false;
-                _cashHandedOverCtrl.clear();
-              });
-            },
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildRiderDropdown(List<UserModel> riders, UserModel rider) {
+    return Container(
+      width: double.infinity,
+      decoration: _fieldDecoration(),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _showCourierSheet(riders, rider),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    rider.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700, color: _onSurface),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.expand_more, size: 20, color: _onSurfaceVariant),
+              ],
+            ),
           ),
         ),
       ),
@@ -382,10 +545,10 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: _surfaceIce, borderRadius: BorderRadius.circular(100)),
+            decoration: BoxDecoration(color: _emeraldLight.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(100)),
             child: Row(
               children: [
-                const Icon(Icons.location_on, size: 20, color: _accent),
+                const Icon(Icons.location_on, size: 20, color: _emerald),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text.rich(
@@ -410,7 +573,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
     );
   }
 
-  Widget _buildMetricTile(IconData icon, String value, String label, {Color color = _accent}) {
+  Widget _buildMetricTile(IconData icon, String value, String label, {Color color = _emerald}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -421,7 +584,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
           Container(
             width: 36,
             height: 36,
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: _emeraldLight.withValues(alpha: 0.12), shape: BoxShape.circle),
             child: Icon(icon, size: 20, color: color),
           ),
           const SizedBox(height: 8),
@@ -451,7 +614,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
             '₱${cashCollected.toStringAsFixed(2)}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: _mono(30, weight: FontWeight.w800, color: _accent, letterSpacing: -0.9),
+            style: _mono(30, weight: FontWeight.w800, color: _emerald, letterSpacing: -0.9),
           ),
         ],
       ),
@@ -506,8 +669,8 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
               Container(
                 width: 32,
                 height: 32,
-                decoration: const BoxDecoration(color: _surfaceFrost, shape: BoxShape.circle),
-                child: const Icon(Icons.point_of_sale, size: 18, color: _primary),
+                decoration: BoxDecoration(color: _emeraldLight.withValues(alpha: 0.12), shape: BoxShape.circle),
+                child: const Icon(Icons.point_of_sale, size: 18, color: _emerald),
               ),
               const SizedBox(width: 8),
               Text('Physical Turnover', style: GoogleFonts.plusJakartaSans(fontSize: 17, height: 24 / 17, fontWeight: FontWeight.w700, letterSpacing: -0.17, color: _onSurface)),
@@ -525,11 +688,11 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                 decoration: BoxDecoration(
                   color: focused ? Colors.white : _surfaceCanvas,
                   borderRadius: BorderRadius.circular(100),
-                  border: Border.all(color: focused ? _primary : Colors.transparent, width: 2),
+                  border: Border.all(color: focused ? _emerald : Colors.transparent, width: 2),
                 ),
                 child: Row(
                   children: [
-                    Text('₱', style: _mono(17, color: _primary)),
+                    Text('₱', style: _mono(17, color: _emerald)),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextFormField(
@@ -566,8 +729,8 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                 Container(
                   width: 32,
                   height: 32,
-                  decoration: BoxDecoration(color: _accent.withValues(alpha: 0.1), shape: BoxShape.circle),
-                  child: const Icon(Icons.badge, size: 18, color: _accent),
+                  decoration: BoxDecoration(color: _emeraldLight.withValues(alpha: 0.12), shape: BoxShape.circle),
+                  child: const Icon(Icons.badge, size: 18, color: _emerald),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -590,8 +753,8 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: _surfaceFrost, borderRadius: BorderRadius.circular(100)),
-                  child: Text('Authorized', style: GoogleFonts.plusJakartaSans(fontSize: 10, height: 1.2, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: _primary)),
+                  decoration: BoxDecoration(color: _emeraldLight.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(100)),
+                  child: Text('Authorized', style: GoogleFonts.plusJakartaSans(fontSize: 10, height: 1.2, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: _emerald)),
                 ),
               ],
             ),
@@ -603,7 +766,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
 
   Widget _buildCertifyCard(double amount, int emptiesReturned) {
     return Material(
-      color: _surfaceIce,
+      color: _emeraldLight.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -615,7 +778,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
             children: [
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Icon(_certified ? Icons.check_box : Icons.check_box_outline_blank, size: 24, color: _primary),
+                child: Icon(_certified ? Icons.check_box : Icons.check_box_outline_blank, size: 24, color: _emerald),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -623,9 +786,9 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                   TextSpan(
                     children: [
                       const TextSpan(text: 'I certify that physical cash of '),
-                      TextSpan(text: '₱${amount.toStringAsFixed(2)}', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: _primary)),
+                      TextSpan(text: '₱${amount.toStringAsFixed(2)}', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: _emerald)),
                       const TextSpan(text: ' and '),
-                      TextSpan(text: '$emptiesReturned empty containers', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: _secondary)),
+                      TextSpan(text: '$emptiesReturned empty containers', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: _emerald)),
                       const TextSpan(text: ' have been physically handed over and reconciled without discrepancies.'),
                     ],
                   ),
@@ -645,9 +808,9 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
       child: Container(
         height: 56,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [_accent, Color(0xFF0077C8)]),
+          gradient: const LinearGradient(colors: [_emerald, _emeraldLight]),
           borderRadius: BorderRadius.circular(100),
-          boxShadow: [BoxShadow(color: _accent.withValues(alpha: 0.35), blurRadius: 14, offset: const Offset(0, 4))],
+          boxShadow: [BoxShadow(color: _emeraldLight.withValues(alpha: 0.35), blurRadius: 14, offset: const Offset(0, 4))],
         ),
         child: Material(
           color: Colors.transparent,
@@ -708,7 +871,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
             child: ElevatedButton(
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _accent,
+                backgroundColor: _emerald,
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
               ),
@@ -758,7 +921,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
           children: [
             Expanded(child: _buildMetricTile(Icons.autorenew, '$emptiesReturned units', 'Empties Retrieved')),
             const SizedBox(width: 12),
-            Expanded(child: _buildMetricTile(Icons.qr_code_2, '₱${gcashCollected.toStringAsFixed(2)}', 'GCash Drop-Offs', color: _secondary)),
+            Expanded(child: _buildMetricTile(Icons.qr_code_2, '₱${gcashCollected.toStringAsFixed(2)}', 'GCash Drop-Offs')),
           ],
         ),
         const SizedBox(height: _gap),

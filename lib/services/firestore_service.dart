@@ -5,6 +5,7 @@ import '../models/inventory_model.dart';
 import '../models/shift_model.dart';
 import '../models/rider_cash_out_model.dart';
 import '../models/saved_address_model.dart';
+import '../models/refund_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -148,6 +149,10 @@ class FirestoreService {
       emptyGallonsReturned: (data['emptyGallonsReturned'] ?? 0).toInt(),
       unreturnedDiff: (data['unreturnedDiff'] ?? 0).toInt(),
       proofOfDeliveryUrl: data['proofOfDeliveryUrl'],
+      recipientName: data['recipientName'],
+      gcashScreenshotUrl: data['gcashScreenshotUrl'],
+      deliveryLat: (data['deliveryLat'] as num?)?.toDouble(),
+      deliveryLng: (data['deliveryLng'] as num?)?.toDouble(),
       lastTransferReason: data['lastTransferReason'],
       createdAt: createdAtRaw is Timestamp ? createdAtRaw.toDate() : DateTime.now(),
       deliveredAt: deliveredAtRaw is Timestamp ? deliveredAtRaw.toDate() : null,
@@ -198,6 +203,9 @@ class FirestoreService {
     required String paymentMethod,
     String? gcashReference,
     String? notes,
+    String? gcashScreenshotUrl,
+    double? deliveryLat,
+    double? deliveryLng,
   }) async {
     final orderRef = _db.collection('orders').doc();
     final orderNumber = 'ORD-${orderRef.id.substring(0, 6).toUpperCase()}';
@@ -214,8 +222,11 @@ class FirestoreService {
       'status': 'pending',
       'paymentMethod': paymentMethod,
       'gcashReference': gcashReference,
+      'gcashScreenshotUrl': gcashScreenshotUrl,
       'isPaid': false,
       'notes': notes,
+      'deliveryLat': deliveryLat,
+      'deliveryLng': deliveryLng,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
@@ -234,6 +245,7 @@ class FirestoreService {
     required int emptyReturned,
     required String paymentMethod,
     String? proofOfDeliveryUrl,
+    String? recipientName,
   }) async {
     final batch = _db.batch();
     final orderRef = _db.collection('orders').doc(orderId);
@@ -247,6 +259,7 @@ class FirestoreService {
       'emptyGallonsReturned': emptyReturned,
       'unreturnedDiff': unreturnedDiff,
       'proofOfDeliveryUrl': proofOfDeliveryUrl,
+      'recipientName': recipientName,
       'deliveredAt': FieldValue.serverTimestamp(),
     });
 
@@ -516,10 +529,34 @@ class FirestoreService {
     required String label,
     required String addressText,
     String? note,
+    String? contactName,
+    String? phone,
+    bool isPrimary = false,
   }) async {
-    await _db.collection('users').doc(uid).collection('addresses').add(
-      SavedAddressModel(id: '', label: label, addressText: addressText, note: note).toMap(),
-    );
+    final addressesRef = _db.collection('users').doc(uid).collection('addresses');
+    final newAddress = SavedAddressModel(
+      id: '',
+      label: label,
+      addressText: addressText,
+      note: note,
+      contactName: contactName,
+      phone: phone,
+      isPrimary: isPrimary,
+    ).toMap();
+
+    if (!isPrimary) {
+      await addressesRef.add(newAddress);
+      return;
+    }
+
+    // Only one address may be primary at a time, so demote any existing one first.
+    final currentPrimary = await addressesRef.where('isPrimary', isEqualTo: true).get();
+    final batch = _db.batch();
+    for (final doc in currentPrimary.docs) {
+      batch.update(doc.reference, {'isPrimary': false});
+    }
+    batch.set(addressesRef.doc(), newAddress);
+    await batch.commit();
   }
 
   Future<void> updateSavedAddressLabel({
@@ -532,5 +569,73 @@ class FirestoreService {
 
   Future<void> deleteSavedAddress({required String uid, required String addressId}) async {
     await _db.collection('users').doc(uid).collection('addresses').doc(addressId).delete();
+  }
+
+  // Stream of all refund requests (owner/staff view), newest first.
+  Stream<List<RefundModel>> getRefundRequestsStream() {
+    return _db.collection('refund_requests').snapshots().map((snapshot) {
+      final refunds = snapshot.docs.map((doc) => RefundModel.fromMap(doc.data(), doc.id)).toList();
+      refunds.sort((a, b) => b.requestedAt.compareTo(a.requestedAt));
+      return refunds;
+    });
+  }
+
+  // Stream of a single customer's own refund requests, newest first.
+  Stream<List<RefundModel>> getRefundRequestsForCustomerStream(String customerId) {
+    return _db.collection('refund_requests').where('customerId', isEqualTo: customerId).snapshots().map((snapshot) {
+      final refunds = snapshot.docs.map((doc) => RefundModel.fromMap(doc.data(), doc.id)).toList();
+      refunds.sort((a, b) => b.requestedAt.compareTo(a.requestedAt));
+      return refunds;
+    });
+  }
+
+  Future<void> submitRefundRequest({
+    required String orderId,
+    required String orderNumber,
+    required String customerId,
+    required String customerName,
+    required String reason,
+    required String description,
+    required String gcashName,
+    required String gcashNumber,
+    double amount = 0,
+    String itemsSummary = '',
+    String? photoUrl,
+  }) async {
+    await _db.collection('refund_requests').add({
+      'orderId': orderId,
+      'orderNumber': orderNumber,
+      'customerId': customerId,
+      'customerName': customerName,
+      'reason': reason,
+      'description': description,
+      'gcashName': gcashName,
+      'gcashNumber': gcashNumber,
+      'amount': amount,
+      'itemsSummary': itemsSummary,
+      'photoUrl': photoUrl,
+      'status': 'pending',
+      'requestedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> processRefundRequest({
+    required String refundId,
+    required String status,
+    required String processedByName,
+    String? rejectionReason,
+    String? resolutionType,
+    String? gcashRefNumber,
+    DateTime? redeliveryScheduledAt,
+  }) async {
+    await _db.collection('refund_requests').doc(refundId).update({
+      'status': status,
+      'processedByName': processedByName,
+      if (resolutionType != null) 'resolutionType': resolutionType,
+      if (gcashRefNumber != null) 'gcashRefNumber': gcashRefNumber,
+      if (redeliveryScheduledAt != null) 'redeliveryScheduledAt': Timestamp.fromDate(redeliveryScheduledAt),
+      'processedAt': FieldValue.serverTimestamp(),
+      if (rejectionReason != null) 'rejectionReason': rejectionReason,
+    });
   }
 }

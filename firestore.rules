@@ -106,5 +106,17 @@ service cloud.firestore {
       allow read: if isStaff();
       allow create: if isStaff();
     }
+
+    match /refund_requests/{refundId} {
+      // Staff/owner review all claims; a customer only ever sees their own.
+      allow read: if isStaff()
+        || (isSignedIn() && resource.data.customerId == request.auth.uid);
+      // A customer can only file a new claim for themselves, starting as pending.
+      allow create: if isSignedIn()
+        && request.resource.data.customerId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      // Only staff/owner can move a claim to approved/rejected/processed.
+      allow update: if isStaff();
+    }
   }
 }

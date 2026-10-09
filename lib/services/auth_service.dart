@@ -73,8 +73,15 @@ class AuthService {
         password: password,
       );
       if (credential.user != null) {
+        final profile = await _firestore.getUser(credential.user!.uid);
+        if (profile == null) {
+          // Their Firestore profile is gone (e.g. removed from the team) —
+          // don't leave them signed in at the Auth level with nowhere to go.
+          await _auth.signOut();
+          return null;
+        }
         unawaited(_registerForPushNotifications(credential.user!.uid));
-        return await _firestore.getUser(credential.user!.uid);
+        return profile;
       }
       return null;
     } on FirebaseAuthException catch (e) {

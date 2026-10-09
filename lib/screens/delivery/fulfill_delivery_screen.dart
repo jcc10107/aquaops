@@ -1,10 +1,11 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/order_model.dart';
 import '../../services/firestore_service.dart';
+import '../../services/cloudinary_service.dart';
 
 class FulfillDeliveryScreen extends StatefulWidget {
   final OrderModel order;
@@ -29,6 +30,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
   static const Color _emeraldBg = Color(0xFFECFDF5);
 
   final FirestoreService _firestoreService = FirestoreService();
+  final CloudinaryService _cloudinary = CloudinaryService();
   late int droppedOff;
   late int emptyCollected;
   bool paymentConfirmed = true;
@@ -38,6 +40,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
   final ImagePicker _picker = ImagePicker();
   final TextEditingController _recipientCtrl = TextEditingController();
   XFile? _podPhoto;
+  Uint8List? _podPhotoBytes;
   DateTime? _podTime;
 
   @override
@@ -58,8 +61,11 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
     try {
       final shot = await _picker.pickImage(source: ImageSource.camera, imageQuality: 70);
       if (shot == null) return;
+      final bytes = await shot.readAsBytes();
+      if (!mounted) return;
       setState(() {
         _podPhoto = shot;
+        _podPhotoBytes = bytes;
         _podTime = DateTime.now();
       });
     } catch (e) {
@@ -73,12 +79,18 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
     try {
+      String? podUrl;
+      if (_podPhotoBytes != null) {
+        podUrl = await _cloudinary.uploadImage(_podPhotoBytes!, filename: 'proof_of_delivery.jpg', folder: 'proof_of_delivery');
+      }
       await _firestoreService.fulfillDelivery(
         orderId: widget.order.id,
         customerId: widget.order.customerId ?? '',
         gallonsDelivered: droppedOff,
         emptyReturned: emptyCollected,
         paymentMethod: paymentMethod,
+        proofOfDeliveryUrl: podUrl,
+        recipientName: _recipientCtrl.text.trim().isEmpty ? null : _recipientCtrl.text.trim(),
       );
       if (!mounted) return;
       nav.pop();
@@ -509,7 +521,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
                     ? Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.file(File(_podPhoto!.path), fit: BoxFit.cover),
+                    Image.memory(_podPhotoBytes!, fit: BoxFit.cover),
                     DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -591,7 +603,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.file(File(_podPhoto!.path), width: 40, height: 40, fit: BoxFit.cover),
+                    child: Image.memory(_podPhotoBytes!, width: 40, height: 40, fit: BoxFit.cover),
                   ),
                   const SizedBox(width: 10),
                   const Expanded(

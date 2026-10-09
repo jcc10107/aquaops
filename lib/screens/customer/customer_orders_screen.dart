@@ -1,7 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/order_model.dart';
+import '../../models/refund_model.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/custom_header.dart';
 import 'customer_map_screen.dart';
@@ -58,7 +60,6 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
   static const Color _amber50 = Color(0xFFFFFBEB);
   static const Color _amber200 = Color(0xFFFDE68A);
   static const Color _amber500 = Color(0xFFF59E0B);
-  static const Color _amber700 = Color(0xFFB45309);
   static const Color _amber800 = Color(0xFF92400E);
 
   static const LinearGradient _activeGradient = LinearGradient(
@@ -137,9 +138,9 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
   Widget build(BuildContext context) {
     final activeOrders = widget.myOrders.where((o) => o.status != OrderStatus.delivered && o.status != OrderStatus.cancelled).toList();
     final historyOrders = widget.myOrders.where((o) => o.status == OrderStatus.delivered || o.status == OrderStatus.cancelled).toList();
-    final refundOrders = widget.myOrders.where((o) => o.status == OrderStatus.cancelled).toList();
 
     final double topInset = MediaQuery.of(context).padding.top;
+    final String? uid = FirebaseAuth.instance.currentUser?.uid;
 
     return Container(
       color: _surfaceCanvas,
@@ -148,20 +149,26 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 450),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: _buildOrderSwitcher(activeOrders.length, historyOrders.length, refundOrders.length),
-              ),
-              Expanded(
-                child: _ordersTab == 0
-                    ? _buildActiveOrdersList(activeOrders)
-                    : _ordersTab == 1
-                    ? _buildOrderHistoryList(historyOrders)
-                    : _buildRefundsList(refundOrders),
-              ),
-            ],
+          child: StreamBuilder<List<RefundModel>>(
+            stream: uid == null ? Stream<List<RefundModel>>.empty() : _firestoreService.getRefundRequestsForCustomerStream(uid),
+            builder: (context, snapshot) {
+              final refunds = snapshot.data ?? [];
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: _buildOrderSwitcher(activeOrders.length, historyOrders.length, refunds.length),
+                  ),
+                  Expanded(
+                    child: _ordersTab == 0
+                        ? _buildActiveOrdersList(activeOrders)
+                        : _ordersTab == 1
+                        ? _buildOrderHistoryList(historyOrders)
+                        : _buildRefundsList(refunds),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -723,7 +730,27 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                   if (!isCancelled) ...[
                     InkWell(
                       onTap: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => CustomerRefundRequestScreen(order: order)));
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CustomerRefundRequestScreen(
+                              order: order,
+                              onSubmit: (reason, description, gcashName, gcashNumber, photoUrl) => _firestoreService.submitRefundRequest(
+                                orderId: order.id,
+                                orderNumber: order.orderNumber,
+                                customerId: order.customerId ?? '',
+                                customerName: order.customerName,
+                                reason: reason,
+                                description: description,
+                                gcashName: gcashName,
+                                gcashNumber: gcashNumber,
+                                amount: order.totalAmount,
+                                itemsSummary: order.items.map((i) => '${i.quantity}x ${i.name}').join(', '),
+                                photoUrl: photoUrl,
+                              ),
+                            ),
+                          ),
+                        );
                       },
                       borderRadius: BorderRadius.circular(999),
                       child: Container(
@@ -773,26 +800,68 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
   }
 
   // --- VIEW 3: REFUNDS ---
-  Widget _buildRefundsList(List<OrderModel> refundOrders) {
-    if (refundOrders.isEmpty) return _buildEmptyState('No active refund requests.');
+  Widget _buildRefundsList(List<RefundModel> refunds) {
+    if (refunds.isEmpty) return _buildEmptyState('No active refund requests.');
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 112),
-      itemCount: refundOrders.length,
+      itemCount: refunds.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) => _buildRefundCard(refundOrders[index]),
+      itemBuilder: (context, index) => _buildRefundCard(refunds[index]),
     );
   }
 
-  Widget _buildRefundCard(OrderModel order) {
-    // Use HTML's 'Under Review' Dispute Card design for visualization
-    final String itemsStr = order.items.isNotEmpty ? '${order.items[0].quantity}× ${order.items[0].name}' : 'Unknown Item';
+  Widget _buildRefundCard(RefundModel r) {
+    // Use HTML's 'Under Review' Dispute Card design for visualization,
+    // now parameterized by the refund's real status.
+    final String itemsStr = r.itemsSummary.isEmpty ? 'Refund Request' : r.itemsSummary;
+
+    final Color statusColor;
+    final Color badgeBg;
+    final Color badgeBorder;
+    final String badgeLabel;
+    switch (r.status) {
+      case RefundStatus.pending:
+        statusColor = _amber500;
+        badgeBg = _amber50;
+        badgeBorder = _amber200;
+        badgeLabel = 'Under Review';
+        break;
+      case RefundStatus.approved:
+        statusColor = _secondary;
+        badgeBg = _secondaryContainer.withValues(alpha: 0.25);
+        badgeBorder = _secondaryContainer;
+        badgeLabel = 'Approved';
+        break;
+      case RefundStatus.processed:
+        statusColor = _secondary;
+        badgeBg = _secondaryContainer.withValues(alpha: 0.25);
+        badgeBorder = _secondaryContainer;
+        badgeLabel = 'Completed';
+        break;
+      case RefundStatus.rejected:
+        statusColor = _errorText;
+        badgeBg = _errorContainer;
+        badgeBorder = _errorContainer;
+        badgeLabel = 'Declined';
+        break;
+    }
+    final Color badgeTextColor = r.status == RefundStatus.pending ? _amber800 : statusColor;
+
+    final bool isRejected = r.status == RefundStatus.rejected;
+    final bool isProcessed = r.status == RefundStatus.processed;
+    final bool isApprovedOrLater = r.status == RefundStatus.approved || isProcessed;
+    final double widthFactor = isProcessed ? 1.0 : (isApprovedOrLater ? 0.75 : 0.5);
+    final IconData step2Icon = isRejected ? Icons.close : (isApprovedOrLater ? Icons.check : Icons.sync);
+    final IconData step3Icon = isProcessed ? Icons.check : Icons.lock;
+    final Color step3Bg = isProcessed ? statusColor : _surfaceContainer;
+    final Color step3IconColor = isProcessed ? Colors.white : _outline;
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: _surfaceContainerLowest,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _amber200.withValues(alpha: 0.6)),
+        border: Border.all(color: badgeBorder.withValues(alpha: 0.6)),
         boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 4, offset: Offset(0, 1))],
       ),
       child: Column(
@@ -802,27 +871,27 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
             children: [
               Row(
                 children: [
-                  Text(order.orderNumber, style: _headlineSm),
+                  Text(r.orderNumber, style: _headlineSm),
                   const SizedBox(width: 8),
-                  Text(_formatDate(order.createdAt), style: _labelSm.copyWith(fontWeight: FontWeight.w600, letterSpacing: 0)),
+                  Text(_formatDate(r.requestedAt), style: _labelSm.copyWith(fontWeight: FontWeight.w600, letterSpacing: 0)),
                 ],
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                 decoration: BoxDecoration(
-                  color: _amber50,
+                  color: badgeBg,
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: _amber200),
+                  border: Border.all(color: badgeBorder),
                 ),
                 child: Row(
                   children: [
                     Container(
                       width: 6,
                       height: 6,
-                      decoration: const BoxDecoration(color: _amber500, shape: BoxShape.circle),
+                      decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
                     ),
                     const SizedBox(width: 6),
-                    Text('Under Review', style: _labelSm.copyWith(color: _amber800, letterSpacing: 0)),
+                    Text(badgeLabel, style: _labelSm.copyWith(color: badgeTextColor, letterSpacing: 0)),
                   ],
                 ),
               ),
@@ -835,8 +904,8 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
               Container(
                 width: 28,
                 height: 28,
-                decoration: const BoxDecoration(color: _amber50, shape: BoxShape.circle),
-                child: const Icon(Icons.water_drop, size: 16, color: _amber700),
+                decoration: BoxDecoration(color: badgeBg, shape: BoxShape.circle),
+                child: Icon(Icons.water_drop, size: 16, color: statusColor),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -844,11 +913,11 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(itemsStr, style: _bodyMd.copyWith(fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    Text('Cancellation reported', style: _labelSm.copyWith(letterSpacing: 0)),
+                    Text(r.reason.isEmpty ? 'Refund reported' : r.reason, style: _labelSm.copyWith(letterSpacing: 0), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
-              Text('₱${order.totalAmount.toStringAsFixed(2)}', style: _headlineSm.copyWith(color: _primary)),
+              Text('₱${r.amount.toStringAsFixed(2)}', style: _headlineSm.copyWith(color: _primary)),
             ],
           ),
           const SizedBox(height: 12),
@@ -871,8 +940,8 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                           decoration: BoxDecoration(color: _surfaceContainer, borderRadius: BorderRadius.circular(999)),
                           alignment: Alignment.centerLeft,
                           child: FractionallySizedBox(
-                            widthFactor: 0.5,
-                            child: Container(decoration: BoxDecoration(color: _amber500, borderRadius: BorderRadius.circular(999))),
+                            widthFactor: widthFactor,
+                            child: Container(decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(999))),
                           ),
                         ),
                       ),
@@ -881,22 +950,22 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                         children: [
                           Container(
                             width: 24, height: 24,
-                            decoration: const BoxDecoration(color: _amber500, shape: BoxShape.circle),
+                            decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
                             child: const Icon(Icons.check, size: 13, color: Colors.white),
                           ),
                           Container(
                             width: 24, height: 24,
                             decoration: BoxDecoration(
-                              color: _amber500,
+                              color: statusColor,
                               shape: BoxShape.circle,
-                              border: Border.all(color: _amber200, width: 2),
+                              border: Border.all(color: badgeBorder, width: 2),
                             ),
-                            child: const Icon(Icons.sync, size: 13, color: Colors.white),
+                            child: Icon(step2Icon, size: 13, color: Colors.white),
                           ),
                           Container(
                             width: 24, height: 24,
-                            decoration: const BoxDecoration(color: _surfaceContainer, shape: BoxShape.circle),
-                            child: const Icon(Icons.lock, size: 13, color: _outline),
+                            decoration: BoxDecoration(color: step3Bg, shape: BoxShape.circle),
+                            child: Icon(step3Icon, size: 13, color: step3IconColor),
                           ),
                         ],
                       ),
@@ -907,16 +976,51 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Ticket Lodged', style: _labelSm.copyWith(color: _amber800, letterSpacing: 0)),
-                    Text('QA Audit', style: _labelSm.copyWith(color: _amber800, letterSpacing: 0)),
-                    Text('Refund Release', style: _labelSm.copyWith(color: _outline, letterSpacing: 0)),
+                    Text('Ticket Lodged', style: _labelSm.copyWith(color: badgeTextColor, letterSpacing: 0)),
+                    Text('QA Audit', style: _labelSm.copyWith(color: badgeTextColor, letterSpacing: 0)),
+                    Text('Refund Release', style: _labelSm.copyWith(color: isProcessed ? badgeTextColor : _outline, letterSpacing: 0)),
                   ],
                 ),
               ],
             ),
           ),
+          if (r.resolutionType == 'redelivery' && r.redeliveryScheduledAt != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: _secondaryContainer.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _secondaryContainer),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.local_shipping, size: 16, color: _secondary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _redeliveryNoticeText(r.redeliveryScheduledAt),
+                      style: _labelSm.copyWith(color: _secondary, fontWeight: FontWeight.w600, letterSpacing: 0),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  String _redeliveryNoticeText(DateTime? scheduledAt) {
+    if (scheduledAt == null) return 'Priority Redelivery scheduled';
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final hour24 = scheduledAt.hour;
+    final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+    final minute = scheduledAt.minute.toString().padLeft(2, '0');
+    final ampm = hour24 < 12 ? 'AM' : 'PM';
+    final dateStr = '${months[scheduledAt.month - 1]} ${scheduledAt.day}, ${scheduledAt.year}';
+    return 'Redelivery scheduled for $dateStr • $hour12:$minute $ampm';
   }
 }

@@ -673,6 +673,9 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
         label: result.label,
         addressText: '${result.street}, ${result.barangay}, San Pablo City',
         note: result.landmark.isEmpty ? null : result.landmark,
+        contactName: result.contact.isEmpty ? null : result.contact,
+        phone: result.phone.isEmpty ? null : result.phone,
+        isPrimary: result.isPrimary,
       );
       _showToast('Address added to San Pablo dispatch routes!');
     } catch (e) {
@@ -1282,10 +1285,11 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
             ),
           );
         }
+        final hasExplicitPrimary = addresses.any((a) => a.isPrimary);
         return Column(
           children: [
             for (int i = 0; i < addresses.length; i++) ...[
-              _buildAddressCard(uid, addresses[i], i == 0),
+              _buildAddressCard(uid, addresses[i], hasExplicitPrimary ? addresses[i].isPrimary : i == 0),
               if (i != addresses.length - 1) const SizedBox(height: 12),
             ],
           ],

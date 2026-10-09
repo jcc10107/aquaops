@@ -131,7 +131,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
   Widget build(BuildContext context) {
     final role = currentUserRoleNotifier.value;
     final isDispatcher = role == 'owner' || role == 'staff';
-    final canCashOut = role == 'owner' || role == 'staff' || role == 'rider';
+    final canCashOut = isDispatcher;
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(

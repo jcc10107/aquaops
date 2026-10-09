@@ -3,7 +3,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../models/order_model.dart';
+import '../../services/cloudinary_service.dart';
 
 class CustomerRefundRequestScreen extends StatefulWidget {
   final OrderModel order;
@@ -12,6 +14,7 @@ class CustomerRefundRequestScreen extends StatefulWidget {
       String description,
       String gcashName,
       String gcashNumber,
+      String? photoUrl,
       )? onSubmit;
 
   const CustomerRefundRequestScreen({
@@ -87,7 +90,10 @@ class _CustomerRefundRequestScreenState
   final FocusNode _numberFocus = FocusNode();
 
   String _selectedReason = 'Damaged Product';
-  bool _hasPhoto = false;
+  Uint8List? _photoBytes;
+  bool _pickingPhoto = false;
+  final ImagePicker _picker = ImagePicker();
+  final CloudinaryService _cloudinary = CloudinaryService();
   bool _isSubmitting = false;
   bool _isSubmitted = false;
 
@@ -187,7 +193,11 @@ class _CustomerRefundRequestScreenState
     try {
       final reason = _selectedReason == 'Other' ? custom : _selectedReason;
       if (widget.onSubmit != null) {
-        await widget.onSubmit!(reason, description, name, digits);
+        String? photoUrl;
+        if (_photoBytes != null) {
+          photoUrl = await _cloudinary.uploadImage(_photoBytes!, filename: 'refund_evidence.jpg', folder: 'refund_evidence');
+        }
+        await widget.onSubmit!(reason, description, name, digits, photoUrl);
       } else {
         await Future<void>.delayed(const Duration(milliseconds: 1200));
       }
@@ -638,30 +648,67 @@ class _CustomerRefundRequestScreenState
     );
   }
 
-  Widget _photoButton(IconData icon, String label) {
+  Future<void> _pickPhoto(ImageSource source) async {
+    if (_pickingPhoto) return;
+    setState(() => _pickingPhoto = true);
+    try {
+      final shot = await _picker
+          .pickImage(source: source)
+          .timeout(const Duration(seconds: 20));
+      if (shot == null) {
+        if (!mounted) return;
+        setState(() => _pickingPhoto = false);
+        return;
+      }
+      final bytes = await shot.readAsBytes().timeout(const Duration(seconds: 20));
+      if (!mounted) return;
+      setState(() {
+        _photoBytes = bytes;
+        _pickingPhoto = false;
+      });
+      _showToast('Photo Added', 'Evidence file attached to refund claim.', 'success');
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() => _pickingPhoto = false);
+      _showToast('Photo Error', 'Taking too long — please try a smaller photo or try again.', 'error');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _pickingPhoto = false);
+      _showToast('Photo Error', '$e', 'error');
+    }
+  }
+
+  Widget _photoButton(IconData icon, String label, ImageSource source) {
     return Expanded(
       child: Material(
         color: _ice,
         borderRadius: BorderRadius.circular(100),
         child: InkWell(
           borderRadius: BorderRadius.circular(100),
-          onTap: () {
-            setState(() => _hasPhoto = true);
-            _showToast('Photo Added', 'Evidence file attached to refund claim.', 'success');
-          },
+          onTap: _pickingPhoto ? null : () => _pickPhoto(source),
           child: SizedBox(
             height: 48,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 20, color: _primary),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: _t(13, FontWeight.w700, _primary,
-                      height: 16 / 13, letterSpacing: 0.13),
-                ),
-              ],
+              children: _pickingPhoto
+                  ? [
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: _primary),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('Loading...', style: _t(13, FontWeight.w700, _primary, height: 16 / 13, letterSpacing: 0.13)),
+                    ]
+                  : [
+                      Icon(icon, size: 20, color: _primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        label,
+                        style: _t(13, FontWeight.w700, _primary,
+                            height: 16 / 13, letterSpacing: 0.13),
+                      ),
+                    ],
             ),
           ),
         ),
@@ -695,13 +742,13 @@ class _CustomerRefundRequestScreenState
           const SizedBox(height: 12),
           Row(
             children: [
-              _photoButton(Icons.photo_camera, 'Take Photo'),
+              _photoButton(Icons.photo_camera, 'Take Photo', ImageSource.camera),
               const SizedBox(width: 8),
-              _photoButton(Icons.add_photo_alternate, 'Attach Photo'),
+              _photoButton(Icons.add_photo_alternate, 'Attach Photo', ImageSource.gallery),
             ],
           ),
           const SizedBox(height: 12),
-          if (_hasPhoto)
+          if (_photoBytes != null)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(8),
@@ -711,14 +758,9 @@ class _CustomerRefundRequestScreenState
               ),
               child: Row(
                 children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: _ice,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.image, size: 20, color: _primary),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.memory(_photoBytes!, width: 36, height: 36, fit: BoxFit.cover),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -743,7 +785,7 @@ class _CustomerRefundRequestScreenState
                   InkWell(
                     customBorder: const CircleBorder(),
                     onTap: () {
-                      setState(() => _hasPhoto = false);
+                      setState(() => _photoBytes = null);
                       _showToast(
                         'Photo Removed',
                         'You can take or attach a replacement photo anytime.',

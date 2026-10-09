@@ -7,6 +7,8 @@ import '../../models/order_model.dart';
 import '../../models/saved_address_model.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
+import '../../services/location_service.dart';
+import 'location_picker_map_screen.dart';
 import '../profile/profile_screen.dart';
 import 'customer_store_screen.dart';
 import 'customer_orders_screen.dart';
@@ -27,7 +29,11 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   String _currentAddress = 'Select delivery address';
 
   final FirestoreService _firestoreService = FirestoreService();
+  final LocationService _locationService = LocationService();
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
+  double? _currentLat;
+  double? _currentLng;
+  bool _fetchingLocation = false;
 
   late final Future<UserModel?> _userFuture;
   late final Stream<List<OrderModel>> _ordersStream;
@@ -94,7 +100,9 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
     if (uid != null) {
       _firestoreService.getSavedAddressesStream(uid).first.then((addresses) {
         if (mounted && addresses.isNotEmpty) {
-          setState(() => _currentAddress = addresses.first.addressText);
+          final explicitPrimary = addresses.where((a) => a.isPrimary);
+          final primary = explicitPrimary.isNotEmpty ? explicitPrimary.first : addresses.first;
+          setState(() => _currentAddress = primary.addressText);
         }
       });
     }
@@ -168,7 +176,11 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                   label: 'Home',
                   addressText: text,
                 );
-                setState(() => _currentAddress = text);
+                setState(() {
+                  _currentAddress = text;
+                  _currentLat = null;
+                  _currentLng = null;
+                });
                 navigator.pop();
               } catch (e) {
                 messenger.showSnackBar(
@@ -186,6 +198,35 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
     );
   }
 
+  Future<void> _useCurrentLocation(BuildContext sheetContext, StateSetter setSheetState) async {
+    setSheetState(() => _fetchingLocation = true);
+    try {
+      final position = await _locationService.getCurrentPosition();
+      if (!mounted) return;
+      setSheetState(() => _fetchingLocation = false);
+      if (!sheetContext.mounted) return;
+      final result = await Navigator.push<PreciseLocation>(
+        sheetContext,
+        MaterialPageRoute(
+          builder: (_) => LocationPickerMapScreen(initialLat: position.latitude, initialLng: position.longitude),
+        ),
+      );
+      if (result == null || !mounted) return;
+      setState(() {
+        _currentAddress = result.address;
+        _currentLat = result.latitude;
+        _currentLng = result.longitude;
+      });
+      if (sheetContext.mounted) Navigator.pop(sheetContext);
+    } catch (e) {
+      if (!mounted) return;
+      setSheetState(() => _fetchingLocation = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not get your location: $e')),
+      );
+    }
+  }
+
   void _showLocationPicker(bool isDark) {
     showModalBottomSheet<void>(
       context: context,
@@ -193,7 +234,8 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
       barrierColor: Colors.black.withValues(alpha: 0.4),
       isScrollControlled: true,
       builder: (sheetContext) {
-        return Align(
+        return StatefulBuilder(
+          builder: (context, setSheetState) => Align(
           alignment: Alignment.bottomCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 450),
@@ -269,6 +311,48 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
+                  Material(
+                    color: const Color(0xFFEFFBF4),
+                    borderRadius: BorderRadius.circular(16),
+                    child: InkWell(
+                      onTap: _fetchingLocation ? null : () => _useCurrentLocation(sheetContext, setSheetState),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF059669),
+                                shape: BoxShape.circle,
+                              ),
+                              child: _fetchingLocation
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(9),
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.my_location, size: 20, color: Colors.white),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _fetchingLocation ? 'Getting your location...' : 'Use My Current Location',
+                                style: const TextStyle(
+                                  fontFamily: 'Plus Jakarta Sans',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF059669),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   StreamBuilder<List<SavedAddressModel>>(
                     stream: _uid == null
                         ? const Stream.empty()
@@ -314,8 +398,11 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                               borderRadius: BorderRadius.circular(16),
                               child: InkWell(
                                 onTap: () {
-                                  setState(() =>
-                                      _currentAddress = address.addressText);
+                                  setState(() {
+                                    _currentAddress = address.addressText;
+                                    _currentLat = null;
+                                    _currentLng = null;
+                                  });
                                   Navigator.pop(sheetContext);
                                 },
                                 borderRadius: BorderRadius.circular(16),
@@ -419,6 +506,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
               ),
             ),
           ),
+        ),
         );
       },
     );
@@ -457,6 +545,8 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                 cart: _cart,
                 products: products,
                 currentAddress: _currentAddress,
+                currentLat: _currentLat,
+                currentLng: _currentLng,
                 onBack: () => setState(() => _isCheckoutView = false),
                 onChangeAddress: () => _showLocationPicker(isDark),
                 onOrderSuccess: () {

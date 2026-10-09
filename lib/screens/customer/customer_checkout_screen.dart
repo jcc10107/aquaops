@@ -1,14 +1,18 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/order_model.dart';
 import '../../services/firestore_service.dart';
+import '../../services/cloudinary_service.dart';
 
 class CustomerCheckoutScreen extends StatefulWidget {
   final Map<String, int> cart;
   final List<Map<String, dynamic>> products;
   final String currentAddress;
+  final double? currentLat;
+  final double? currentLng;
   final VoidCallback onBack;
   final VoidCallback onChangeAddress;
   final VoidCallback onOrderSuccess;
@@ -18,6 +22,8 @@ class CustomerCheckoutScreen extends StatefulWidget {
     required this.cart,
     required this.products,
     required this.currentAddress,
+    this.currentLat,
+    this.currentLng,
     required this.onBack,
     required this.onChangeAddress,
     required this.onOrderSuccess,
@@ -33,9 +39,14 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
   bool _isPlacingOrder = false;
   final TextEditingController _gcashRefController = TextEditingController(text: '1002938475632');
   final TextEditingController _notesController = TextEditingController(text: 'Ring the bell twice, gate is unlocked...');
-  bool _hasUploadedReceipt = true;
+  bool _hasUploadedReceipt = false;
+  Uint8List? _receiptBytes;
+  String? _receiptUrl;
+  bool _isUploadingReceipt = false;
 
   final FirestoreService _firestoreService = FirestoreService();
+  final CloudinaryService _cloudinary = CloudinaryService();
+  final ImagePicker _picker = ImagePicker();
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
   static const String _fontFamily = 'Plus Jakarta Sans';
@@ -125,6 +136,16 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
       return;
     }
 
+    if (_paymentMethod == 'gcash' && _receiptUrl == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please upload your GCash payment screenshot.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isPlacingOrder = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -144,6 +165,8 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
         customerPhone: profile?.phone ?? '',
         deliveryAddress: widget.currentAddress,
         areaZone: _resolveAreaZone(widget.currentAddress),
+        deliveryLat: widget.currentLat,
+        deliveryLng: widget.currentLng,
         items: items,
         totalAmount: _checkoutTotal,
         paymentMethod: _paymentMethod,
@@ -151,6 +174,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
             ? _gcashRefController.text.trim()
             : null,
         notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        gcashScreenshotUrl: _paymentMethod == 'gcash' ? _receiptUrl : null,
       );
 
       if (!mounted) return;
@@ -173,21 +197,38 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
     }
   }
 
-  void _simulateFileUpload() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Opening gallery...')),
-    );
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() => _hasUploadedReceipt = true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Screenshot attached!'),
-            backgroundColor: AppColors.secondary,
-          ),
-        );
+  Future<void> _pickAndUploadReceipt() async {
+    if (_isUploadingReceipt) return;
+    setState(() => _isUploadingReceipt = true);
+    try {
+      final shot = await _picker.pickImage(source: ImageSource.gallery).timeout(const Duration(seconds: 20));
+      if (shot == null) {
+        if (!mounted) return;
+        setState(() => _isUploadingReceipt = false);
+        return;
       }
-    });
+      final bytes = await shot.readAsBytes().timeout(const Duration(seconds: 20));
+      final url = await _cloudinary.uploadImage(bytes, filename: 'receipt_gcash.jpg', folder: 'gcash_screenshots').timeout(const Duration(seconds: 30));
+      if (!mounted) return;
+      setState(() {
+        _receiptBytes = bytes;
+        _receiptUrl = url;
+        _hasUploadedReceipt = true;
+        _isUploadingReceipt = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Screenshot attached!'),
+          backgroundColor: AppColors.secondary,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isUploadingReceipt = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to attach screenshot: $e'), backgroundColor: AppColors.error),
+      );
+    }
   }
 
   void _copyGcashNumber() {
@@ -1064,16 +1105,22 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                     width: double.infinity,
                     height: 44,
                     child: OutlinedButton.icon(
-                      onPressed: _simulateFileUpload,
+                      onPressed: _isUploadingReceipt ? null : _pickAndUploadReceipt,
                       style: OutlinedButton.styleFrom(
                         backgroundColor: _surfaceIce,
                         side: BorderSide(color: _primaryBlue.withValues(alpha: 0.4), width: 1.5),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
-                      icon: const Icon(Icons.add_photo_alternate, size: 20, color: _primaryBlue),
-                      label: const Text(
-                        'Upload Screenshot from Gallery',
-                        style: TextStyle(
+                      icon: _isUploadingReceipt
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: _primaryBlue),
+                            )
+                          : const Icon(Icons.add_photo_alternate, size: 20, color: _primaryBlue),
+                      label: Text(
+                        _isUploadingReceipt ? 'Loading...' : 'Upload Screenshot from Gallery',
+                        style: const TextStyle(
                           fontFamily: _fontFamily,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -1095,11 +1142,14 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                           Container(
                             width: 36,
                             height: 36,
+                            clipBehavior: Clip.antiAlias,
                             decoration: BoxDecoration(
                               color: _surfaceIce,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.image, color: _primaryBlue, size: 20),
+                            child: _receiptBytes != null
+                                ? Image.memory(_receiptBytes!, fit: BoxFit.cover)
+                                : const Icon(Icons.image, color: _primaryBlue, size: 20),
                           ),
                           const SizedBox(width: 10),
                           const Expanded(
@@ -1132,7 +1182,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                             shape: const CircleBorder(),
                             child: InkWell(
                               customBorder: const CircleBorder(),
-                              onTap: _simulateFileUpload,
+                              onTap: _isUploadingReceipt ? null : _pickAndUploadReceipt,
                               child: const Padding(
                                 padding: EdgeInsets.all(6),
                                 child: Icon(Icons.sync, size: 18, color: _primaryBlue),
@@ -1144,7 +1194,11 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                             shape: const CircleBorder(),
                             child: InkWell(
                               customBorder: const CircleBorder(),
-                              onTap: () => setState(() => _hasUploadedReceipt = false),
+                              onTap: () => setState(() {
+                                _hasUploadedReceipt = false;
+                                _receiptBytes = null;
+                                _receiptUrl = null;
+                              }),
                               child: const Padding(
                                 padding: EdgeInsets.all(6),
                                 child: Icon(Icons.close, size: 18, color: _outline),

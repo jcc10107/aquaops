@@ -44,6 +44,10 @@ class OrderModel {
   final int emptyGallonsReturned;
   final int unreturnedDiff;
   final String? proofOfDeliveryUrl;
+  final String? recipientName;
+  final String? gcashScreenshotUrl;
+  final double? deliveryLat;
+  final double? deliveryLng;
   final String? lastTransferReason;
   final DateTime createdAt;
   final DateTime? deliveredAt;
@@ -68,6 +72,10 @@ class OrderModel {
     this.emptyGallonsReturned = 0,
     this.unreturnedDiff = 0,
     this.proofOfDeliveryUrl,
+    this.recipientName,
+    this.gcashScreenshotUrl,
+    this.deliveryLat,
+    this.deliveryLng,
     this.lastTransferReason,
     required this.createdAt,
     this.deliveredAt,
@@ -97,6 +105,10 @@ class OrderModel {
       'emptyGallonsReturned': emptyGallonsReturned,
       'unreturnedDiff': unreturnedDiff,
       'proofOfDeliveryUrl': proofOfDeliveryUrl,
+      'recipientName': recipientName,
+      'gcashScreenshotUrl': gcashScreenshotUrl,
+      'deliveryLat': deliveryLat,
+      'deliveryLng': deliveryLng,
       'lastTransferReason': lastTransferReason,
       'createdAt': createdAt.toIso8601String(),
     };

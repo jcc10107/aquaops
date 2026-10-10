@@ -25,7 +25,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
   static const String _font = 'Plus Jakarta Sans';
-  static const Color _surface = Color(0xFFF6FAFC);
   static const Color _white = Color(0xFFFFFFFF);
   static const Color _onSurface = Color(0xFF131B2E);
   static const Color _onSurfaceVariant = Color(0xFF3F4850);
@@ -200,186 +199,172 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final user = snapshot.data;
         final userData = user == null ? _userDataFromModel(UserModel(id: '', name: '', email: '', role: UserRole.customer, phone: '')) : _userDataFromModel(user);
 
-        return Scaffold(
-          backgroundColor: _surface,
-          body: SafeArea(
-            bottom: false,
-            child: Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 450),
-                        child: Padding(
-                          padding: EdgeInsets.fromLTRB(16, 16, 16, 130 + bottomInset),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildProfileHero(userData, isDark),
-                              const SizedBox(height: 20),
+        return Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 450),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 130 + bottomInset),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildProfileHero(userData, isDark),
+                  const SizedBox(height: 20),
 
-                              _buildSectionHeader('Account Settings', 'Personal Details', _outlineVariant, false),
-                              const SizedBox(height: 8),
-                              _buildCardGroup([
-                                _buildListTile('Manage Profile', 'Name, email & contact number', Icons.person, _primaryBlue, isDark, onTap: user == null ? null : () => _openManageProfile(user, userData)),
-                                _buildDivider(isDark),
-                                _buildListTile('Saved Delivery Addresses', 'Delivery locations & notes', Icons.location_on, _primaryBlue, isDark, onTap: _openSavedAddresses),
-                              ], isDark),
-                              const SizedBox(height: 20),
+                  _buildSectionHeader('Account Settings', 'Personal Details', _outlineVariant, false),
+                  const SizedBox(height: 8),
+                  _buildCardGroup([
+                    _buildListTile('Manage Profile', 'Name, email & contact number', Icons.person, _primaryBlue, isDark, onTap: user == null ? null : () => _openManageProfile(user, userData)),
+                    _buildDivider(isDark),
+                    _buildListTile('Saved Delivery Addresses', 'Delivery locations & notes', Icons.location_on, _primaryBlue, isDark, onTap: _openSavedAddresses),
+                  ], isDark),
+                  const SizedBox(height: 20),
 
-                              if (role == 'owner') ...[
-                                _buildSectionHeader('Station Operations', 'Owner Only', _primaryBlue, true),
-                                const SizedBox(height: 8),
-                                _buildCardGroup([
-                                  _buildListTile('Manage Staff & Riders', 'Staff accounts & rider routes', Icons.groups, _primaryBlue, isDark, badge: '4 Active', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageTeamScreen()))),
-                                ], isDark),
-                                const SizedBox(height: 20),
-                              ],
+                  if (role == 'owner') ...[
+                    _buildSectionHeader('Station Operations', 'Owner Only', _primaryBlue, true),
+                    const SizedBox(height: 8),
+                    _buildCardGroup([
+                      _buildListTile('Manage Staff & Riders', 'Staff accounts & rider routes', Icons.groups, _primaryBlue, isDark, badge: '4 Active', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageTeamScreen()))),
+                    ], isDark),
+                    const SizedBox(height: 20),
+                  ],
 
-                              _buildSectionHeader('Preferences', 'Customized', _outlineVariant, false),
-                              const SizedBox(height: 8),
-                              _buildCardGroup([
-                                _buildListTile('Notification Settings', 'Delivery alerts & reminders', Icons.notifications_active, _primaryBlue, isDark, trailing: _buildCustomSwitch(user)),
-                              ], isDark),
-                              const SizedBox(height: 20),
+                  _buildSectionHeader('Preferences', 'Customized', _outlineVariant, false),
+                  const SizedBox(height: 8),
+                  _buildCardGroup([
+                    _buildListTile('Notification Settings', 'Delivery alerts & reminders', Icons.notifications_active, _primaryBlue, isDark, trailing: _buildCustomSwitch(user)),
+                  ], isDark),
+                  const SizedBox(height: 20),
 
-                              _buildSectionHeader('Security & Access', 'Protected', _secondary, true),
-                              const SizedBox(height: 8),
-                              _buildCardGroup([
-                                _buildListTile('Change Password', 'Login credentials & security', Icons.lock, _primaryBlue, isDark, onTap: _openChangePassword),
-                              ], isDark),
-                              const SizedBox(height: 20),
+                  _buildSectionHeader('Security & Access', 'Protected', _secondary, true),
+                  const SizedBox(height: 8),
+                  _buildCardGroup([
+                    _buildListTile('Change Password', 'Login credentials & security', Icons.lock, _primaryBlue, isDark, onTap: _openChangePassword),
+                  ], isDark),
+                  const SizedBox(height: 20),
 
-                              _buildSectionHeader('Support & Policies', '24/7 Available', _outlineVariant, false),
-                              const SizedBox(height: 8),
-                              _buildCardGroup([
-                                _buildListTile('Help Center & FAQs', 'Guides & customer support', Icons.support_agent, _primaryBlue, isDark, onTap: _openHelpCenter),
-                                _buildDivider(isDark),
-                                _buildListTile('Terms & Privacy', 'Station policies & guidelines', Icons.shield, _primaryBlue, isDark, onTap: _openTerms),
-                              ], isDark),
-                              const SizedBox(height: 32),
+                  _buildSectionHeader('Support & Policies', '24/7 Available', _outlineVariant, false),
+                  const SizedBox(height: 8),
+                  _buildCardGroup([
+                    _buildListTile('Help Center & FAQs', 'Guides & customer support', Icons.support_agent, _primaryBlue, isDark, onTap: _openHelpCenter),
+                    _buildDivider(isDark),
+                    _buildListTile('Terms & Privacy', 'Station policies & guidelines', Icons.shield, _primaryBlue, isDark, onTap: _openTerms),
+                  ], isDark),
+                  const SizedBox(height: 32),
 
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _errorContainer.withValues(alpha: 0.6),
-                                  foregroundColor: _errorColor,
-                                  elevation: 0,
-                                  shadowColor: Colors.transparent,
-                                  minimumSize: const Size(double.infinity, 52),
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                ),
-                                onPressed: () => _signOutAndGoToLogin(context),
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.logout, size: 20, color: _errorColor),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Log Out',
-                                      style: TextStyle(
-                                        fontFamily: _font,
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w700,
-                                        height: 24 / 17,
-                                        letterSpacing: -0.17,
-                                        color: _errorColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (role == 'customer') ...[
-                                const SizedBox(height: 16),
-                                Center(
-                                  child: TextButton(
-                                    onPressed: () => _showDeleteAccountDialog(isDark),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: _onSurfaceVariant,
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                      minimumSize: Size.zero,
-                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    ),
-                                    child: const Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.delete_forever, size: 18, color: _onSurfaceVariant),
-                                        SizedBox(width: 6),
-                                        Text(
-                                          'Delete Account',
-                                          style: TextStyle(
-                                            fontFamily: _font,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                            height: 14 / 11,
-                                            letterSpacing: 0.22,
-                                            color: _onSurfaceVariant,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(height: 28),
-                              Center(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: _containerHigh.withValues(alpha: 0.6),
-                                    borderRadius: BorderRadius.circular(9999),
-                                  ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      SizedBox(
-                                        width: 6,
-                                        height: 6,
-                                        child: DecoratedBox(decoration: BoxDecoration(color: _secondary, shape: BoxShape.circle)),
-                                      ),
-                                      SizedBox(width: 6),
-                                      Text(
-                                        'Version 1.0.0 (Build 42)',
-                                        style: TextStyle(
-                                          fontFamily: _font,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w800,
-                                          height: 12 / 10,
-                                          letterSpacing: 0.6,
-                                          color: _outline,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Center(
-                                child: Text(
-                                  'STA MONICA SAN PABLO CITY • PURE HYDRATION',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontFamily: _font,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    height: 12 / 10,
-                                    letterSpacing: 1.0,
-                                    color: _outlineVariant,
-                                  ),
-                                ),
-                              ),
-                            ],
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _errorContainer.withValues(alpha: 0.6),
+                      foregroundColor: _errorColor,
+                      elevation: 0,
+                      shadowColor: Colors.transparent,
+                      minimumSize: const Size(double.infinity, 52),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    onPressed: () => _signOutAndGoToLogin(context),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.logout, size: 20, color: _errorColor),
+                        SizedBox(width: 8),
+                        Text(
+                          'Log Out',
+                          style: TextStyle(
+                            fontFamily: _font,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            height: 24 / 17,
+                            letterSpacing: -0.17,
+                            color: _errorColor,
                           ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (role == 'customer') ...[
+                    const SizedBox(height: 16),
+                    Center(
+                      child: TextButton(
+                        onPressed: () => _showDeleteAccountDialog(isDark),
+                        style: TextButton.styleFrom(
+                          foregroundColor: _onSurfaceVariant,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.delete_forever, size: 18, color: _onSurfaceVariant),
+                            SizedBox(width: 6),
+                            Text(
+                              'Delete Account',
+                              style: TextStyle(
+                                fontFamily: _font,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                height: 14 / 11,
+                                letterSpacing: 0.22,
+                                color: _onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
+                  ],
+                  const SizedBox(height: 28),
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _containerHigh.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(9999),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 6,
+                            height: 6,
+                            child: DecoratedBox(decoration: BoxDecoration(color: _secondary, shape: BoxShape.circle)),
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'Version 1.0.0 (Build 42)',
+                            style: TextStyle(
+                              fontFamily: _font,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              height: 12 / 10,
+                              letterSpacing: 0.6,
+                              color: _outline,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  const Center(
+                    child: Text(
+                      'STA MONICA SAN PABLO CITY • PURE HYDRATION',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: _font,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        height: 12 / 10,
+                        letterSpacing: 1.0,
+                        color: _outlineVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );

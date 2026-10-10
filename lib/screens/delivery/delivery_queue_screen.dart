@@ -75,39 +75,213 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
   void _showAssignRiderSheet(OrderModel order, List<UserModel> riders) {
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      isScrollControlled: true,
       builder: (sheetContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
-                child: Text('Assign Rider', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 450,
+              maxHeight: MediaQuery.of(context).size.height * 0.9,
+            ),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x40000000),
+                    blurRadius: 50,
+                    spreadRadius: -12,
+                    offset: Offset(0, 25),
+                  ),
+                ],
               ),
-              if (riders.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Text('No rider accounts found.', style: TextStyle(color: Color(0xFF64748B))),
-                )
-              else
-                ...riders.map((rider) => ListTile(
-                  leading: const CircleAvatar(backgroundColor: Color(0xFFE0F2FE), child: Icon(Icons.two_wheeler, color: Color(0xFF0284C7))),
-                  title: Text(rider.name),
-                  subtitle: Text(rider.assignedArea ?? rider.phone),
-                  onTap: () async {
-                    final messenger = ScaffoldMessenger.of(context);
-                    Navigator.pop(sheetContext);
-                    try {
-                      await _firestoreService.assignRider(orderId: order.id, riderId: rider.id, riderName: rider.name);
-                      messenger.showSnackBar(SnackBar(content: Text('Assigned to ${rider.name}.')));
-                    } catch (e) {
-                      messenger.showSnackBar(SnackBar(content: Text('Failed to assign: $e'), backgroundColor: AppColors.error));
-                    }
-                  },
-                )),
-              const SizedBox(height: 12),
-            ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 48,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFBFC7D2),
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Assign Rider',
+                            style: TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF131B2E),
+                            ),
+                          ),
+                          Text(
+                            'Select a rider to dispatch this order',
+                            style: TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w400,
+                              color: Color(0xFF3F4850),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Material(
+                        color: const Color(0xFFEAEDFF),
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () => Navigator.pop(sheetContext),
+                          child: const SizedBox(
+                            width: 32,
+                            height: 32,
+                            child: Icon(Icons.close,
+                                size: 20, color: Color(0xFF3F4850)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (riders.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        'No rider accounts found.',
+                        style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontSize: 12,
+                          color: Color(0xFF3F4850),
+                        ),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: riders.map((rider) {
+                            final bool isSelected =
+                                order.assignedRiderId == rider.id;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Material(
+                                color: isSelected
+                                    ? const Color(0xFFE0F2FE)
+                                    : const Color(0xFFF2F3FF),
+                                borderRadius: BorderRadius.circular(16),
+                                child: InkWell(
+                                  onTap: () async {
+                                    final messenger = ScaffoldMessenger.of(context);
+                                    Navigator.pop(sheetContext);
+                                    try {
+                                      await _firestoreService.assignRider(
+                                        orderId: order.id,
+                                        riderId: rider.id,
+                                        riderName: rider.name,
+                                      );
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                            content: Text(
+                                                'Assigned to ${rider.name}.')),
+                                      );
+                                    } catch (e) {
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text('Failed to assign: $e'),
+                                          backgroundColor: AppColors.error,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 36,
+                                          height: 36,
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? const Color(0xFF0284C7)
+                                                : const Color(0xFFE0F2FE),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            Icons.two_wheeler,
+                                            size: 20,
+                                            color: isSelected
+                                                ? Colors.white
+                                                : const Color(0xFF0284C7),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                rider.name,
+                                                style: const TextStyle(
+                                                  fontFamily:
+                                                  'Plus Jakarta Sans',
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF131B2E),
+                                                ),
+                                              ),
+                                              Text(
+                                                rider.assignedArea ?? rider.phone,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontFamily:
+                                                  'Plus Jakarta Sans',
+                                                  fontSize: 11,
+                                                  color: Color(0xFF3F4850),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Icon(
+                                          isSelected
+                                              ? Icons.check_circle
+                                              : Icons.radio_button_unchecked,
+                                          size: 22,
+                                          color: isSelected
+                                              ? const Color(0xFF0284C7)
+                                              : const Color(0xFFBFC7D2),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         );
       },
@@ -132,239 +306,224 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
     final role = currentUserRoleNotifier.value;
     final isDispatcher = role == 'owner' || role == 'staff';
     final canCashOut = isDispatcher;
-    final bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6FAFC),
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 450),
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(16, 16, 16, 130 + bottomInset),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 450),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 130),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 36, height: 36,
+                        decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
+                        child: const Center(child: Icon(Icons.local_shipping, color: Color(0xFF0284C7), size: 22)),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F9FF),
+                          borderRadius: BorderRadius.circular(100),
+                          border: Border.all(color: const Color(0xFFBAE6FD)),
+                        ),
+                        child: const Text('DISPATCH HUB', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), letterSpacing: 0.5)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('Area-Based Delivery Queue & Dispatch', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A), height: 1.2)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  if (isDispatcher) ...[
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _showEmergencyTransfer(context),
+                        borderRadius: BorderRadius.circular(100),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFBEB).withValues(alpha: 0.8),
+                            border: Border.all(color: const Color(0xFFFCD34D)),
+                            borderRadius: BorderRadius.circular(100),
+                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 36, height: 36,
-                                    decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
-                                    child: const Center(child: Icon(Icons.local_shipping, color: Color(0xFF0284C7), size: 22)),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF0F9FF),
-                                      borderRadius: BorderRadius.circular(100),
-                                      border: Border.all(color: const Color(0xFFBAE6FD)),
-                                    ),
-                                    child: const Text('DISPATCH HUB', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), letterSpacing: 0.5)),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              const Text('Area-Based Delivery Queue & Dispatch', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A), height: 1.2)),
+                              Icon(Icons.swap_horiz, size: 17, color: Color(0xFFB45309)),
+                              SizedBox(width: 6),
+                              Text('Emergency Transfer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
                             ],
                           ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              if (isDispatcher) ...[
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: () => _showEmergencyTransfer(context),
-                                    borderRadius: BorderRadius.circular(100),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFFFFBEB).withValues(alpha: 0.8),
-                                        border: Border.all(color: const Color(0xFFFCD34D)),
-                                        borderRadius: BorderRadius.circular(100),
-                                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
-                                      ),
-                                      child: const Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.swap_horiz, size: 17, color: Color(0xFFB45309)),
-                                          SizedBox(width: 6),
-                                          Text('Emergency Transfer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                              ],
-                              if (canCashOut)
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: () => _showCashOut(context),
-                                    borderRadius: BorderRadius.circular(100),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFECFDF5).withValues(alpha: 0.8),
-                                        border: Border.all(color: const Color(0xFF6EE7B7)),
-                                        borderRadius: BorderRadius.circular(100),
-                                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
-                                      ),
-                                      child: const Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.attach_money, size: 17, color: Color(0xFF047857)),
-                                          SizedBox(width: 6),
-                                          Text('Shift Cash-Out', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF047857))),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          StreamBuilder<List<UserModel>>(
-                            stream: _firestoreService.getRidersStream(),
-                            builder: (context, riderSnapshot) {
-                              final riders = riderSnapshot.data ?? const <UserModel>[];
-
-                              return StreamBuilder<List<OrderModel>>(
-                                stream: _firestoreService.getActiveOrdersStream(),
-                                builder: (context, snapshot) {
-                                  if (snapshot.hasError) {
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 24),
-                                      child: Text('Failed to load deliveries: ${snapshot.error}', style: const TextStyle(color: Color(0xFFF43F5E))),
-                                    );
-                                  }
-                                  if (!snapshot.hasData) {
-                                    return const Padding(
-                                      padding: EdgeInsets.symmetric(vertical: 48),
-                                      child: Center(child: CircularProgressIndicator()),
-                                    );
-                                  }
-
-                                  final allOrders = snapshot.data!;
-                                  final isRider = currentUserRoleNotifier.value == 'rider';
-                                  final orders = isRider ? allOrders.where((o) => o.assignedRiderId == _uid).toList() : allOrders;
-                                  final filteredDeliveries = orders.where((d) => _area == 'all' || d.areaZone == _area).toList();
-
-                                  return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(16),
-                                          border: Border.all(color: const Color(0xFFF1F5F9)),
-                                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 1))],
-                                        ),
-                                        child: Column(
-                                          children: [
-                                            const Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    Icon(Icons.near_me, size: 17, color: Color(0xFF0284C7)),
-                                                    SizedBox(width: 6),
-                                                    Text('Dispatch Zone', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
-                                                  ],
-                                                ),
-                                                Row(
-                                                  children: [
-                                                    _BlinkingDot(color: Color(0xFF10B981)),
-                                                    SizedBox(width: 4),
-                                                    Text('Live Dispatch', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 10),
-                                            SingleChildScrollView(
-                                              scrollDirection: Axis.horizontal,
-                                              child: Row(
-                                                children: [
-                                                  _buildFilterTab('all', 'All Areas', _countForArea(orders, 'all')),
-                                                  const SizedBox(width: 8),
-                                                  _buildFilterTab('si', 'Barangay San Isidro', _countForArea(orders, 'si')),
-                                                  const SizedBox(width: 8),
-                                                  _buildFilterTab('dr', 'Barangay Del Remedio', _countForArea(orders, 'dr')),
-                                                  const SizedBox(width: 8),
-                                                  _buildFilterTab('sr', 'Barangay San Roque', _countForArea(orders, 'sr')),
-                                                  const SizedBox(width: 8),
-                                                  _buildFilterTab('sm', 'Barangay San Marcos', _countForArea(orders, 'sm')),
-                                                ],
-                                              ),
-                                            ),
-                                            if (!isRider) ...[
-                                              const SizedBox(height: 12),
-                                              Container(
-                                                padding: const EdgeInsets.only(top: 10),
-                                                decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF1F5F9)))),
-                                                child: Row(
-                                                  children: [
-                                                    const Icon(Icons.two_wheeler, size: 17, color: Color(0xFF0284C7)),
-                                                    const SizedBox(width: 6),
-                                                    Expanded(
-                                                      child: RichText(
-                                                        text: TextSpan(
-                                                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontFamily: 'Plus Jakarta Sans'),
-                                                          children: [
-                                                            TextSpan(text: '${riders.length} riders available', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF334155))),
-                                                            const TextSpan(text: ' • tap "Assigned Rider" on an order to dispatch'),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 24),
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.schedule, size: 16, color: Color(0xFF0284C7)),
-                                          const SizedBox(width: 8),
-                                          Text('ACTIVE DELIVERY QUEUE (${filteredDeliveries.length} PENDING)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), letterSpacing: 0.5)),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      if (filteredDeliveries.isEmpty)
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(vertical: 24),
-                                          child: Text('No active deliveries in this area.', style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
-                                        ),
-                                      ...filteredDeliveries.map((d) => _buildQueueCard(d, riders)),
-                                    ],
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
+                    const SizedBox(width: 12),
+                  ],
+                  if (canCashOut)
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _showCashOut(context),
+                        borderRadius: BorderRadius.circular(100),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFECFDF5).withValues(alpha: 0.8),
+                            border: Border.all(color: const Color(0xFF6EE7B7)),
+                            borderRadius: BorderRadius.circular(100),
+                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.attach_money, size: 17, color: Color(0xFF047857)),
+                              SizedBox(width: 6),
+                              Text('Shift Cash-Out', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF047857))),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              StreamBuilder<List<UserModel>>(
+                stream: _firestoreService.getRidersStream(),
+                builder: (context, riderSnapshot) {
+                  final riders = riderSnapshot.data ?? const <UserModel>[];
+
+                  return StreamBuilder<List<OrderModel>>(
+                    stream: _firestoreService.getActiveOrdersStream(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          child: Text('Failed to load deliveries: ${snapshot.error}', style: const TextStyle(color: Color(0xFFF43F5E))),
+                        );
+                      }
+                      if (!snapshot.hasData) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 48),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+
+                      final allOrders = snapshot.data!;
+                      final isRider = currentUserRoleNotifier.value == 'rider';
+                      final orders = isRider ? allOrders.where((o) => o.assignedRiderId == _uid).toList() : allOrders;
+                      final filteredDeliveries = orders.where((d) => _area == 'all' || d.areaZone == _area).toList();
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFF1F5F9)),
+                              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 1))],
+                            ),
+                            child: Column(
+                              children: [
+                                const Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(Icons.near_me, size: 17, color: Color(0xFF0284C7)),
+                                        SizedBox(width: 6),
+                                        Text('Dispatch Zone', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        _BlinkingDot(color: Color(0xFF10B981)),
+                                        SizedBox(width: 4),
+                                        Text('Live Dispatch', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: [
+                                      _buildFilterTab('all', 'All Areas', _countForArea(orders, 'all')),
+                                      const SizedBox(width: 8),
+                                      _buildFilterTab('si', 'Barangay San Isidro', _countForArea(orders, 'si')),
+                                      const SizedBox(width: 8),
+                                      _buildFilterTab('dr', 'Barangay Del Remedio', _countForArea(orders, 'dr')),
+                                      const SizedBox(width: 8),
+                                      _buildFilterTab('sr', 'Barangay San Roque', _countForArea(orders, 'sr')),
+                                      const SizedBox(width: 8),
+                                      _buildFilterTab('sm', 'Barangay San Marcos', _countForArea(orders, 'sm')),
+                                    ],
+                                  ),
+                                ),
+                                if (!isRider) ...[
+                                  const SizedBox(height: 12),
+                                  Container(
+                                    padding: const EdgeInsets.only(top: 10),
+                                    decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF1F5F9)))),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.two_wheeler, size: 17, color: Color(0xFF0284C7)),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: RichText(
+                                            text: TextSpan(
+                                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontFamily: 'Plus Jakarta Sans'),
+                                              children: [
+                                                TextSpan(text: '${riders.length} riders available', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                                                const TextSpan(text: ' • tap "Assigned Rider" on an order to dispatch'),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            children: [
+                              const Icon(Icons.schedule, size: 16, color: Color(0xFF0284C7)),
+                              const SizedBox(width: 8),
+                              Text('ACTIVE DELIVERY QUEUE (${filteredDeliveries.length} PENDING)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), letterSpacing: 0.5)),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (filteredDeliveries.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 24),
+                              child: Text('No active deliveries in this area.', style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+                            ),
+                          ...filteredDeliveries.map((d) => _buildQueueCard(d, riders)),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -378,10 +537,9 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          gradient: isActive ? const LinearGradient(colors: [Color(0xFF0284C7), Color(0xFF00B4D8), Color(0xFF06B6D4)], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
-          color: isActive ? null : const Color(0xFFF1F5F9),
+          color: isActive ? const Color(0xFF0284C7) : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(100),
-          boxShadow: isActive ? [BoxShadow(color: const Color(0xFF06B6D4).withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 2))] : [],
+          boxShadow: isActive ? [BoxShadow(color: const Color(0xFF0284C7).withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 2))] : [],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

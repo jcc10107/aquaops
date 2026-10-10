@@ -12,7 +12,6 @@ import 'location_picker_map_screen.dart';
 import '../profile/profile_screen.dart';
 import 'customer_store_screen.dart';
 import 'customer_orders_screen.dart';
-import 'customer_payments_screen.dart';
 import 'customer_checkout_screen.dart';
 
 class CustomerMainScreen extends StatefulWidget {
@@ -39,10 +38,6 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   late final Stream<List<OrderModel>> _ordersStream;
   late final Stream<List<InventoryModel>> _inventoryStream;
 
-  // Maps each catalog product to the real inventory SKU(s) whose stock
-  // determines whether it can still be ordered. Prices stay hardcoded here
-  // (there's no sellingPrice field in Firestore yet — see backend audit) but
-  // availability now reflects the same inventory the owner/staff manage.
   static const Map<String, List<String>> _stockDependsOn = {
     'r_slim': ['inv_water_slim'],
     'r_round': ['inv_water_round'],
@@ -148,7 +143,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
             decoration: InputDecoration(
               hintText: 'Type your address...',
               contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               filled: true,
               fillColor: const Color(0xFFF2F3FF),
               border: OutlineInputBorder(
@@ -236,277 +231,277 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) => Align(
-          alignment: Alignment.bottomCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 450),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x40000000),
-                    blurRadius: 50,
-                    spreadRadius: -12,
-                    offset: Offset(0, 25),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 48,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFBFC7D2),
-                        borderRadius: BorderRadius.circular(100),
-                      ),
+            alignment: Alignment.bottomCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 450),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x40000000),
+                      blurRadius: 50,
+                      spreadRadius: -12,
+                      offset: Offset(0, 25),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Choose Delivery Address',
-                            style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF131B2E),
-                            ),
-                          ),
-                          Text(
-                            'Select your preferred delivery location',
-                            style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w400,
-                              color: Color(0xFF3F4850),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Material(
-                        color: const Color(0xFFEAEDFF),
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () => Navigator.pop(sheetContext),
-                          child: const SizedBox(
-                            width: 32,
-                            height: 32,
-                            child: Icon(Icons.close,
-                                size: 20, color: Color(0xFF3F4850)),
-                          ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 48,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFBFC7D2),
+                          borderRadius: BorderRadius.circular(100),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Material(
-                    color: const Color(0xFFEFFBF4),
-                    borderRadius: BorderRadius.circular(16),
-                    child: InkWell(
-                      onTap: _fetchingLocation ? null : () => _useCurrentLocation(sheetContext, setSheetState),
-                      borderRadius: BorderRadius.circular(16),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF059669),
-                                shape: BoxShape.circle,
+                            Text(
+                              'Choose Delivery Address',
+                              style: TextStyle(
+                                fontFamily: 'Plus Jakarta Sans',
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF131B2E),
                               ),
-                              child: _fetchingLocation
-                                  ? const Padding(
-                                      padding: EdgeInsets.all(9),
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                    )
-                                  : const Icon(Icons.my_location, size: 20, color: Colors.white),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                _fetchingLocation ? 'Getting your location...' : 'Use My Current Location',
-                                style: const TextStyle(
-                                  fontFamily: 'Plus Jakarta Sans',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF059669),
-                                ),
+                            Text(
+                              'Select your preferred delivery location',
+                              style: TextStyle(
+                                fontFamily: 'Plus Jakarta Sans',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w400,
+                                color: Color(0xFF3F4850),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  StreamBuilder<List<SavedAddressModel>>(
-                    stream: _uid == null
-                        ? const Stream.empty()
-                        : _firestoreService.getSavedAddressesStream(_uid!),
-                    builder: (context, addrSnapshot) {
-                      if (!addrSnapshot.hasData) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      }
-                      final addresses = addrSnapshot.data!;
-                      if (addresses.isEmpty) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'No saved addresses yet. Add one in your Profile, or quick-add below.',
-                                style: TextStyle(
-                                  fontFamily: 'Plus Jakarta Sans',
-                                  fontSize: 12,
-                                  color: Color(0xFF3F4850),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              _buildQuickAddAddress(sheetContext),
-                            ],
+                        Material(
+                          color: const Color(0xFFEAEDFF),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () => Navigator.pop(sheetContext),
+                            child: const SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: Icon(Icons.close,
+                                  size: 20, color: Color(0xFF3F4850)),
+                            ),
                           ),
-                        );
-                      }
-                      return Column(
-                        children: addresses.map((address) {
-                          final bool isSelected =
-                              address.addressText == _currentAddress;
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Material(
-                              color: isSelected
-                                  ? const Color(0xFFE0F2FE)
-                                  : const Color(0xFFF2F3FF),
-                              borderRadius: BorderRadius.circular(16),
-                              child: InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    _currentAddress = address.addressText;
-                                    _currentLat = null;
-                                    _currentLng = null;
-                                  });
-                                  Navigator.pop(sheetContext);
-                                },
-                                borderRadius: BorderRadius.circular(16),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 36,
-                                        height: 36,
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? const Color(0xFF006194)
-                                              : const Color(0xFFE0F2FE),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Icon(
-                                          Icons.location_on,
-                                          size: 20,
-                                          color: isSelected
-                                              ? Colors.white
-                                              : const Color(0xFF006194),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              address.label,
-                                              style: const TextStyle(
-                                                fontFamily:
-                                                    'Plus Jakarta Sans',
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w700,
-                                                color: Color(0xFF131B2E),
-                                              ),
-                                            ),
-                                            Text(
-                                              address.addressText,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontFamily:
-                                                    'Plus Jakarta Sans',
-                                                fontSize: 11,
-                                                color: Color(0xFF3F4850),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Icon(
-                                        isSelected
-                                            ? Icons.check_circle
-                                            : Icons.radio_button_unchecked,
-                                        size: 22,
-                                        color: isSelected
-                                            ? const Color(0xFF006194)
-                                            : const Color(0xFFBFC7D2),
-                                      ),
-                                    ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Material(
+                      color: const Color(0xFFEFFBF4),
+                      borderRadius: BorderRadius.circular(16),
+                      child: InkWell(
+                        onTap: _fetchingLocation ? null : () => _useCurrentLocation(sheetContext, setSheetState),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF059669),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: _fetchingLocation
+                                    ? const Padding(
+                                  padding: EdgeInsets.all(9),
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                                    : const Icon(Icons.my_location, size: 20, color: Colors.white),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  _fetchingLocation ? 'Getting your location...' : 'Use My Current Location',
+                                  style: const TextStyle(
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF059669),
                                   ),
                                 ),
                               ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    StreamBuilder<List<SavedAddressModel>>(
+                      stream: _uid == null
+                          ? const Stream.empty()
+                          : _firestoreService.getSavedAddressesStream(_uid!),
+                      builder: (context, addrSnapshot) {
+                        if (!addrSnapshot.hasData) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        final addresses = addrSnapshot.data!;
+                        if (addresses.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'No saved addresses yet. Add one in your Profile, or quick-add below.',
+                                  style: TextStyle(
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    fontSize: 12,
+                                    color: Color(0xFF3F4850),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                _buildQuickAddAddress(sheetContext),
+                              ],
                             ),
                           );
-                        }).toList(),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: Material(
-                      color: const Color(0xFF0284C7),
-                      borderRadius: BorderRadius.circular(100),
-                      child: InkWell(
+                        }
+                        return Column(
+                          children: addresses.map((address) {
+                            final bool isSelected =
+                                address.addressText == _currentAddress;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Material(
+                                color: isSelected
+                                    ? const Color(0xFFE0F2FE)
+                                    : const Color(0xFFF2F3FF),
+                                borderRadius: BorderRadius.circular(16),
+                                child: InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _currentAddress = address.addressText;
+                                      _currentLat = null;
+                                      _currentLng = null;
+                                    });
+                                    Navigator.pop(sheetContext);
+                                  },
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 36,
+                                          height: 36,
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? const Color(0xFF006194)
+                                                : const Color(0xFFE0F2FE),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            Icons.location_on,
+                                            size: 20,
+                                            color: isSelected
+                                                ? Colors.white
+                                                : const Color(0xFF006194),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                address.label,
+                                                style: const TextStyle(
+                                                  fontFamily:
+                                                  'Plus Jakarta Sans',
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF131B2E),
+                                                ),
+                                              ),
+                                              Text(
+                                                address.addressText,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontFamily:
+                                                  'Plus Jakarta Sans',
+                                                  fontSize: 11,
+                                                  color: Color(0xFF3F4850),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Icon(
+                                          isSelected
+                                              ? Icons.check_circle
+                                              : Icons.radio_button_unchecked,
+                                          size: 22,
+                                          color: isSelected
+                                              ? const Color(0xFF006194)
+                                              : const Color(0xFFBFC7D2),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: Material(
+                        color: const Color(0xFF0284C7),
                         borderRadius: BorderRadius.circular(100),
-                        onTap: () => Navigator.pop(sheetContext),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          child: Center(
-                            child: Text(
-                              'Confirm Delivery Address',
-                              style: TextStyle(
-                                fontFamily: 'Plus Jakarta Sans',
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(100),
+                          onTap: () => Navigator.pop(sheetContext),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Center(
+                              child: Text(
+                                'Confirm Delivery Address',
+                                style: TextStyle(
+                                  fontFamily: 'Plus Jakarta Sans',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
         );
       },
     );
@@ -516,6 +511,68 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6FAFC),
+      extendBody: true,
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 450),
+          child: _isCheckoutView
+              ? _buildCheckoutStream(isDark)
+              : Stack(
+            children: [
+              _buildMainBodyStream(isDark),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: CustomHeader(
+                  onProfileTap: () => _onNavTapped(2),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: _isCheckoutView ? null : _buildBottomNavStream(),
+      floatingActionButton:
+      (!_isCheckoutView && _cart.isNotEmpty && _navIndex == 0)
+          ? _buildCheckoutButton()
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  Widget _buildCheckoutStream(bool isDark) {
+    return StreamBuilder<List<InventoryModel>>(
+      stream: _inventoryStream,
+      builder: (context, inventorySnapshot) {
+        final products = inventorySnapshot.hasData
+            ? _productsWithStock(inventorySnapshot.data!)
+            : _products;
+
+        return CustomerCheckoutScreen(
+          cart: _cart,
+          products: products,
+          currentAddress: _currentAddress,
+          currentLat: _currentLat,
+          currentLng: _currentLng,
+          onBack: () => setState(() => _isCheckoutView = false),
+          onChangeAddress: () => _showLocationPicker(isDark),
+          onOrderSuccess: () {
+            setState(() {
+              _isCheckoutView = false;
+              _navIndex = 1;
+              _cart.clear();
+            });
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildMainBodyStream(bool isDark) {
     return StreamBuilder<List<OrderModel>>(
       stream: _ordersStream,
       builder: (context, ordersSnapshot) {
@@ -533,61 +590,29 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                 ? _productsWithStock(inventorySnapshot.data!)
                 : _products;
 
-        return Scaffold(
-          backgroundColor: const Color(0xFFF6FAFC),
-          extendBody: true,
-          body: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 450),
-              child: _isCheckoutView
-                  ? CustomerCheckoutScreen(
-                cart: _cart,
-                products: products,
-                currentAddress: _currentAddress,
-                currentLat: _currentLat,
-                currentLng: _currentLng,
-                onBack: () => setState(() => _isCheckoutView = false),
-                onChangeAddress: () => _showLocationPicker(isDark),
-                onOrderSuccess: () {
-                  setState(() {
-                    _isCheckoutView = false;
-                    _navIndex = 1;
-                    _cart.clear();
-                  });
-                },
-              )
-                  : Stack(
-                children: [
-                  _buildMainBody(isDark, myOrders, hasActiveOrder, products),
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: CustomHeader(
-                      onProfileTap: () => _onNavTapped(3),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          bottomNavigationBar: _isCheckoutView
-              ? null
-              : AquaBottomNav(
-            isOwner: false,
-            hasActiveOrder: hasActiveOrder,
-            currentIndex: _navIndex,
-            onTap: _onNavTapped,
-          ),
-          floatingActionButton:
-          (!_isCheckoutView && _cart.isNotEmpty && _navIndex == 0)
-              ? _buildCheckoutButton()
-              : null,
-          floatingActionButtonLocation:
-          FloatingActionButtonLocation.centerFloat,
-        );
+            return _buildMainBody(isDark, myOrders, hasActiveOrder, products);
           },
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomNavStream() {
+    return StreamBuilder<List<OrderModel>>(
+      stream: _ordersStream,
+      builder: (context, ordersSnapshot) {
+        final myOrders = ordersSnapshot.data ?? const <OrderModel>[];
+        final hasActiveOrder = myOrders.any(
+              (o) =>
+          o.status != OrderStatus.delivered &&
+              o.status != OrderStatus.cancelled,
+        );
+
+        return AquaBottomNav(
+          isOwner: false,
+          hasActiveOrder: hasActiveOrder,
+          currentIndex: _navIndex,
+          onTap: _onNavTapped,
         );
       },
     );
@@ -619,11 +644,6 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
               _navIndex = 0;
             });
           },
-        ),
-        CustomerPaymentsScreen(
-          myOrders: myOrders,
-          userFuture: _userFuture,
-          uid: _uid,
         ),
         const SafeArea(
           child: Padding(

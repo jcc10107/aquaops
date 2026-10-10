@@ -11,7 +11,6 @@ const Color _onSurface = Color(0xFF131B2E);
 const Color _onSurfaceVariant = Color(0xFF3F4850);
 const Color _outline = Color(0xFF707881);
 const Color _frost = Color(0xFFE0F2FE);
-const Color _cyan = Color(0xFF06B6D4);
 const Color _blue = Color(0xFF0284C7);
 const Color _fieldBg = Color(0xFFF2F3FF);
 const Color _container = Color(0xFFEAEDFF);
@@ -173,7 +172,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                             label: 'Rider',
                             icon: Icons.two_wheeler,
                             selected: selectedRole == UserRole.rider,
-                            selectedColor: _cyan,
+                            selectedColor: _blue,
                             onTap: () => setSheetState(() => selectedRole = UserRole.rider),
                           ),
                         ),
@@ -228,7 +227,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                             _SheetField(
                               label: 'ASSIGNED AREA (DELIVERY ZONE)',
                               icon: Icons.explore_outlined,
-                              iconColor: _cyan,
+                              iconColor: _blue,
                               controller: areaCtrl,
                               hint: 'e.g. Barangay San Antonio (Zone A)',
                             ),
@@ -773,7 +772,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                               child: Icon(
                                 isRider ? Icons.two_wheeler : Icons.point_of_sale,
                                 size: 20,
-                                color: isRider ? _cyan : _blue,
+                                color: _blue,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -823,7 +822,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                                       Container(
                                         width: 6,
                                         height: 6,
-                                        decoration: BoxDecoration(color: isRider ? _cyan : _blue, shape: BoxShape.circle),
+                                        decoration: const BoxDecoration(color: _blue, shape: BoxShape.circle),
                                       ),
                                       const SizedBox(width: 4),
                                       Flexible(
@@ -831,11 +830,11 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                                           subtitle,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontFamily: _font,
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,
-                                            color: isRider ? _cyan : _blue,
+                                            color: _blue,
                                           ),
                                         ),
                                       ),
@@ -873,7 +872,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                             const SizedBox(height: 6),
                             Row(
                               children: [
-                                Icon(isRider ? Icons.explore_outlined : Icons.storefront_outlined, size: 15, color: isRider ? _cyan : _blue),
+                                Icon(isRider ? Icons.explore_outlined : Icons.storefront_outlined, size: 15, color: _blue),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
@@ -900,10 +899,10 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                   top: 0,
                   bottom: 0,
                   width: 6,
-                  child: DecoratedBox(
+                  child: const DecoratedBox(
                     decoration: BoxDecoration(
-                      color: isRider ? _cyan : _blue,
-                      borderRadius: const BorderRadius.horizontal(right: Radius.circular(9999)),
+                      color: _blue,
+                      borderRadius: BorderRadius.horizontal(right: Radius.circular(9999)),
                     ),
                   ),
                 ),

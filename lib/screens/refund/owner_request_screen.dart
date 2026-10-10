@@ -5,8 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/refund_model.dart';
 import '../../services/firestore_service.dart';
-import '../../widgets/custom_header.dart';
-import '../../widgets/aqua_bottom_nav.dart';
 import 'owner_refund_processing_screen.dart';
 
 class OwnerRequestScreen extends StatefulWidget {
@@ -21,10 +19,6 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   String _currentUserName = 'Owner';
 
-  // Transient, per-card, local-only UI state — mirrors the original mock's
-  // "Under Review" toggle and in-progress decline form. None of this is
-  // persisted; it only affects which sub-view of a still-pending claim is
-  // shown before the owner commits a real Firestore status change.
   final Set<String> _underReviewIds = {};
   final Set<String> _showDeclineFormIds = {};
   final Map<String, TextEditingController> _declineControllers = {};
@@ -93,7 +87,6 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
   }
 
   bool _isPendingVisible(RefundModel r, String category) {
-    // category is 'pending' or 'under_review' — a sub-split of RefundStatus.pending.
     final bool underReview = _underReviewIds.contains(r.id);
     return category == 'pending' ? !underReview : underReview;
   }
@@ -330,7 +323,7 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
                               photoUrl,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
-                                  const Center(child: Icon(Icons.image, size: 48, color: _slate400)),
+                              const Center(child: Icon(Icons.image, size: 48, color: _slate400)),
                             ),
                           )
                         else
@@ -673,52 +666,35 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
 
         return Scaffold(
           backgroundColor: _bgCanvas,
-          extendBody: true,
-          bottomNavigationBar: AquaBottomNav(
-            isOwner: true,
-            currentIndex: 4,
-            onTap: (index) {
-              if (index != 4) {
-                Navigator.pop(context);
-              }
-            },
-          ),
-          body: Column(
-            children: [
-              const CustomHeader(),
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 450),
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(16, 16, 16, 130 + bottomInset),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildTitleBlock(),
-                            const SizedBox(height: 16),
-                            _buildMetricsBar(refunds),
-                            const SizedBox(height: 14),
-                            _buildFilterRail(refunds),
-                            const SizedBox(height: 16),
-                            if (cards.isEmpty) _buildEmptyState(),
-                            for (int i = 0; i < cards.length; i++) ...[
-                              if (i > 0) const SizedBox(height: 14),
-                              cards[i],
-                            ],
-                            const SizedBox(height: 16),
-                            _buildAuditFootnote(),
-                          ],
-                        ),
-                      ),
-                    ),
+          body: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 450),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 130 + bottomInset),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTitleBlock(),
+                      const SizedBox(height: 16),
+                      _buildMetricsBar(refunds),
+                      const SizedBox(height: 14),
+                      _buildFilterRail(refunds),
+                      const SizedBox(height: 16),
+                      if (cards.isEmpty) _buildEmptyState(),
+                      for (int i = 0; i < cards.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 14),
+                        cards[i],
+                      ],
+                      const SizedBox(height: 16),
+                      _buildAuditFootnote(),
+                    ],
                   ),
                 ),
               ),
-            ],
+            ),
           ),
         );
       },
@@ -1002,10 +978,10 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
                         decoration: BoxDecoration(color: _slate100, borderRadius: BorderRadius.circular(8), border: Border.all(color: _sky200.withValues(alpha: 0.6))),
                         child: r.photoUrl != null
                             ? Image.network(
-                                r.photoUrl!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => const Icon(Icons.image, color: _slate400, size: 20),
-                              )
+                          r.photoUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.image, color: _slate400, size: 20),
+                        )
                             : const Icon(Icons.image, color: _slate400, size: 20),
                       ),
                     ),

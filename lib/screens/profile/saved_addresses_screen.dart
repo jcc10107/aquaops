@@ -10,7 +10,6 @@ const Color _background = Color(0xFFF6FAFC);
 const Color _canvas = Color(0xFFF8FAFC);
 const Color _onSurface = Color(0xFF131B2E);
 const Color _onSurfaceVariant = Color(0xFF3F4850);
-const Color _primary = Color(0xFF006194);
 const Color _frost = Color(0xFFE0F2FE);
 const Color _cyan = Color(0xFF06B6D4);
 const Color _teal = Color(0xFF14B8A6);
@@ -913,7 +912,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                         child: Icon(
                           _iconFor(address, isPrimary),
                           size: 20,
-                          color: isPrimary ? _primary : _onSurfaceVariant,
+                          color: isPrimary ? _blue : _onSurfaceVariant,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -1123,7 +1122,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
               width: 6,
               child: Container(
                 decoration: BoxDecoration(
-                  color: isPrimary ? _primary : const Color(0xFFDAE2FD),
+                  color: isPrimary ? _blue : const Color(0xFFDAE2FD),
                   borderRadius: const BorderRadius.horizontal(right: Radius.circular(9999)),
                 ),
               ),
@@ -1165,7 +1164,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                 ),
               ],
             ),
-            child: const Icon(Icons.local_shipping_outlined, size: 22, color: _primary),
+            child: const Icon(Icons.local_shipping_outlined, size: 22, color: _blue),
           ),
           const SizedBox(width: 12),
           const Expanded(
@@ -1338,7 +1337,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.pin_drop, size: 13, color: _primary),
+                                  Icon(Icons.pin_drop, size: 13, color: _blue),
                                   SizedBox(width: 6),
                                   Text(
                                     'AQUA LOGISTICS NETWORK',
@@ -1347,7 +1346,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800,
                                       letterSpacing: 0.6,
-                                      color: _primary,
+                                      color: _blue,
                                     ),
                                   ),
                                 ],

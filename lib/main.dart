@@ -31,27 +31,62 @@ void main() async {
   runApp(const AquaOpsApp());
 }
 
-enum ShellTab { dashboard, pos, queue, stock, profile }
+enum ShellTab { dashboard, pos, queue, stock, refund, profile }
 
 Widget shellAt(ShellTab tab) {
-  final bool isOwner = currentUserRoleNotifier.value == 'owner';
-  final int index;
-  switch (tab) {
-    case ShellTab.dashboard:
-      index = 0;
-      break;
-    case ShellTab.pos:
-      index = isOwner ? 1 : 0;
-      break;
-    case ShellTab.queue:
-      index = isOwner ? 2 : 1;
-      break;
-    case ShellTab.stock:
-      index = isOwner ? 3 : 2;
-      break;
-    case ShellTab.profile:
-      index = isOwner ? 4 : 3;
-      break;
+  final String role = currentUserRoleNotifier.value;
+  int index = 0;
+  if (role == 'owner') {
+    switch (tab) {
+      case ShellTab.dashboard:
+        index = 0;
+        break;
+      case ShellTab.pos:
+        index = 1;
+        break;
+      case ShellTab.queue:
+        index = 2;
+        break;
+      case ShellTab.stock:
+        index = 3;
+        break;
+      case ShellTab.refund:
+        index = 4;
+        break;
+      case ShellTab.profile:
+        index = 5;
+        break;
+    }
+  } else if (role == 'staff') {
+    switch (tab) {
+      case ShellTab.stock:
+        index = 1;
+        break;
+      case ShellTab.profile:
+        index = 2;
+        break;
+      default:
+        index = 0;
+        break;
+    }
+  } else if (role == 'rider') {
+    switch (tab) {
+      case ShellTab.profile:
+        index = 1;
+        break;
+      default:
+        index = 0;
+        break;
+    }
+  } else {
+    switch (tab) {
+      case ShellTab.profile:
+        index = 2;
+        break;
+      default:
+        index = 0;
+        break;
+    }
   }
   return MainShell(initialIndex: index);
 }
@@ -109,6 +144,7 @@ class AquaOpsApp extends StatelessWidget {
             '/pos': (context) => shellAt(ShellTab.pos),
             '/dispatch': (context) => shellAt(ShellTab.queue),
             '/inventory': (context) => shellAt(ShellTab.stock),
+            '/owner_refund': (context) => shellAt(ShellTab.refund),
             '/customer': (context) => const CustomerMainScreen(),
           },
         );

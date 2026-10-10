@@ -8,6 +8,7 @@ import 'inventory/inventory_screen.dart';
 import 'owner/owner_dashboard_screen.dart';
 import 'pos/pos_screen.dart';
 import 'profile/profile_screen.dart';
+import 'refund/owner_request_screen.dart';
 
 class MainShell extends StatefulWidget {
   final int initialIndex;
@@ -37,6 +38,7 @@ class _MainShellState extends State<MainShell> {
             PosScreen(),
             DeliveryQueueScreen(),
             InventoryScreen(),
+            OwnerRequestScreen(),
             ProfileScreen(),
           ];
         } else if (isStaff) {
@@ -54,7 +56,6 @@ class _MainShellState extends State<MainShell> {
           pages = const [
             Center(child: Text('Order')),
             Center(child: Text('Orders')),
-            Center(child: Text('Payments')),
             ProfileScreen(),
           ];
         }

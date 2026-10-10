@@ -369,13 +369,22 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Row(
-              children: [
-                Icon(Icons.two_wheeler, color: skyBlue, size: 20),
-                SizedBox(width: 6),
-                Text('Active Dispatch Fleet', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: onSurface)),
-              ],
+            const Flexible(
+              child: Row(
+                children: [
+                  Icon(Icons.two_wheeler, color: skyBlue, size: 20),
+                  SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Active Dispatch Fleet',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: onSurface),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               decoration: BoxDecoration(color: surfaceFrost, borderRadius: BorderRadius.circular(100)),
@@ -445,37 +454,44 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(color: surfaceFrost, shape: BoxShape.circle),
-                    child: const Center(
-                      child: Icon(Icons.person, color: skyBlue, size: 20),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: const BoxDecoration(color: surfaceFrost, shape: BoxShape.circle),
+                      child: const Center(
+                        child: Icon(Icons.person, color: skyBlue, size: 20),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(order.customerName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: onSurface)),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(color: surfaceContainer, borderRadius: BorderRadius.circular(100)),
-                            child: Text(order.id, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: skyBlue)),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 2,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(order.customerName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: onSurface)),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(color: surfaceContainer, borderRadius: BorderRadius.circular(100)),
+                                child: Text(order.id, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: skyBlue)),
+                              ),
+                            ],
                           ),
+                          const SizedBox(height: 2),
+                          Text(order.deliveryAddress ?? '', style: const TextStyle(fontSize: 11, color: onSurfaceVariant)),
                         ],
                       ),
-                      const SizedBox(height: 2),
-                      Text(order.deliveryAddress ?? '', style: const TextStyle(fontSize: 11, color: onSurfaceVariant)),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -505,7 +521,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(riderLabel, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: skyBlue)),
+              Flexible(
+                child: Text(
+                  riderLabel,
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: skyBlue),
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                ),
+              ),
             ],
           ),
         ],

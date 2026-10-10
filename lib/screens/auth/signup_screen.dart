@@ -206,7 +206,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             const Padding(
                               padding: EdgeInsets.only(left: 4, bottom: 4),
                               child: Text(
-                                'Full Name',
+                                'FULL NAME',
                                 style: TextStyle(
                                   fontFamily: 'Plus Jakarta Sans',
                                   fontSize: 11,
@@ -225,7 +225,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             const Padding(
                               padding: EdgeInsets.only(left: 4, bottom: 4),
                               child: Text(
-                                'Mobile Number',
+                                'MOBILE NUMBER',
                                 style: TextStyle(
                                   fontFamily: 'Plus Jakarta Sans',
                                   fontSize: 11,
@@ -244,7 +244,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             const Padding(
                               padding: EdgeInsets.only(left: 4, bottom: 4),
                               child: Text(
-                                'Email Address',
+                                'EMAIL ADDRESS',
                                 style: TextStyle(
                                   fontFamily: 'Plus Jakarta Sans',
                                   fontSize: 11,
@@ -263,7 +263,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             const Padding(
                               padding: EdgeInsets.only(left: 4, bottom: 4),
                               child: Text(
-                                'Password',
+                                'PASSWORD',
                                 style: TextStyle(
                                   fontFamily: 'Plus Jakarta Sans',
                                   fontSize: 11,
@@ -274,7 +274,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ),
                             _buildPasswordField(
                               controller: _passwordController,
-                              hint: 'Create password',
+                              hint: 'CREATE PASSWORD',
                               isObscure: _obscurePassword,
                               onToggle: () => setState(() => _obscurePassword = !_obscurePassword),
                             ),
@@ -282,7 +282,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             const Padding(
                               padding: EdgeInsets.only(left: 4, bottom: 4),
                               child: Text(
-                                'Confirm Password',
+                                'CONFIRM PASSWORD',
                                 style: TextStyle(
                                   fontFamily: 'Plus Jakarta Sans',
                                   fontSize: 11,

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
-import '../screens/refund/owner_request_screen.dart';
 
 class _NavEntry {
   final Widget icon;
@@ -18,7 +17,6 @@ class AquaBottomNav extends StatelessWidget implements PreferredSizeWidget {
   final ValueChanged<int> onTap;
 
   static const Color brandLoginBlue = Color(0xFF0284C7);
-  static const int _ownerRefundIndex = 4;
 
   const AquaBottomNav({
     super.key,
@@ -78,20 +76,7 @@ class AquaBottomNav extends StatelessWidget implements PreferredSizeWidget {
         ),
         label: 'Orders',
       ),
-      const _NavEntry(icon: Icon(Icons.account_balance_wallet), label: 'Payments'),
     ];
-  }
-
-  void _handleTap(BuildContext context, int index) {
-    if (isOwner && index == _ownerRefundIndex) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => const OwnerRequestScreen(),
-        ),
-      );
-      return;
-    }
-    onTap(index);
   }
 
   Widget _buildItem(BuildContext context, int index, _NavEntry entry) {
@@ -100,7 +85,7 @@ class AquaBottomNav extends StatelessWidget implements PreferredSizeWidget {
 
     return Expanded(
       child: InkWell(
-        onTap: () => _handleTap(context, index),
+        onTap: () => onTap(index),
         borderRadius: BorderRadius.circular(40),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),

@@ -1,10 +1,17 @@
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/zones.dart';
 import '../../main.dart';
 import '../../models/order_model.dart';
 import '../../models/user_model.dart';
+import '../../services/cloudinary_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/offline_queue_service.dart';
 import 'rider_cash_out_modal.dart';
 import 'emergency_transfer_modal.dart';
 import 'fulfill_delivery_screen.dart';
@@ -55,7 +62,154 @@ class DeliveryQueueScreen extends StatefulWidget {
 class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
   String _area = 'all';
   final FirestoreService _firestoreService = FirestoreService();
+  final CloudinaryService _cloudinaryService = CloudinaryService();
+  final OfflineQueueService _offlineQueue = OfflineQueueService();
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
+
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+  bool _syncing = false;
+  bool _pendingListExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Covers reopening the app after it was closed while offline.
+    _attemptSync();
+    // Covers signal coming back while the rider is already on this screen.
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
+      if (results.any((r) => r != ConnectivityResult.none)) {
+        _attemptSync();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _attemptSync({bool showResult = false}) async {
+    if (_syncing) return;
+    if (_offlineQueue.getAllPending().isEmpty) return;
+    setState(() => _syncing = true);
+    final (synced, stillPending) = await _offlineQueue.syncAll(
+      firestoreService: _firestoreService,
+      cloudinaryService: _cloudinaryService,
+    );
+    if (!mounted) return;
+    setState(() => _syncing = false);
+    if (showResult) {
+      final message = stillPending == 0
+          ? 'All deliveries synced!'
+          : 'Synced $synced — $stillPending still pending.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Widget _pendingSyncBanner() {
+    return ValueListenableBuilder<Box>(
+      valueListenable: _offlineQueue.listenable(),
+      builder: (context, box, _) {
+        final pendingCount = box.length;
+        if (pendingCount == 0) return const SizedBox.shrink();
+        final records = _offlineQueue.getAllPending();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB).withValues(alpha: 0.8),
+              border: Border.all(color: const Color(0xFFFCD34D)),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                InkWell(
+                  onTap: () => setState(() => _pendingListExpanded = !_pendingListExpanded),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                    child: Row(
+                      children: [
+                        _syncing
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFB45309)))
+                            : const Icon(Icons.cloud_off, size: 18, color: Color(0xFFB45309)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '$pendingCount ${pendingCount == 1 ? 'delivery' : 'deliveries'} pending sync',
+                            style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB45309)),
+                          ),
+                        ),
+                        Icon(_pendingListExpanded ? Icons.expand_less : Icons.expand_more, size: 18, color: const Color(0xFFB45309)),
+                        const SizedBox(width: 10),
+                        InkWell(
+                          onTap: _syncing ? null : () => _attemptSync(showResult: true),
+                          child: const Text('Sync Now', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB45309), decoration: TextDecoration.underline)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_pendingListExpanded)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                    child: Column(
+                      children: records.map((r) => _pendingRecordTile(r)).toList(),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _pendingRecordTile(Map<String, dynamic> record) {
+    final orderNumber = (record['orderNumber'] as String?) ?? record['orderId'] as String;
+    final customerName = (record['customerName'] as String?) ?? 'Unknown customer';
+    final address = (record['deliveryAddress'] as String?) ?? '';
+    final gallons = record['gallonsDelivered'] as int? ?? 0;
+    final recipient = record['recipientName'] as String?;
+    final queuedAt = DateTime.tryParse(record['queuedAt'] as String? ?? '');
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFCD34D).withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(orderNumber, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF92400E))),
+              Text('$gallons gal', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF92400E))),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(customerName, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF131B2E))),
+          if (address.isNotEmpty)
+            Text(address, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: Color(0xFF3F4850))),
+          if (recipient != null && recipient.isNotEmpty)
+            Text('Received by: $recipient', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: Color(0xFF3F4850))),
+          if (queuedAt != null)
+            Text('Queued ${_fmtQueuedTime(queuedAt)}', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: Color(0xFF94A3B8))),
+        ],
+      ),
+    );
+  }
+
+  String _fmtQueuedTime(DateTime t) {
+    String p(int n) => n.toString().padLeft(2, '0');
+    return '${t.year}-${p(t.month)}-${p(t.day)} ${p(t.hour)}:${p(t.minute)}';
+  }
 
   void _showAssignRiderSheet(OrderModel order, List<UserModel> riders) {
     showModalBottomSheet(
@@ -281,9 +435,21 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
     showDialog(context: context, builder: (context) => const EmergencyTransferModal());
   }
 
+  static const List<String> _codedZones = ['si', 'dr', 'sr', 'sm'];
+
+  // 'other' groups every barangay that isn't one of the 4 legacy-coded
+  // ones — both the old literal 'other' value and any of the ~75 real
+  // barangay names now saved directly on the order.
+  bool _matchesArea(OrderModel d, String area) {
+    if (area == 'all') return true;
+    final group = zoneGroupOf(d.areaZone);
+    if (area == 'other') return !_codedZones.contains(group);
+    return group == area;
+  }
+
   int _countForArea(List<OrderModel> orders, String area) {
     if (area == 'all') return orders.length;
-    return orders.where((d) => d.areaZone == area).length;
+    return orders.where((d) => _matchesArea(d, area)).length;
   }
 
   @override
@@ -331,6 +497,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
+                _pendingSyncBanner(),
                 Row(
                   children: [
                     if (isDispatcher) ...[
@@ -410,7 +577,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                         final allOrders = snapshot.data!;
                         final isRider = currentUserRoleNotifier.value == 'rider';
                         final orders = isRider ? allOrders.where((o) => o.assignedRiderId == _uid).toList() : allOrders;
-                        final filteredDeliveries = orders.where((d) => _area == 'all' || d.areaZone == _area).toList();
+                        final filteredDeliveries = orders.where((d) => _matchesArea(d, _area)).toList();
 
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -458,6 +625,8 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                                         _buildFilterTab('sr', 'Barangay San Roque', _countForArea(orders, 'sr')),
                                         const SizedBox(width: 8),
                                         _buildFilterTab('sm', 'Barangay San Marcos', _countForArea(orders, 'sm')),
+                                        const SizedBox(width: 8),
+                                        _buildFilterTab('other', 'Other Barangays', _countForArea(orders, 'other')),
                                       ],
                                     ),
                                   ),

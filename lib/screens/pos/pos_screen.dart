@@ -4,16 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/zones.dart';
 import '../../models/order_model.dart';
 import '../../models/shift_model.dart';
 import '../../services/firestore_service.dart';
-
-class _ZoneOption {
-  final String label;
-  final String value;
-
-  const _ZoneOption(this.label, this.value);
-}
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -28,21 +22,10 @@ class _PosScreenState extends State<PosScreen> {
   static const double _newBottlePrice = 250.0;
   static const double _bottle500Price = 15.0;
 
-  static const List<_ZoneOption> _zoneOptions = [
-    _ZoneOption('Barangay San Isidro', 'si'),
-    _ZoneOption('Barangay Del Remedio', 'dr'),
-    _ZoneOption('Barangay San Roque', 'sr'),
-    _ZoneOption('Barangay San Marcos', 'sm'),
-    _ZoneOption('Barangay San Antonio', 'Barangay San Antonio'),
-    _ZoneOption('Barangay San Gabriel', 'Barangay San Gabriel'),
-    _ZoneOption('Barangay Concepcion', 'Barangay Concepcion'),
-    _ZoneOption('Barangay San Nicolas', 'Barangay San Nicolas'),
-    _ZoneOption('Barangay Santa Maria', 'Barangay Santa Maria'),
-    _ZoneOption('Barangay San Francisco', 'Barangay San Francisco'),
-    _ZoneOption('Barangay Soledad', 'Barangay Soledad'),
-    _ZoneOption('Barangay Bagong Pook', 'Barangay Bagong Pook'),
-    _ZoneOption('Barangay Poblacion / Central', 'Barangay Poblacion / Central'),
-  ];
+  // Full real San Pablo barangay list (shared with the dispatch queue and
+  // customer checkout) — replaces the old 2-mock-entry dropdown. No
+  // preselection: a forgotten default must never silently misroute an order.
+  final List<ZoneOption> _zoneOptions = buildZoneOptions();
 
   int _round = 1;
   int _slim = 0;
@@ -54,7 +37,10 @@ class _PosScreenState extends State<PosScreen> {
   String _lastOrderNumber = '';
   bool _deliveryMode = false;
   String _deliveryPay = 'cash';
-  String _zoneValue = 'si';
+  // 'counter' = already settled at the register before dispatch; 'rider' =
+  // collected COD at the doorstep (today's only prior behavior).
+  String _deliveryPaymentTiming = 'rider';
+  String? _zoneValue;
   Timer? _toastTimer;
   final TextEditingController _tenderCtrl = TextEditingController(text: '35');
   final TextEditingController _gcashRefCtrl = TextEditingController();
@@ -113,18 +99,23 @@ class _PosScreenState extends State<PosScreen> {
           name: '5-Gal Round Refill',
           quantity: _round,
           unitPrice: _roundPrice,
+          productKey: 'inv_water_round',
         ),
       if (_slim > 0)
         OrderItem(
           name: '5-Gal Slim Alkaline Refill',
           quantity: _slim,
           unitPrice: _slimPrice,
+          productKey: 'inv_water_slim',
         ),
       if (_newB > 0)
         OrderItem(
           name: 'New Bottle + Water (5-Gal)',
           quantity: _newB,
           unitPrice: _newBottlePrice,
+          // Matches the walk-in sale's existing treatment of New Jug: its
+          // water draws from the same round-gallon stock.
+          productKey: 'inv_water_round',
         ),
       if (_bottle500 > 0)
         OrderItem(
@@ -132,6 +123,9 @@ class _PosScreenState extends State<PosScreen> {
           quantity: _bottle500,
           unitPrice: _bottle500Price,
           requiresPackaging: false,
+          // No inventory doc exists for 500ml stock yet, so no productKey —
+          // intentionally not deducted (see decision log in the delivery
+          // workflow plan: no deduction unless inventory docs exist).
         ),
     ];
   }
@@ -253,19 +247,64 @@ class _PosScreenState extends State<PosScreen> {
       );
       return;
     }
+    if (_zoneValue == null) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Select the delivery barangay/zone.'),
+          backgroundColor: AppColors.coralAlert,
+        ),
+      );
+      return;
+    }
+
+    final bool isCounterPaid = _deliveryPaymentTiming == 'counter';
+    String? gcashRef;
+    if (isCounterPaid) {
+      if (_pay == 'cash') {
+        final double tendered = double.tryParse(_tenderCtrl.text) ?? 0.0;
+        if (tendered < _tot) {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Tendered cash is less than the total.'),
+              backgroundColor: AppColors.coralAlert,
+            ),
+          );
+          return;
+        }
+      } else if (_gcashRefCtrl.text.trim().length != 13) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Enter the 13-digit GCash reference number.'),
+            backgroundColor: AppColors.coralAlert,
+          ),
+        );
+        return;
+      } else {
+        gcashRef = _gcashRefCtrl.text.trim();
+      }
+
+      // Open shift is recommended for a counter-settled sale, but never
+      // blocks the sale — just a heads-up for reconciliation later.
+      final shift = await _firestoreService.getOpenShiftStream().first;
+      if (shift == null && mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('No shift is open — this sale will still go through.')),
+        );
+      }
+    }
 
     setState(() => _isCheckingOut = true);
     try {
-      final String orderNumber = await _firestoreService.placeOrder(
-        customerId: '',
+      final String orderNumber = await _firestoreService.placeCounterDeliveryOrder(
         customerName: name,
         customerPhone: phone,
         deliveryAddress: address,
-        areaZone: _zoneValue,
+        zone: _zoneValue!,
         items: _orderItems(),
         totalAmount: _tot,
-        paymentMethod: _deliveryPay,
-        notes: 'Counter delivery order',
+        paymentChoice: _deliveryPaymentTiming,
+        paymentMethod: isCounterPaid ? _pay : _deliveryPay,
+        gcashReference: gcashRef,
       );
       if (!mounted) return;
       setState(() {
@@ -278,6 +317,9 @@ class _PosScreenState extends State<PosScreen> {
         _nameCtrl.clear();
         _phoneCtrl.clear();
         _addressCtrl.clear();
+        _zoneValue = null;
+        _deliveryPaymentTiming = 'rider';
+        _gcashRefCtrl.clear();
         _showToast = true;
       });
       _toastTimer?.cancel();
@@ -881,6 +923,16 @@ class _PosScreenState extends State<PosScreen> {
                           child: DropdownButton<String>(
                             value: _zoneValue,
                             isExpanded: true,
+                            hint: const Text(
+                              'Select barangay / zone',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.outline,
+                                fontFamily: 'Plus Jakarta Sans',
+                              ),
+                            ),
+                            menuMaxHeight: 420,
                             icon: const Icon(
                               Icons.expand_more,
                               size: 18,
@@ -953,37 +1005,115 @@ class _PosScreenState extends State<PosScreen> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    _deliveryPayChip('Cash on Delivery', Icons.two_wheeler, 'cash'),
+                    _paymentTimingChip('Paid at Counter', Icons.point_of_sale, 'counter'),
                     const SizedBox(width: 8),
-                    _deliveryPayChip('GCash on Delivery', Icons.qr_code_2, 'gcash'),
+                    _paymentTimingChip('Pay on Delivery', Icons.two_wheeler, 'rider'),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.info_outline,
-                      size: 16,
-                      color: AppColors.textVariant,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Rider collects ₱${_tot.toStringAsFixed(2)} $collectLabel at doorstep. Unpaid at counter register.',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textVariant,
-                          height: 1.4,
+                if (_deliveryPaymentTiming == 'rider') ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _deliveryPayChip('Cash on Delivery', Icons.two_wheeler, 'cash'),
+                      const SizedBox(width: 8),
+                      _deliveryPayChip('GCash on Delivery', Icons.qr_code_2, 'gcash'),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: AppColors.textVariant,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Rider collects ₱${_tot.toStringAsFixed(2)} $collectLabel at doorstep. Unpaid at counter register.',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textVariant,
+                            height: 1.4,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ] else ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: AppColors.textVariant,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Settle payment below before dispatching — the rider collects nothing at the door.',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textVariant,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _paymentTimingChip(String label, IconData icon, String value) {
+    final bool selected = _deliveryPaymentTiming == value;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _deliveryPaymentTiming = value),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF0284C7) : AppColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected
+                  ? const Color(0xFF0284C7)
+                  : AppColors.outlineVariant.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: selected ? Colors.white : AppColors.textVariant,
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: selected ? Colors.white : AppColors.textVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1181,7 +1311,8 @@ class _PosScreenState extends State<PosScreen> {
                   ),
                   const SizedBox(height: 12),
                   if (_deliveryMode) _buildDeliverySection(),
-                  if (!_deliveryMode)
+                  if (!_deliveryMode || _deliveryPaymentTiming == 'counter') ...[
+                    if (_deliveryMode) const SizedBox(height: 12),
                     _sectionCard(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1459,6 +1590,7 @@ class _PosScreenState extends State<PosScreen> {
                         ],
                       ),
                     ),
+                  ],
                   const SizedBox(height: 12),
                   _sectionCard(
                     child: Column(

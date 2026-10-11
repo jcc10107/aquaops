@@ -6,6 +6,7 @@ import '../../core/constants/app_colors.dart';
 import '../../models/order_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/cloudinary_service.dart';
+import '../../core/constants/zones.dart';
 
 class CustomerCheckoutScreen extends StatefulWidget {
   final Map<String, int> cart;
@@ -62,22 +63,14 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
   static const Color _errorContainer = Color(0xFFFFDAD6);
   static const Color _outline = Color(0xFF707881);
 
-  static const Map<String, String> _areaZoneKeywords = {
-    'san isidro': 'si',
-    'del remedio': 'dr',
-    'san roque': 'sr',
-    'san marcos': 'sm',
-  };
-
-  // Addresses are now free text from the customer's real Saved Addresses
-  // (not a fixed list), so match by keyword instead of exact string.
-  String _resolveAreaZone(String address) {
-    final lower = address.toLowerCase();
-    for (final entry in _areaZoneKeywords.entries) {
-      if (lower.contains(entry.key)) return entry.value;
-    }
-    return 'other';
-  }
+  // Addresses are free text from the customer's real Saved Addresses (not a
+  // fixed list). zoneGroupOf looks specifically for a labeled "Barangay X"
+  // segment so a street name that happens to share words with a barangay
+  // (e.g. "San Marcos St") doesn't get misrouted to that barangay instead
+  // of the one actually named in the address. Any barangay outside the 4
+  // legacy-coded ones is now saved under its own real name instead of
+  // collapsing to 'other'.
+  String _resolveAreaZone(String address) => zoneGroupOf(address);
 
   @override
   void initState() {

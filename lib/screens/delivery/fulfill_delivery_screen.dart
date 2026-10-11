@@ -6,6 +6,8 @@ import '../../core/constants/app_colors.dart';
 import '../../models/order_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/cloudinary_service.dart';
+import '../../services/offline_queue_service.dart';
+import '../../core/constants/zones.dart';
 
 class FulfillDeliveryScreen extends StatefulWidget {
   final OrderModel order;
@@ -31,6 +33,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
 
   final FirestoreService _firestoreService = FirestoreService();
   final CloudinaryService _cloudinary = CloudinaryService();
+  final OfflineQueueService _offlineQueue = OfflineQueueService();
   late int droppedOff;
   late int emptyCollected;
   bool paymentConfirmed = true;
@@ -96,9 +99,36 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
       nav.pop();
       messenger.showSnackBar(const SnackBar(content: Text('Delivery Completed!')));
     } catch (e) {
-      if (!mounted) return;
-      setState(() => isSubmitting = false);
-      messenger.showSnackBar(SnackBar(content: Text('Failed to complete delivery: $e'), backgroundColor: AppColors.error));
+      // Likely offline (Cloudinary upload and/or the fulfillDelivery
+      // transaction both require a live connection to even start). Rather
+      // than leave the rider stuck at the door, save what they physically
+      // verified locally and sync it automatically once back online.
+      try {
+        await _offlineQueue.queue(
+          orderId: widget.order.id,
+          customerId: widget.order.customerId ?? '',
+          gallonsDelivered: droppedOff,
+          emptyReturned: emptyCollected,
+          paymentMethod: paymentMethod,
+          recipientName: _recipientCtrl.text.trim().isEmpty ? null : _recipientCtrl.text.trim(),
+          photoBytes: _podPhotoBytes,
+          orderNumber: widget.order.orderNumber,
+          customerName: widget.order.customerName,
+          deliveryAddress: widget.order.deliveryAddress,
+        );
+        if (!mounted) return;
+        nav.pop();
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Saved offline — will sync automatically once you\'re back online.'),
+            backgroundColor: _blue,
+          ),
+        );
+      } catch (queueError) {
+        if (!mounted) return;
+        setState(() => isSubmitting = false);
+        messenger.showSnackBar(SnackBar(content: Text('Failed to complete delivery: $e'), backgroundColor: AppColors.error));
+      }
     }
   }
 
@@ -253,7 +283,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
   Widget _customerCard() {
     final String phone = widget.order.customerPhone.trim();
     final String address = (widget.order.deliveryAddress ?? '').trim();
-    final String zone = widget.order.areaZone.trim();
+    final String zone = widget.order.areaZone.trim().isEmpty ? '' : zoneLabel(widget.order.areaZone.trim());
     final String location = address.isNotEmpty ? (zone.isNotEmpty ? '$address • $zone' : address) : zone;
     final String number = widget.order.orderNumber.startsWith('#') ? widget.order.orderNumber : '#${widget.order.orderNumber}';
 

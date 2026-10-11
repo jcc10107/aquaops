@@ -890,11 +890,14 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
         .where((o) => o.assignedRiderId == rider.id && o.status == OrderStatus.delivered && o.revenueDate.isAfter(since))
         .toList();
 
-    final stopsCompleted = orders.length;
-    final gallonsDelivered = orders.fold<int>(0, (s, o) => s + o.gallonsDelivered);
-    final emptiesReturned = orders.fold<int>(0, (s, o) => s + o.emptyGallonsReturned);
-    final cashCollected = orders.where((o) => o.paymentMethod == PaymentMethod.cash).fold<double>(0, (s, o) => s + o.totalAmount);
-    final gcashCollected = orders.where((o) => o.paymentMethod == PaymentMethod.gcash).fold<double>(0, (s, o) => s + o.totalAmount);
+    // Same computation closeRiderCashOut uses server-side, so this preview
+    // can never drift from what actually gets recorded on submit.
+    final summary = summarizeRiderCashOut(orders);
+    final stopsCompleted = summary.stopsCompleted;
+    final gallonsDelivered = summary.gallonsDelivered;
+    final emptiesReturned = summary.emptiesReturned;
+    final cashCollected = summary.cashCollected;
+    final gcashCollected = summary.gcashCollected;
     final handedOver = double.tryParse(_cashHandedOverCtrl.text);
     final variance = handedOver == null ? null : handedOver - cashCollected;
 

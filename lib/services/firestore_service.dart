@@ -6,6 +6,7 @@ import '../models/shift_model.dart';
 import '../models/rider_cash_out_model.dart';
 import '../models/saved_address_model.dart';
 import '../models/refund_model.dart';
+import '../core/constants/zones.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -83,6 +84,9 @@ class FirestoreService {
       'paymentMethod': paymentMethod,
       'gcashReference': gcashReference,
       'isPaid': true,
+      'orderSource': 'pos',
+      'paymentCollectedBy': 'counter',
+      'paidAt': FieldValue.serverTimestamp(),
       'createdAt': FieldValue.serverTimestamp(),
     });
 
@@ -123,6 +127,7 @@ class FirestoreService {
       customerPhone: data['customerPhone'] ?? '',
       deliveryAddress: data['deliveryAddress'],
       areaZone: data['areaZone'] ?? '',
+      barangayDisplayName: data['barangayDisplayName'],
       items: itemsData.map((i) {
         final item = i as Map<String, dynamic>;
         return OrderItem(
@@ -130,6 +135,7 @@ class FirestoreService {
           quantity: (item['quantity'] ?? 0).toInt(),
           unitPrice: (item['unitPrice'] ?? 0).toDouble(),
           requiresPackaging: item['requiresPackaging'] ?? true,
+          productKey: item['productKey'],
         );
       }).toList(),
       totalAmount: (data['totalAmount'] ?? 0).toDouble(),
@@ -154,6 +160,11 @@ class FirestoreService {
       deliveryLat: (data['deliveryLat'] as num?)?.toDouble(),
       deliveryLng: (data['deliveryLng'] as num?)?.toDouble(),
       lastTransferReason: data['lastTransferReason'],
+      paymentCollectedBy: data['paymentCollectedBy'],
+      paidAt: (data['paidAt'] as Timestamp?)?.toDate(),
+      orderSource: data['orderSource'],
+      stockDeductedAt: (data['stockDeductedAt'] as Timestamp?)?.toDate(),
+      stockShortfall: data['stockShortfall'] ?? false,
       createdAt: createdAtRaw is Timestamp ? createdAtRaw.toDate() : DateTime.now(),
       deliveredAt: deliveredAtRaw is Timestamp ? deliveredAtRaw.toDate() : null,
     );
@@ -217,6 +228,7 @@ class FirestoreService {
       'customerPhone': customerPhone,
       'deliveryAddress': deliveryAddress,
       'areaZone': areaZone,
+      'barangayDisplayName': zoneLabel(areaZone),
       'items': items.map((i) => i.toMap()).toList(),
       'totalAmount': totalAmount,
       'status': 'pending',
@@ -227,17 +239,96 @@ class FirestoreService {
       'notes': notes,
       'deliveryLat': deliveryLat,
       'deliveryLng': deliveryLng,
+      'orderSource': 'customer_app',
+      'paymentCollectedBy': 'rider',
       'createdAt': FieldValue.serverTimestamp(),
     });
 
     return orderNumber;
   }
 
-  Future<void> cancelOrder(String orderId) async {
-    await _db.collection('orders').doc(orderId).update({'status': 'cancelled'});
+  // Places a staff-initiated delivery order from the POS counter — a
+  // walk-in customer (possibly a guest with no account) who wants their
+  // order delivered instead of handed over on the spot. Keeps the ORD-
+  // prefix (not a separate DLV- prefix) because the notification feed and
+  // POS toast already key off of it.
+  Future<String> placeCounterDeliveryOrder({
+    required String customerName,
+    required String customerPhone,
+    required String deliveryAddress,
+    required String zone,
+    required List<OrderItem> items,
+    required double totalAmount,
+    required String paymentChoice, // 'counter' or 'rider'
+    String? paymentMethod, // cash/gcash, only meaningful when paymentChoice == 'counter'
+    String? gcashReference,
+  }) async {
+    final orderRef = _db.collection('orders').doc();
+    final orderNumber = 'ORD-${orderRef.id.substring(0, 6).toUpperCase()}';
+    final bool isCounterPaid = paymentChoice == 'counter';
+
+    await orderRef.set({
+      'orderNumber': orderNumber,
+      'customerId': '',
+      'customerName': customerName,
+      'customerPhone': customerPhone,
+      'deliveryAddress': deliveryAddress,
+      'areaZone': zone,
+      'barangayDisplayName': zoneLabel(zone),
+      'items': items.map((i) => i.toMap()).toList(),
+      'totalAmount': totalAmount,
+      'status': 'pending',
+      'paymentMethod': isCounterPaid ? (paymentMethod ?? 'cash') : 'cash',
+      'gcashReference': isCounterPaid ? gcashReference : null,
+      'isPaid': isCounterPaid,
+      'orderSource': 'pos',
+      'paymentCollectedBy': isCounterPaid ? 'counter' : 'rider',
+      'paidAt': isCounterPaid ? FieldValue.serverTimestamp() : null,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    return orderNumber;
   }
 
-  // Fulfill drop-off with atomic inventory and container balance deduction
+  // Cancelling is status-guarded: a delivered order can never be cancelled.
+  // Nothing is deducted from stock before delivery under the current
+  // timing, so a pre-delivery cancel has nothing to restore.
+  Future<void> cancelOrder(String orderId) async {
+    final orderRef = _db.collection('orders').doc(orderId);
+    await _db.runTransaction((transaction) async {
+      final snap = await transaction.get(orderRef);
+      if (!snap.exists) return;
+      if (snap.data()?['status'] == 'delivered') {
+        throw Exception('Delivered orders cannot be cancelled.');
+      }
+      transaction.update(orderRef, {'status': 'cancelled'});
+    });
+  }
+
+  // Resolves which inventory doc (if any) an order item's quantity should
+  // be deducted from. Prefers the item's own productKey (set explicitly by
+  // the POS screen); falls back to name-matching for legacy/customer-app
+  // items that predate productKey, same rule the walk-in sale path already
+  // uses for its own New Jug item.
+  String? _waterInventoryKeyFor(OrderItem item) {
+    if (item.productKey != null) {
+      return (item.productKey == 'inv_water_round' || item.productKey == 'inv_water_slim')
+          ? item.productKey
+          : null;
+    }
+    final name = item.name.toLowerCase();
+    if (name.contains('slim') || name.contains('alkaline')) return 'inv_water_slim';
+    if (name.contains('round') || name.contains('gallon') || name.contains('jug')) {
+      return 'inv_water_round';
+    }
+    return null; // e.g. 500ml bottled water — no inventory doc, no deduction
+  }
+
+  // Fulfill drop-off: deducts water/caps/seals exactly once, derived from
+  // the order's own stored items (not the rider's manually-entered count),
+  // in a single transaction. Guards against a double-tap deducting twice,
+  // and never blocks the rider at the door over a stock mismatch — it just
+  // clamps at 0 and flags stockShortfall for the dispatcher to see.
   Future<void> fulfillDelivery({
     required String orderId,
     required String customerId,
@@ -247,42 +338,100 @@ class FirestoreService {
     String? proofOfDeliveryUrl,
     String? recipientName,
   }) async {
-    final batch = _db.batch();
     final orderRef = _db.collection('orders').doc(orderId);
 
-    final unreturnedDiff = gallonsDelivered - emptyReturned;
+    await _db.runTransaction((transaction) async {
+      final orderSnap = await transaction.get(orderRef);
+      if (!orderSnap.exists) {
+        throw Exception('Order not found.');
+      }
+      final data = orderSnap.data()!;
+      final currentStatus = data['status'] as String?;
+      if (currentStatus == 'delivered' || currentStatus == 'cancelled' || data['stockDeductedAt'] != null) {
+        throw Exception('This delivery was already processed.');
+      }
 
-    batch.update(orderRef, {
-      'status': 'delivered',
-      'isPaid': true,
-      'gallonsDelivered': gallonsDelivered,
-      'emptyGallonsReturned': emptyReturned,
-      'unreturnedDiff': unreturnedDiff,
-      'proofOfDeliveryUrl': proofOfDeliveryUrl,
-      'recipientName': recipientName,
-      'deliveredAt': FieldValue.serverTimestamp(),
+      final itemsData = (data['items'] as List<dynamic>?) ?? [];
+      final items = itemsData.map((i) {
+        final m = i as Map<String, dynamic>;
+        return OrderItem(
+          name: m['name'] ?? '',
+          quantity: (m['quantity'] ?? 0).toInt(),
+          unitPrice: (m['unitPrice'] ?? 0).toDouble(),
+          requiresPackaging: m['requiresPackaging'] ?? true,
+          productKey: m['productKey'],
+        );
+      }).toList();
+
+      final Map<String, int> waterNeeded = {};
+      int packagingNeeded = 0;
+      for (final item in items) {
+        final key = _waterInventoryKeyFor(item);
+        if (key != null) {
+          waterNeeded[key] = (waterNeeded[key] ?? 0) + item.quantity;
+        }
+        if (item.requiresPackaging) {
+          packagingNeeded += item.quantity;
+        }
+      }
+
+      // All reads must happen before any writes in a Firestore transaction,
+      // so gather every inventory doc's current stock first.
+      final Map<String, int> decrements = {};
+      bool shortfall = false;
+      for (final entry in waterNeeded.entries) {
+        if (entry.value <= 0) continue;
+        final invSnap = await transaction.get(_db.collection('inventory').doc(entry.key));
+        final current = ((invSnap.data()?['currentStock'] ?? 0) as num).toInt();
+        final actual = entry.value > current ? current : entry.value;
+        if (actual < entry.value) shortfall = true;
+        decrements[entry.key] = actual;
+      }
+      if (packagingNeeded > 0) {
+        for (final key in ['inv_pkg_caps', 'inv_pkg_seals']) {
+          final invSnap = await transaction.get(_db.collection('inventory').doc(key));
+          final current = ((invSnap.data()?['currentStock'] ?? 0) as num).toInt();
+          final actual = packagingNeeded > current ? current : packagingNeeded;
+          if (actual < packagingNeeded) shortfall = true;
+          decrements[key] = actual;
+        }
+      }
+
+      for (final entry in decrements.entries) {
+        if (entry.value <= 0) continue;
+        transaction.update(_db.collection('inventory').doc(entry.key), {
+          'currentStock': FieldValue.increment(-entry.value),
+        });
+      }
+
+      final unreturnedDiff = gallonsDelivered - emptyReturned;
+      final orderUpdate = <String, dynamic>{
+        'status': 'delivered',
+        'gallonsDelivered': gallonsDelivered,
+        'emptyGallonsReturned': emptyReturned,
+        'unreturnedDiff': unreturnedDiff,
+        'proofOfDeliveryUrl': proofOfDeliveryUrl,
+        'recipientName': recipientName,
+        'stockDeductedAt': FieldValue.serverTimestamp(),
+        'stockShortfall': shortfall,
+        'deliveredAt': FieldValue.serverTimestamp(),
+      };
+      // A counter-paid order was already settled at the register — never
+      // let this call overwrite its payment fields.
+      if (data['paymentCollectedBy'] != 'counter') {
+        orderUpdate['isPaid'] = true;
+        orderUpdate['paymentMethod'] = paymentMethod;
+        orderUpdate['paymentCollectedBy'] = 'rider';
+        orderUpdate['paidAt'] = FieldValue.serverTimestamp();
+      }
+      transaction.update(orderRef, orderUpdate);
+
+      if (customerId.isNotEmpty) {
+        transaction.update(_db.collection('users').doc(customerId), {
+          'unreturnedContainers': FieldValue.increment(unreturnedDiff),
+        });
+      }
     });
-
-    // Update packaging consumables stock (caps & shrink seals)
-    final capsRef = _db.collection('inventory').doc('inv_pkg_caps');
-    batch.update(capsRef, {
-      'currentStock': FieldValue.increment(-gallonsDelivered),
-    });
-
-    final sealsRef = _db.collection('inventory').doc('inv_pkg_seals');
-    batch.update(sealsRef, {
-      'currentStock': FieldValue.increment(-gallonsDelivered),
-    });
-
-    // Update customer unreturned container balance
-    if (customerId.isNotEmpty) {
-      final userRef = _db.collection('users').doc(customerId);
-      batch.update(userRef, {
-        'unreturnedContainers': FieldValue.increment(unreturnedDiff),
-      });
-    }
-
-    await batch.commit();
   }
 
   // Stream of all rider accounts, for dispatch assignment.
@@ -404,9 +553,12 @@ class FirestoreService {
         .where('isPaid', isEqualTo: true)
         .get();
 
+    // Uses paidDate (not revenueDate) so a counter-paid order counts in the
+    // shift it was actually paid in, not double-counted again at delivery
+    // time in a later shift. Cancelled orders are excluded outright.
     final cashCollected = snapshot.docs
         .map(_orderFromDoc)
-        .where((o) => !o.revenueDate.isBefore(openedAt))
+        .where((o) => o.status != OrderStatus.cancelled && !o.paidDate.isBefore(openedAt))
         .fold<double>(0, (total, o) => total + o.totalAmount);
 
     final expectedCash = openingCash + cashCollected;
@@ -457,24 +609,19 @@ class FirestoreService {
 
     final orders = snapshot.docs.map(_orderFromDoc).where((o) => o.revenueDate.isAfter(since)).toList();
 
-    final cashCollected = orders
-        .where((o) => o.paymentMethod == PaymentMethod.cash)
-        .fold<double>(0, (total, o) => total + o.totalAmount);
-    final gcashCollected = orders
-        .where((o) => o.paymentMethod == PaymentMethod.gcash)
-        .fold<double>(0, (total, o) => total + o.totalAmount);
-    final gallonsDelivered = orders.fold<int>(0, (total, o) => total + o.gallonsDelivered);
-    final emptiesReturned = orders.fold<int>(0, (total, o) => total + o.emptyGallonsReturned);
-    final discrepancy = cashHandedOver - cashCollected;
+    // Shared with the cash-out modal's live preview (rider_cash_out_modal.dart)
+    // so the two can never compute different numbers for the same rider.
+    final summary = summarizeRiderCashOut(orders);
+    final discrepancy = cashHandedOver - summary.cashCollected;
 
     await _db.collection('rider_cashouts').add({
       'riderId': riderId,
       'riderName': riderName,
-      'stopsCompleted': orders.length,
-      'gallonsDelivered': gallonsDelivered,
-      'emptiesReturned': emptiesReturned,
-      'cashCollected': cashCollected,
-      'gcashCollected': gcashCollected,
+      'stopsCompleted': summary.stopsCompleted,
+      'gallonsDelivered': summary.gallonsDelivered,
+      'emptiesReturned': summary.emptiesReturned,
+      'cashCollected': summary.cashCollected,
+      'gcashCollected': summary.gcashCollected,
       'cashHandedOver': cashHandedOver,
       'discrepancy': discrepancy,
       'verifiedByName': verifiedByName,

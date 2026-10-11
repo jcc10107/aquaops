@@ -5,6 +5,7 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 
 import 'firebase_options.dart';
 import 'core/constants/app_colors.dart';
+import 'services/offline_queue_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/customer/customer_main_screen.dart';
@@ -20,6 +21,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  await OfflineQueueService().init();
 
   if (!kIsWeb) {
     await FirebaseAppCheck.instance.activate(

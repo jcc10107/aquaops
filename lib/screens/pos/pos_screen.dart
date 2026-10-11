@@ -8,6 +8,13 @@ import '../../models/order_model.dart';
 import '../../models/shift_model.dart';
 import '../../services/firestore_service.dart';
 
+class _ZoneOption {
+  final String label;
+  final String value;
+
+  const _ZoneOption(this.label, this.value);
+}
+
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
 
@@ -21,6 +28,22 @@ class _PosScreenState extends State<PosScreen> {
   static const double _newBottlePrice = 250.0;
   static const double _bottle500Price = 15.0;
 
+  static const List<_ZoneOption> _zoneOptions = [
+    _ZoneOption('Barangay San Isidro', 'si'),
+    _ZoneOption('Barangay Del Remedio', 'dr'),
+    _ZoneOption('Barangay San Roque', 'sr'),
+    _ZoneOption('Barangay San Marcos', 'sm'),
+    _ZoneOption('Barangay San Antonio', 'Barangay San Antonio'),
+    _ZoneOption('Barangay San Gabriel', 'Barangay San Gabriel'),
+    _ZoneOption('Barangay Concepcion', 'Barangay Concepcion'),
+    _ZoneOption('Barangay San Nicolas', 'Barangay San Nicolas'),
+    _ZoneOption('Barangay Santa Maria', 'Barangay Santa Maria'),
+    _ZoneOption('Barangay San Francisco', 'Barangay San Francisco'),
+    _ZoneOption('Barangay Soledad', 'Barangay Soledad'),
+    _ZoneOption('Barangay Bagong Pook', 'Barangay Bagong Pook'),
+    _ZoneOption('Barangay Poblacion / Central', 'Barangay Poblacion / Central'),
+  ];
+
   int _round = 1;
   int _slim = 0;
   int _newB = 0;
@@ -29,9 +52,15 @@ class _PosScreenState extends State<PosScreen> {
   bool _showToast = false;
   bool _isCheckingOut = false;
   String _lastOrderNumber = '';
+  bool _deliveryMode = false;
+  String _deliveryPay = 'cash';
+  String _zoneValue = 'si';
   Timer? _toastTimer;
   final TextEditingController _tenderCtrl = TextEditingController(text: '35');
   final TextEditingController _gcashRefCtrl = TextEditingController();
+  final TextEditingController _phoneCtrl = TextEditingController();
+  final TextEditingController _nameCtrl = TextEditingController();
+  final TextEditingController _addressCtrl = TextEditingController();
   final FirestoreService _firestoreService = FirestoreService();
 
   int get _totalItems => _round + _slim + _newB + _bottle500;
@@ -63,6 +92,9 @@ class _PosScreenState extends State<PosScreen> {
   void dispose() {
     _tenderCtrl.dispose();
     _gcashRefCtrl.dispose();
+    _phoneCtrl.dispose();
+    _nameCtrl.dispose();
+    _addressCtrl.dispose();
     _toastTimer?.cancel();
     super.dispose();
   }
@@ -72,6 +104,36 @@ class _PosScreenState extends State<PosScreen> {
       _tenderCtrl.text =
       amount == -1 ? _tot.toStringAsFixed(0) : amount.toStringAsFixed(0);
     });
+  }
+
+  List<OrderItem> _orderItems() {
+    return [
+      if (_round > 0)
+        OrderItem(
+          name: '5-Gal Round Refill',
+          quantity: _round,
+          unitPrice: _roundPrice,
+        ),
+      if (_slim > 0)
+        OrderItem(
+          name: '5-Gal Slim Alkaline Refill',
+          quantity: _slim,
+          unitPrice: _slimPrice,
+        ),
+      if (_newB > 0)
+        OrderItem(
+          name: 'New Bottle + Water (5-Gal)',
+          quantity: _newB,
+          unitPrice: _newBottlePrice,
+        ),
+      if (_bottle500 > 0)
+        OrderItem(
+          name: '500ml Bottled Water',
+          quantity: _bottle500,
+          unitPrice: _bottle500Price,
+          requiresPackaging: false,
+        ),
+    ];
   }
 
   Future<void> _triggerCheckout() async {
@@ -165,6 +227,69 @@ class _PosScreenState extends State<PosScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Checkout failed: $e'),
+          backgroundColor: AppColors.coralAlert,
+        ),
+      );
+    }
+  }
+
+  Future<void> _submitDelivery() async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    if (_totalItems == 0) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Add at least one item before dispatching.')),
+      );
+      return;
+    }
+    final String name = _nameCtrl.text.trim();
+    final String phone = _phoneCtrl.text.trim();
+    final String address = _addressCtrl.text.trim();
+    if (name.isEmpty || phone.isEmpty || address.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Enter the customer name, phone, and delivery address.'),
+          backgroundColor: AppColors.coralAlert,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isCheckingOut = true);
+    try {
+      final String orderNumber = await _firestoreService.placeOrder(
+        customerId: '',
+        customerName: name,
+        customerPhone: phone,
+        deliveryAddress: address,
+        areaZone: _zoneValue,
+        items: _orderItems(),
+        totalAmount: _tot,
+        paymentMethod: _deliveryPay,
+        notes: 'Counter delivery order',
+      );
+      if (!mounted) return;
+      setState(() {
+        _isCheckingOut = false;
+        _lastOrderNumber = orderNumber;
+        _round = 0;
+        _slim = 0;
+        _newB = 0;
+        _bottle500 = 0;
+        _nameCtrl.clear();
+        _phoneCtrl.clear();
+        _addressCtrl.clear();
+        _showToast = true;
+      });
+      _toastTimer?.cancel();
+      _toastTimer = Timer(const Duration(milliseconds: 2600), () {
+        if (mounted) setState(() => _showToast = false);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isCheckingOut = false);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Failed to dispatch delivery: $e'),
           backgroundColor: AppColors.coralAlert,
         ),
       );
@@ -462,8 +587,410 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
+  Widget _modeButton(String label, IconData icon, bool delivery) {
+    final bool selected = _deliveryMode == delivery;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _deliveryMode = delivery),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.surfaceLowest : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: selected
+                ? [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 2,
+              ),
+            ]
+                : const [],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: selected ? const Color(0xFF0284C7) : AppColors.textVariant,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: selected
+                        ? const Color(0xFF0284C7)
+                        : AppColors.textVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeToggle() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
+        children: [
+          _modeButton('Walk-in Order', Icons.storefront, false),
+          _modeButton('Deliver this Order', Icons.local_shipping, true),
+        ],
+      ),
+    );
+  }
+
+  Widget _deliveryLabel(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        color: AppColors.textVariant,
+      ),
+    );
+  }
+
+  Widget _deliveryField({
+    required TextEditingController controller,
+    required IconData icon,
+    required String hint,
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+    List<TextInputFormatter>? inputFormatters,
+    TextCapitalization capitalization = TextCapitalization.none,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment:
+        maxLines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(top: maxLines > 1 ? 10 : 0),
+            child: Icon(icon, color: const Color(0xFF0284C7), size: 20),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              keyboardType: keyboardType,
+              maxLines: maxLines,
+              inputFormatters: inputFormatters,
+              textCapitalization: capitalization,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textMain,
+              ),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                hintText: hint,
+                hintStyle: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.outline,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _deliveryPayChip(String label, IconData icon, String value) {
+    final bool selected = _deliveryPay == value;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _deliveryPay = value),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.surfaceLowest : AppColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected
+                  ? const Color(0xFF0284C7).withValues(alpha: 0.3)
+                  : AppColors.outlineVariant.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: selected ? const Color(0xFF0284C7) : AppColors.textVariant,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: selected ? const Color(0xFF0284C7) : AppColors.textVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeliverySection() {
+    final String collectLabel = _deliveryPay == 'gcash' ? 'GCash' : 'cash';
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLowest,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F0284C7),
+            blurRadius: 24,
+            offset: Offset(0, 6),
+          ),
+        ],
+        border: Border.all(
+          color: AppColors.cyanElectric.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.only(bottom: 12),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: AppColors.surfaceContainer),
+              ),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.local_shipping, color: Color(0xFF0284C7), size: 22),
+                SizedBox(width: 8),
+                Text(
+                  'Delivery Dispatch Details',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textMain,
+                    letterSpacing: -0.17,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _deliveryLabel('Mobile Phone (+63)'),
+          const SizedBox(height: 4),
+          _deliveryField(
+            controller: _phoneCtrl,
+            icon: Icons.call,
+            hint: '09XX XXX XXXX',
+            keyboardType: TextInputType.phone,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]')),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _deliveryLabel('Customer Name'),
+          const SizedBox(height: 4),
+          _deliveryField(
+            controller: _nameCtrl,
+            icon: Icons.person,
+            hint: 'Full Name',
+            capitalization: TextCapitalization.words,
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFF0284C7).withValues(alpha: 0.25),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.location_on, color: Color(0xFF0284C7), size: 20),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Area Zone / Barangay (San Pablo City)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textMain,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceLowest,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF0284C7).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.holiday_village,
+                        color: Color(0xFF0284C7),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _zoneValue,
+                            isExpanded: true,
+                            icon: const Icon(
+                              Icons.expand_more,
+                              size: 18,
+                              color: AppColors.outline,
+                            ),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textMain,
+                              fontFamily: 'Plus Jakarta Sans',
+                            ),
+                            items: _zoneOptions
+                                .map(
+                                  (z) => DropdownMenuItem<String>(
+                                value: z.value,
+                                child: Text(z.label),
+                              ),
+                            )
+                                .toList(),
+                            onChanged: (val) {
+                              if (val != null) setState(() => _zoneValue = val);
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _deliveryLabel('Delivery Address & Landmark'),
+          const SizedBox(height: 4),
+          _deliveryField(
+            controller: _addressCtrl,
+            icon: Icons.location_on,
+            hint: 'Street name, house/unit #, nearest landmark',
+            maxLines: 2,
+            keyboardType: TextInputType.multiline,
+            capitalization: TextCapitalization.sentences,
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceIce,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFF0284C7).withValues(alpha: 0.2),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.payments, color: Color(0xFF0284C7), size: 18),
+                    SizedBox(width: 6),
+                    Text(
+                      'Delivery Payment Choice',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textMain,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _deliveryPayChip('Cash on Delivery', Icons.two_wheeler, 'cash'),
+                    const SizedBox(width: 8),
+                    _deliveryPayChip('GCash on Delivery', Icons.qr_code_2, 'gcash'),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: AppColors.textVariant,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Rider collects ₱${_tot.toStringAsFixed(2)} $collectLabel at doorstep. Unpaid at counter register.',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textVariant,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool toastIsDelivery = _lastOrderNumber.startsWith('ORD-');
     return Stack(
       children: [
         Align(
@@ -471,70 +998,71 @@ class _PosScreenState extends State<PosScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 450),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.only(
-                top: 12,
-                bottom: 130,
-                left: 16,
-                right: 16,
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 130),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceLowest,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: AppColors.surfaceContainerHigh
-                            .withValues(alpha: 0.6),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE0F2FE),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.point_of_sale,
+                                color: Color(0xFF0284C7),
+                                size: 22,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0F9FF),
+                              borderRadius: BorderRadius.circular(100),
+                              border: Border.all(
+                                color: const Color(0xFFBAE6FD),
+                              ),
+                            ),
+                            child: const Text(
+                              'POINT OF SALE',
+                              style: TextStyle(
+                                fontFamily: 'Plus Jakarta Sans',
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0284C7),
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x0F0284C7),
-                          blurRadius: 30,
-                          offset: Offset(0, 8),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Walk-in Register',
+                        style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                          height: 1.2,
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                const Color(0xFF0284C7).withValues(alpha: 0.15),
-                                AppColors.cyanHighlight.withValues(alpha: 0.2),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: const Color(0xFF0284C7).withValues(alpha: 0.25),
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.point_of_sale,
-                            color: Color(0xFF0284C7),
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Walk-in Register',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textMain,
-                            letterSpacing: -0.17,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 16),
+                  _sectionCard(child: _buildModeToggle()),
                   const SizedBox(height: 12),
                   _buildShiftCard(),
                   const SizedBox(height: 12),
@@ -652,282 +1180,285 @@ class _PosScreenState extends State<PosScreen> {
                     },
                   ),
                   const SizedBox(height: 12),
-                  _sectionCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(
-                                  Icons.payments,
-                                  color: Color(0xFF0284C7),
-                                  size: 22,
-                                ),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Payment Method',
-                                  style: TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textMain,
-                                    letterSpacing: -0.17,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceContainerLow,
-                                borderRadius: BorderRadius.circular(100),
-                                border: Border.all(
-                                  color: AppColors.outlineVariant
-                                      .withValues(alpha: 0.2),
-                                ),
-                              ),
-                              padding: const EdgeInsets.all(4),
-                              child: Row(
+                  if (_deliveryMode) _buildDeliverySection(),
+                  if (!_deliveryMode)
+                    _sectionCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Row(
                                 children: [
-                                  _payTab('Cash', Icons.payments, 'cash'),
-                                  _payTab('GCash QR', Icons.qr_code_2, 'gcash'),
+                                  Icon(
+                                    Icons.payments,
+                                    color: Color(0xFF0284C7),
+                                    size: 22,
+                                  ),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Payment Method',
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textMain,
+                                      letterSpacing: -0.17,
+                                    ),
+                                  ),
                                 ],
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        if (_pay == 'cash') ...[
-                          Row(
-                            children: [
-                              _buildTenderBtn('Exact', -1),
-                              const SizedBox(width: 8),
-                              _buildTenderBtn('₱50', 50),
-                              const SizedBox(width: 8),
-                              _buildTenderBtn('₱100', 100),
-                              const SizedBox(width: 8),
-                              _buildTenderBtn('₱500', 500),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceContainerLow,
+                                  borderRadius: BorderRadius.circular(100),
+                                  border: Border.all(
+                                    color: AppColors.outlineVariant
+                                        .withValues(alpha: 0.2),
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(4),
+                                child: Row(
+                                  children: [
+                                    _payTab('Cash', Icons.payments, 'cash'),
+                                    _payTab('GCash QR', Icons.qr_code_2, 'gcash'),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceCanvas,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: AppColors.outlineVariant
-                                    .withValues(alpha: 0.3),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.05),
-                                  blurRadius: 2,
-                                ),
+                          if (_pay == 'cash') ...[
+                            Row(
+                              children: [
+                                _buildTenderBtn('Exact', -1),
+                                const SizedBox(width: 8),
+                                _buildTenderBtn('₱50', 50),
+                                const SizedBox(width: 8),
+                                _buildTenderBtn('₱100', 100),
+                                const SizedBox(width: 8),
+                                _buildTenderBtn('₱500', 500),
                               ],
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Tendered Cash',
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceCanvas,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: AppColors.outlineVariant
+                                      .withValues(alpha: 0.3),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.05),
+                                    blurRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Tendered Cash',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textVariant,
+                                        ),
+                                      ),
+                                      Row(
+                                        children: [
+                                          const Text(
+                                            '₱',
+                                            style: TextStyle(
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.textMain,
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            width: 90,
+                                            child: TextField(
+                                              controller: _tenderCtrl,
+                                              keyboardType: TextInputType.number,
+                                              inputFormatters: [
+                                                FilteringTextInputFormatter
+                                                    .digitsOnly,
+                                              ],
+                                              onChanged: (val) =>
+                                                  setState(() {}),
+                                              style: const TextStyle(
+                                                fontSize: 17,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.textMain,
+                                              ),
+                                              decoration: const InputDecoration(
+                                                border: InputBorder.none,
+                                                isDense: true,
+                                                contentPadding: EdgeInsets.zero,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      const Text(
+                                        'Customer Change',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textVariant,
+                                        ),
+                                      ),
+                                      Text(
+                                        '₱${_changeDue.toStringAsFixed(2)}',
+                                        style: const TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF0284C7),
+                                          letterSpacing: -0.44,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ] else ...[
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceIce,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: AppColors.cyanElectric
+                                      .withValues(alpha: 0.25),
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Container(
+                                    width: 144,
+                                    height: 144,
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surfaceLowest,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: AppColors.surfaceContainerHigh
+                                            .withValues(alpha: 0.6),
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black
+                                              .withValues(alpha: 0.05),
+                                          blurRadius: 2,
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.qr_code_2,
+                                      size: 100,
+                                      color: Color(0xFF0284C7),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'Scan to Pay Station Merchant',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textMain,
+                                    ),
+                                  ),
+                                  const Text(
+                                    'AquaOps • Merchant ID: AQ-88219',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.textVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      'GCash 13-Digit Reference Number',
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
-                                        color: AppColors.textVariant,
+                                        color: AppColors.textVariant
+                                            .withValues(alpha: 0.9),
                                       ),
                                     ),
-                                    Row(
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Container(
+                                    height: 48,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surfaceContainerLow,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: AppColors.outlineVariant
+                                            .withValues(alpha: 0.3),
+                                      ),
+                                    ),
+                                    child: Row(
                                       children: [
-                                        const Text(
-                                          '₱',
-                                          style: TextStyle(
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.textMain,
-                                          ),
+                                        const Icon(
+                                          Icons.tag,
+                                          color: Color(0xFF0284C7),
+                                          size: 20,
                                         ),
-                                        SizedBox(
-                                          width: 90,
+                                        const SizedBox(width: 8),
+                                        Expanded(
                                           child: TextField(
-                                            controller: _tenderCtrl,
+                                            controller: _gcashRefCtrl,
+                                            maxLength: 13,
                                             keyboardType: TextInputType.number,
                                             inputFormatters: [
                                               FilteringTextInputFormatter
                                                   .digitsOnly,
                                             ],
-                                            onChanged: (val) =>
-                                                setState(() {}),
                                             style: const TextStyle(
-                                              fontSize: 17,
-                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
                                               color: AppColors.textMain,
+                                              fontWeight: FontWeight.w500,
                                             ),
                                             decoration: const InputDecoration(
                                               border: InputBorder.none,
+                                              counterText: '',
                                               isDense: true,
-                                              contentPadding: EdgeInsets.zero,
+                                              hintText: '1029384711200',
+                                              hintStyle: TextStyle(
+                                                color: AppColors.outlineVariant,
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ],
                                     ),
-                                  ],
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    const Text(
-                                      'Customer Change',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.textVariant,
-                                      ),
-                                    ),
-                                    Text(
-                                      '₱${_changeDue.toStringAsFixed(2)}',
-                                      style: const TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF0284C7),
-                                        letterSpacing: -0.44,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ] else ...[
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceIce,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: AppColors.cyanElectric
-                                    .withValues(alpha: 0.25),
+                                  ),
+                                ],
                               ),
                             ),
-                            child: Column(
-                              children: [
-                                Container(
-                                  width: 144,
-                                  height: 144,
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surfaceLowest,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: AppColors.surfaceContainerHigh
-                                          .withValues(alpha: 0.6),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black
-                                            .withValues(alpha: 0.05),
-                                        blurRadius: 2,
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Icon(
-                                    Icons.qr_code_2,
-                                    size: 100,
-                                    color: Color(0xFF0284C7),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                const Text(
-                                  'Scan to Pay Station Merchant',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textMain,
-                                  ),
-                                ),
-                                const Text(
-                                  'AquaOps • Merchant ID: AQ-88219',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: AppColors.textVariant,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    'GCash 13-Digit Reference Number',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textVariant
-                                          .withValues(alpha: 0.9),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Container(
-                                  height: 48,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surfaceContainerLow,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: AppColors.outlineVariant
-                                          .withValues(alpha: 0.3),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.tag,
-                                        color: Color(0xFF0284C7),
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _gcashRefCtrl,
-                                          maxLength: 13,
-                                          keyboardType: TextInputType.number,
-                                          inputFormatters: [
-                                            FilteringTextInputFormatter
-                                                .digitsOnly,
-                                          ],
-                                          style: const TextStyle(
-                                            fontSize: 15,
-                                            color: AppColors.textMain,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                          decoration: const InputDecoration(
-                                            border: InputBorder.none,
-                                            counterText: '',
-                                            isDense: true,
-                                            hintText: '1029384711200',
-                                            hintStyle: TextStyle(
-                                              color: AppColors.outlineVariant,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 12),
                   _sectionCard(
                     child: Column(
@@ -1026,7 +1557,9 @@ class _PosScreenState extends State<PosScreen> {
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: _isCheckingOut ? null : _triggerCheckout,
+                      onPressed: _isCheckingOut
+                          ? null
+                          : (_deliveryMode ? _submitDelivery : _triggerCheckout),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0284C7),
                         padding: EdgeInsets.zero,
@@ -1046,18 +1579,22 @@ class _PosScreenState extends State<PosScreen> {
                           color: Colors.white,
                         ),
                       )
-                          : const Row(
+                          : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.check_circle,
+                            _deliveryMode
+                                ? Icons.local_shipping
+                                : Icons.check_circle,
                             color: Colors.white,
                             size: 22,
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Text(
-                            'COMPLETE SALE',
-                            style: TextStyle(
+                            _deliveryMode
+                                ? 'DISPATCH DELIVERY ORDER'
+                                : 'COMPLETE SALE',
+                            style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
@@ -1121,17 +1658,21 @@ class _PosScreenState extends State<PosScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Sale Successfully Recorded',
-                                style: TextStyle(
+                              Text(
+                                toastIsDelivery
+                                    ? 'Delivery Order Dispatched'
+                                    : 'Sale Successfully Recorded',
+                                style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
                               ),
-                              const Text(
-                                'Database record finalized & inventory updated',
-                                style: TextStyle(
+                              Text(
+                                toastIsDelivery
+                                    ? 'Queued for rider assignment in Dispatch'
+                                    : 'Database record finalized & inventory updated',
+                                style: const TextStyle(
                                   fontSize: 11,
                                   color: Colors.white70,
                                 ),

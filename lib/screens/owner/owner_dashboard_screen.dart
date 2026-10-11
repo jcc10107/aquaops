@@ -479,7 +479,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                 decoration: BoxDecoration(color: surfaceContainer, borderRadius: BorderRadius.circular(100)),
-                                child: Text(order.id, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: skyBlue)),
+                                child: Text(order.orderNumber, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: skyBlue)),
                               ),
                             ],
                           ),

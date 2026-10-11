@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -30,12 +32,11 @@ class CustomerOrdersScreen extends StatefulWidget {
 }
 
 class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
-  int _ordersTab = 0; // 0 = Active, 1 = History, 2 = Refunds
+  int _ordersTab = 0;
   String _orderHistoryFilter = 'all';
   final TextEditingController _historySearchCtrl = TextEditingController();
   final FirestoreService _firestoreService = FirestoreService();
 
-  // Color mappings based on the provided HTML Tailwind config
   static const Color _surfaceCanvas = Color(0xFFF8FAFC);
   static const Color _surfaceContainerLowest = Color(0xFFFFFFFF);
   static const Color _surfaceContainer = Color(0xFFEAEDFF);
@@ -62,13 +63,15 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
   static const Color _amber500 = Color(0xFFF59E0B);
   static const Color _amber800 = Color(0xFF92400E);
 
-  static const LinearGradient _activeGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF00A8E8), Color(0xFF0077B6)],
-  );
+  static const Color _slate50 = Color(0xFFF8FAFC);
+  static const Color _slate100 = Color(0xFFF1F5F9);
+  static const Color _slate200 = Color(0xFFE2E8F0);
+  static const Color _slate400 = Color(0xFF94A3B8);
+  static const Color _slate500 = Color(0xFF64748B);
+  static const Color _slate600 = Color(0xFF475569);
+  static const Color _slate800 = Color(0xFF1E293B);
+  static const Color _slate900 = Color(0xFF0F172A);
 
-  // Typography definitions mapped from HTML
   TextStyle _ts({
     required double size,
     required FontWeight weight,
@@ -134,41 +137,314 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     );
   }
 
+  String _formatDateTime(DateTime d) {
+    final hour12 = d.hour % 12 == 0 ? 12 : d.hour % 12;
+    final minute = d.minute.toString().padLeft(2, '0');
+    final ampm = d.hour < 12 ? 'AM' : 'PM';
+    return '${_formatDate(d)} • $hour12:$minute $ampm';
+  }
+
+  void _openProofOfDelivery(OrderModel order) {
+    final String? url = (order.proofOfDeliveryUrl != null && order.proofOfDeliveryUrl!.trim().isNotEmpty)
+        ? order.proofOfDeliveryUrl!.trim()
+        : null;
+    final String? recipient = (order.recipientName != null && order.recipientName!.trim().isNotEmpty)
+        ? order.recipientName!.trim()
+        : null;
+    final DateTime? deliveredAt = order.deliveredAt;
+
+    showDialog(
+      context: context,
+      barrierColor: const Color(0xCC020617),
+      builder: (ctx) {
+        final MediaQueryData mq = MediaQuery.of(ctx);
+        const double inset = 16;
+        const double chromeHeight = 250;
+        final double maxDialogWidth = math.min(mq.size.width - inset * 2, 450.0);
+        final double availableHeight = mq.size.height - mq.padding.top - mq.padding.bottom - inset * 2 - chromeHeight;
+        final double widthFromHeight = math.max(availableHeight, 0.0) * 3 / 4;
+        final double imageWidth = math.max(math.min(maxDialogWidth, widthFromHeight), 120.0);
+        final double imageHeight = imageWidth * 4 / 3;
+        final double dialogWidth = math.min(maxDialogWidth, math.max(imageWidth, 300.0));
+
+        Widget placeholder(IconData icon, String message) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 44, color: _slate400),
+                  const SizedBox(height: 10),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: _ts(size: 12, weight: FontWeight.w600, color: const Color(0xFFCBD5E1), height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(inset),
+          child: SingleChildScrollView(
+            child: Center(
+              child: SizedBox(
+                width: dialogWidth,
+                child: Container(
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: _slate200),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: const BoxDecoration(color: _slate50, border: Border(bottom: BorderSide(color: _slate100))),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'PROOF OF DELIVERY',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: _ts(size: 12, weight: FontWeight.w700, color: _slate900, letterSpacing: 0.5),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Order ${order.orderNumber}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: _ts(size: 11, weight: FontWeight.w500, color: _slate500),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () => Navigator.pop(ctx),
+                              borderRadius: BorderRadius.circular(999),
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: _slate200)),
+                                child: const Icon(Icons.close, size: 16, color: _slate500),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: double.infinity,
+                        color: _slate900,
+                        alignment: Alignment.center,
+                        child: SizedBox(
+                          width: imageWidth,
+                          height: imageHeight,
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: ClipRect(
+                                  child: url != null
+                                      ? InteractiveViewer(
+                                    minScale: 1.0,
+                                    maxScale: 4.0,
+                                    child: SizedBox(
+                                      width: imageWidth,
+                                      height: imageHeight,
+                                      child: Image.network(
+                                        url,
+                                        fit: BoxFit.contain,
+                                        alignment: Alignment.center,
+                                        loadingBuilder: (context, child, loadingProgress) {
+                                          if (loadingProgress == null) return child;
+                                          return const Center(
+                                            child: SizedBox(
+                                              width: 28,
+                                              height: 28,
+                                              child: CircularProgressIndicator(strokeWidth: 2.5, color: _primary),
+                                            ),
+                                          );
+                                        },
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            placeholder(Icons.broken_image, 'Unable to load the proof of delivery photo.'),
+                                      ),
+                                    ),
+                                  )
+                                      : placeholder(Icons.image_not_supported, 'No proof of delivery was submitted for this order.'),
+                                ),
+                              ),
+                              if (url != null)
+                                Positioned(
+                                  left: 8,
+                                  bottom: 8,
+                                  child: IgnorePointer(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4)),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.verified, size: 12, color: Color(0xFF34D399)),
+                                          const SizedBox(width: 4),
+                                          Text('Rider Verified Drop-off', style: _ts(size: 10, weight: FontWeight.w600, color: Colors.white)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(color: _slate50, borderRadius: BorderRadius.circular(12), border: Border.all(color: _slate100)),
+                              child: RichText(
+                                text: TextSpan(
+                                  style: _ts(size: 11, weight: FontWeight.w500, color: _slate600, height: 1.5),
+                                  children: [
+                                    const TextSpan(text: 'Delivered: '),
+                                    TextSpan(
+                                      text: deliveredAt != null ? _formatDateTime(deliveredAt) : 'Time not recorded',
+                                      style: _ts(size: 11, weight: FontWeight.w700, color: _slate800),
+                                    ),
+                                    if (order.assignedRiderName != null && order.assignedRiderName!.trim().isNotEmpty) ...[
+                                      const TextSpan(text: '\nRider: '),
+                                      TextSpan(
+                                        text: order.assignedRiderName!.trim(),
+                                        style: _ts(size: 11, weight: FontWeight.w700, color: _slate800),
+                                      ),
+                                    ],
+                                    if (recipient != null) ...[
+                                      const TextSpan(text: '\nReceived by: '),
+                                      TextSpan(
+                                        text: recipient,
+                                        style: _ts(size: 11, weight: FontWeight.w700, color: _slate800),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _slate100,
+                                foregroundColor: _slate800,
+                                elevation: 0,
+                                minimumSize: const Size(double.infinity, 36),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                              ),
+                              child: Text('Close Preview', style: _ts(size: 12, weight: FontWeight.w700, color: _slate800)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTitleBlock() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
+              child: const Center(child: Icon(Icons.shopping_bag, color: Color(0xFF0284C7), size: 22)),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F9FF),
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(color: const Color(0xFFBAE6FD)),
+              ),
+              child: const Text('CUSTOMER HUB', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), letterSpacing: 0.5)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const Text('My Orders', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A), height: 1.2)),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeOrders = widget.myOrders.where((o) => o.status != OrderStatus.delivered && o.status != OrderStatus.cancelled).toList();
     final historyOrders = widget.myOrders.where((o) => o.status == OrderStatus.delivered || o.status == OrderStatus.cancelled).toList();
 
-    final double topInset = MediaQuery.of(context).padding.top;
     final String? uid = FirebaseAuth.instance.currentUser?.uid;
+    final double topInset = MediaQuery.of(context).padding.top;
+    final double bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return Container(
-      color: _surfaceCanvas,
-      padding: EdgeInsets.only(top: topInset + CustomHeader.contentHeight),
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 450),
-          child: StreamBuilder<List<RefundModel>>(
-            stream: uid == null ? Stream<List<RefundModel>>.empty() : _firestoreService.getRefundRequestsForCustomerStream(uid),
-            builder: (context, snapshot) {
-              final refunds = snapshot.data ?? [];
-              return Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: _buildOrderSwitcher(activeOrders.length, historyOrders.length, refunds.length),
-                  ),
-                  Expanded(
-                    child: _ordersTab == 0
-                        ? _buildActiveOrdersList(activeOrders)
-                        : _ordersTab == 1
-                        ? _buildOrderHistoryList(historyOrders)
-                        : _buildRefundsList(refunds),
-                  ),
-                ],
-              );
-            },
+    return Scaffold(
+      backgroundColor: _surfaceCanvas,
+      body: Container(
+        padding: EdgeInsets.only(top: topInset + CustomHeader.contentHeight),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 450),
+            child: StreamBuilder<List<RefundModel>>(
+              stream: uid == null ? Stream<List<RefundModel>>.empty() : _firestoreService.getRefundRequestsForCustomerStream(uid),
+              builder: (context, snapshot) {
+                final refunds = snapshot.data ?? [];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildTitleBlock(),
+                          const SizedBox(height: 16),
+                          _buildOrderSwitcher(activeOrders.length, historyOrders.length, refunds.length),
+                          const SizedBox(height: 16),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: _ordersTab == 0
+                          ? _buildActiveOrdersList(activeOrders, bottomInset)
+                          : _ordersTab == 1
+                          ? _buildOrderHistoryList(historyOrders, bottomInset)
+                          : _buildRefundsList(refunds, bottomInset),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -191,7 +467,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: selected
               ? BoxDecoration(
-            gradient: _activeGradient,
+            color: _primary,
             borderRadius: BorderRadius.circular(999),
             boxShadow: const [BoxShadow(color: Color(0x590284C7), blurRadius: 16, offset: Offset(0, 4))],
           )
@@ -263,13 +539,12 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     );
   }
 
-  // --- VIEW 1: ACTIVE ORDERS ---
-  Widget _buildActiveOrdersList(List<OrderModel> activeOrders) {
+  Widget _buildActiveOrdersList(List<OrderModel> activeOrders, double bottomInset) {
     if (activeOrders.isEmpty) return _buildEmptyState('No active orders right now.');
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 112),
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 120 + bottomInset),
       itemCount: activeOrders.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      separatorBuilder: (_, __) => const SizedBox(height: 14),
       itemBuilder: (context, index) => _buildActiveOrderCard(activeOrders[index]),
     );
   }
@@ -288,7 +563,6 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Info
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -330,10 +604,8 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          // Stepper
           _buildActiveStepper(currentStep),
           const SizedBox(height: 16),
-          // Address Banner
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -362,7 +634,6 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          // Hydration Manifest Box
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -434,7 +705,6 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          // Actions
           Row(
             children: [
               Expanded(
@@ -541,8 +811,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     );
   }
 
-  // --- VIEW 2: ORDER HISTORY ---
-  Widget _buildOrderHistoryList(List<OrderModel> historyOrders) {
+  Widget _buildOrderHistoryList(List<OrderModel> historyOrders, double bottomInset) {
     final now = DateTime.now();
     List<OrderModel> displayed = historyOrders.where((order) {
       if (_orderHistoryFilter == 'all') return true;
@@ -564,9 +833,8 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     final int canC = historyOrders.where((o) => o.status == OrderStatus.cancelled).length;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 112),
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 120 + bottomInset),
       children: [
-        // Search Input
         Container(
           height: 44,
           decoration: BoxDecoration(
@@ -588,7 +856,6 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        // Filters
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.only(bottom: 4),
@@ -623,11 +890,10 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
         duration: const Duration(milliseconds: 200),
         padding: EdgeInsets.symmetric(horizontal: active ? 16 : 14, vertical: 6),
         decoration: BoxDecoration(
-          gradient: active ? _activeGradient : null,
-          color: active ? null : _surfaceContainerLowest,
+          color: active ? _primary : _surfaceContainerLowest,
           borderRadius: BorderRadius.circular(999),
           boxShadow: active
-              ? const [BoxShadow(color: Color(0x5900A8E8), blurRadius: 8, offset: Offset(0, 2))]
+              ? const [BoxShadow(color: Color(0x590284C7), blurRadius: 8, offset: Offset(0, 2))]
               : const [BoxShadow(color: Color(0x0A000000), blurRadius: 2)],
         ),
         child: Text(
@@ -794,25 +1060,48 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
               ),
             ],
           ),
+          if (isDelivered) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: InkWell(
+                onTap: () => _openProofOfDelivery(order),
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _surfaceContainer,
+                    borderRadius: BorderRadius.circular(999),
+                    boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 2)],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.photo_camera_outlined, size: 16, color: _onSurfaceVariant),
+                      const SizedBox(width: 4),
+                      Text('View Proof of Delivery', style: _labelMd.copyWith(color: _onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  // --- VIEW 3: REFUNDS ---
-  Widget _buildRefundsList(List<RefundModel> refunds) {
+  Widget _buildRefundsList(List<RefundModel> refunds, double bottomInset) {
     if (refunds.isEmpty) return _buildEmptyState('No active refund requests.');
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 112),
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 120 + bottomInset),
       itemCount: refunds.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, __) => const SizedBox(height: 14),
       itemBuilder: (context, index) => _buildRefundCard(refunds[index]),
     );
   }
 
   Widget _buildRefundCard(RefundModel r) {
-    // Use HTML's 'Under Review' Dispute Card design for visualization,
-    // now parameterized by the refund's real status.
     final String itemsStr = r.itemsSummary.isEmpty ? 'Refund Request' : r.itemsSummary;
 
     final Color statusColor;
@@ -921,7 +1210,6 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          // Dispute Stepper Layout
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(color: _surfaceIce, borderRadius: BorderRadius.circular(16)),

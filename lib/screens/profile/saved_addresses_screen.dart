@@ -683,46 +683,177 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
   }
 
   void _showEditAddressLabelDialog(String uid, SavedAddressModel address) {
-    final labelCtrl = TextEditingController(text: address.label);
+    final labelCtrl = TextEditingController();
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Edit Tag'),
-        content: TextFormField(
-          controller: labelCtrl,
-          decoration: const InputDecoration(labelText: 'Tag'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final label = labelCtrl.text.trim();
-              if (label.isEmpty) return;
-              final messenger = ScaffoldMessenger.of(context);
-              Navigator.pop(dialogContext);
-              try {
-                await _firestoreService.updateSavedAddressLabel(
-                  uid: uid,
-                  addressId: address.id,
-                  label: label,
-                );
-              } catch (e) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('Failed to update tag: $e'),
-                    backgroundColor: AppColors.error,
+      barrierColor: const Color(0x730F172A),
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          elevation: 0,
+          child: Center(
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxWidth: 360),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: const Color(0xFFF1F5F9)),
+                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 24, offset: Offset(0, 10))],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Edit Tag",
+                    style: TextStyle(
+                      fontFamily: _font,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F172A),
+                      height: 1.2,
+                      letterSpacing: -0.5,
+                    ),
                   ),
-                );
-              }
-            },
-            child: const Text('Save'),
+                  const SizedBox(height: 6),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        const TextSpan(text: 'Current tag: '),
+                        TextSpan(
+                          text: address.label,
+                          style: const TextStyle(
+                            fontFamily: _font,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                      ],
+                    ),
+                    style: const TextStyle(
+                      fontFamily: _font,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    "New Tag Name:",
+                    style: TextStyle(
+                      fontFamily: _font,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF334155),
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      border: Border.all(color: const Color(0xFFE2E8F0).withValues(alpha: 0.8)),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: TextFormField(
+                      controller: labelCtrl,
+                      style: const TextStyle(
+                        fontFamily: _font,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: 'Enter tag name',
+                        hintStyle: TextStyle(
+                          fontFamily: _font,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF94A3B8),
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(vertical: 12),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          style: TextButton.styleFrom(
+                            backgroundColor: const Color(0xFFF1F5F9),
+                            foregroundColor: const Color(0xFF475569),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                          ),
+                          child: const Text(
+                            "Cancel",
+                            style: TextStyle(
+                              fontFamily: _font,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final label = labelCtrl.text.trim();
+                            if (label.isEmpty) return;
+                            final messenger = ScaffoldMessenger.of(context);
+                            Navigator.pop(dialogContext);
+                            try {
+                              await _firestoreService.updateSavedAddressLabel(
+                                uid: uid,
+                                addressId: address.id,
+                                label: label,
+                              );
+                            } catch (e) {
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text('Failed to update tag: $e'),
+                                  backgroundColor: AppColors.error,
+                                ),
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0284C7),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shadowColor: const Color(0xFF0284C7).withValues(alpha: 0.35),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                          ).copyWith(
+                            elevation: WidgetStateProperty.resolveWith((states) => 4),
+                          ),
+                          child: const Text(
+                            "Save",
+                            style: TextStyle(
+                              fontFamily: _font,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../main.dart';
 import '../../models/order_model.dart';
@@ -57,20 +56,6 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
   String _area = 'all';
   final FirestoreService _firestoreService = FirestoreService();
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
-
-  Future<void> _callCustomer(String phone) async {
-    if (phone.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No phone number on file for this order.'), backgroundColor: AppColors.error),
-      );
-      return;
-    }
-    final uri = Uri(scheme: 'tel', path: phone.trim());
-    final messenger = ScaffoldMessenger.of(context);
-    if (!await launchUrl(uri)) {
-      messenger.showSnackBar(SnackBar(content: Text('Could not open dialer for $phone.'), backgroundColor: AppColors.error));
-    }
-  }
 
   void _showAssignRiderSheet(OrderModel order, List<UserModel> riders) {
     showModalBottomSheet(
@@ -307,222 +292,225 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
     final isDispatcher = role == 'owner' || role == 'staff';
     final canCashOut = isDispatcher;
 
-    return Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 450),
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 130),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 36, height: 36,
-                        decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
-                        child: const Center(child: Icon(Icons.local_shipping, color: Color(0xFF0284C7), size: 22)),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0F9FF),
-                          borderRadius: BorderRadius.circular(100),
-                          border: Border.all(color: const Color(0xFFBAE6FD)),
+    return Container(
+      color: const Color(0xFFF8FAFC),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 450),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 130),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 36, height: 36,
+                          decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
+                          child: const Center(child: Icon(Icons.local_shipping, color: Color(0xFF0284C7), size: 22)),
                         ),
-                        child: const Text('DISPATCH HUB', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), letterSpacing: 0.5)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('Area-Based Delivery Queue & Dispatch', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A), height: 1.2)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  if (isDispatcher) ...[
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => _showEmergencyTransfer(context),
-                        borderRadius: BorderRadius.circular(100),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFFBEB).withValues(alpha: 0.8),
-                            border: Border.all(color: const Color(0xFFFCD34D)),
+                            color: const Color(0xFFF0F9FF),
                             borderRadius: BorderRadius.circular(100),
-                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
+                            border: Border.all(color: const Color(0xFFBAE6FD)),
                           ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.swap_horiz, size: 17, color: Color(0xFFB45309)),
-                              SizedBox(width: 6),
-                              Text('Emergency Transfer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
-                            ],
-                          ),
+                          child: const Text('DISPATCH HUB', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), letterSpacing: 0.5)),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(height: 8),
+                    const Text('Area-Based Delivery Queue & Dispatch', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A), height: 1.2)),
                   ],
-                  if (canCashOut)
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => _showCashOut(context),
-                        borderRadius: BorderRadius.circular(100),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFECFDF5).withValues(alpha: 0.8),
-                            border: Border.all(color: const Color(0xFF6EE7B7)),
-                            borderRadius: BorderRadius.circular(100),
-                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.attach_money, size: 17, color: Color(0xFF047857)),
-                              SizedBox(width: 6),
-                              Text('Shift Cash-Out', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF047857))),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              StreamBuilder<List<UserModel>>(
-                stream: _firestoreService.getRidersStream(),
-                builder: (context, riderSnapshot) {
-                  final riders = riderSnapshot.data ?? const <UserModel>[];
-
-                  return StreamBuilder<List<OrderModel>>(
-                    stream: _firestoreService.getActiveOrdersStream(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          child: Text('Failed to load deliveries: ${snapshot.error}', style: const TextStyle(color: Color(0xFFF43F5E))),
-                        );
-                      }
-                      if (!snapshot.hasData) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 48),
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      }
-
-                      final allOrders = snapshot.data!;
-                      final isRider = currentUserRoleNotifier.value == 'rider';
-                      final orders = isRider ? allOrders.where((o) => o.assignedRiderId == _uid).toList() : allOrders;
-                      final filteredDeliveries = orders.where((d) => _area == 'all' || d.areaZone == _area).toList();
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    if (isDispatcher) ...[
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => _showEmergencyTransfer(context),
+                          borderRadius: BorderRadius.circular(100),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                             decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0xFFF1F5F9)),
-                              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 1))],
+                              color: const Color(0xFFFFFBEB).withValues(alpha: 0.8),
+                              border: Border.all(color: const Color(0xFFFCD34D)),
+                              borderRadius: BorderRadius.circular(100),
+                              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
                             ),
-                            child: Column(
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(Icons.near_me, size: 17, color: Color(0xFF0284C7)),
-                                        SizedBox(width: 6),
-                                        Text('Dispatch Zone', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        _BlinkingDot(color: Color(0xFF10B981)),
-                                        SizedBox(width: 4),
-                                        Text('Live Dispatch', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    children: [
-                                      _buildFilterTab('all', 'All Areas', _countForArea(orders, 'all')),
-                                      const SizedBox(width: 8),
-                                      _buildFilterTab('si', 'Barangay San Isidro', _countForArea(orders, 'si')),
-                                      const SizedBox(width: 8),
-                                      _buildFilterTab('dr', 'Barangay Del Remedio', _countForArea(orders, 'dr')),
-                                      const SizedBox(width: 8),
-                                      _buildFilterTab('sr', 'Barangay San Roque', _countForArea(orders, 'sr')),
-                                      const SizedBox(width: 8),
-                                      _buildFilterTab('sm', 'Barangay San Marcos', _countForArea(orders, 'sm')),
-                                    ],
-                                  ),
-                                ),
-                                if (!isRider) ...[
-                                  const SizedBox(height: 12),
-                                  Container(
-                                    padding: const EdgeInsets.only(top: 10),
-                                    decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF1F5F9)))),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.two_wheeler, size: 17, color: Color(0xFF0284C7)),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                          child: RichText(
-                                            text: TextSpan(
-                                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontFamily: 'Plus Jakarta Sans'),
-                                              children: [
-                                                TextSpan(text: '${riders.length} riders available', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF334155))),
-                                                const TextSpan(text: ' • tap "Assigned Rider" on an order to dispatch'),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                                Icon(Icons.swap_horiz, size: 17, color: Color(0xFFB45309)),
+                                SizedBox(width: 6),
+                                Text('Emergency Transfer', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 24),
-                          Row(
-                            children: [
-                              const Icon(Icons.schedule, size: 16, color: Color(0xFF0284C7)),
-                              const SizedBox(width: 8),
-                              Text('ACTIVE DELIVERY QUEUE (${filteredDeliveries.length} PENDING)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), letterSpacing: 0.5)),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          if (filteredDeliveries.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24),
-                              child: Text('No active deliveries in this area.', style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    if (canCashOut)
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => _showCashOut(context),
+                          borderRadius: BorderRadius.circular(100),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFECFDF5).withValues(alpha: 0.8),
+                              border: Border.all(color: const Color(0xFF6EE7B7)),
+                              borderRadius: BorderRadius.circular(100),
+                              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
                             ),
-                          ...filteredDeliveries.map((d) => _buildQueueCard(d, riders)),
-                        ],
-                      );
-                    },
-                  );
-                },
-              ),
-            ],
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.attach_money, size: 17, color: Color(0xFF047857)),
+                                SizedBox(width: 6),
+                                Text('Shift Cash-Out', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF047857))),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                StreamBuilder<List<UserModel>>(
+                  stream: _firestoreService.getRidersStream(),
+                  builder: (context, riderSnapshot) {
+                    final riders = riderSnapshot.data ?? const <UserModel>[];
+
+                    return StreamBuilder<List<OrderModel>>(
+                      stream: _firestoreService.getActiveOrdersStream(),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            child: Text('Failed to load deliveries: ${snapshot.error}', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', color: Color(0xFFF43F5E))),
+                          );
+                        }
+                        if (!snapshot.hasData) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 48),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+
+                        final allOrders = snapshot.data!;
+                        final isRider = currentUserRoleNotifier.value == 'rider';
+                        final orders = isRider ? allOrders.where((o) => o.assignedRiderId == _uid).toList() : allOrders;
+                        final filteredDeliveries = orders.where((d) => _area == 'all' || d.areaZone == _area).toList();
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: const Color(0xFFF1F5F9)),
+                                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
+                              ),
+                              child: Column(
+                                children: [
+                                  const Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(Icons.near_me, size: 17, color: Color(0xFF0284C7)),
+                                          SizedBox(width: 6),
+                                          Text('Dispatch Zone', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          _BlinkingDot(color: Color(0xFF10B981)),
+                                          SizedBox(width: 4),
+                                          Text('Live Dispatch', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: [
+                                        _buildFilterTab('all', 'All Areas', _countForArea(orders, 'all')),
+                                        const SizedBox(width: 8),
+                                        _buildFilterTab('si', 'Barangay San Isidro', _countForArea(orders, 'si')),
+                                        const SizedBox(width: 8),
+                                        _buildFilterTab('dr', 'Barangay Del Remedio', _countForArea(orders, 'dr')),
+                                        const SizedBox(width: 8),
+                                        _buildFilterTab('sr', 'Barangay San Roque', _countForArea(orders, 'sr')),
+                                        const SizedBox(width: 8),
+                                        _buildFilterTab('sm', 'Barangay San Marcos', _countForArea(orders, 'sm')),
+                                      ],
+                                    ),
+                                  ),
+                                  if (!isRider) ...[
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      padding: const EdgeInsets.only(top: 10),
+                                      decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF1F5F9)))),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.two_wheeler, size: 17, color: Color(0xFF0284C7)),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: RichText(
+                                              text: TextSpan(
+                                                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontFamily: 'Plus Jakarta Sans'),
+                                                children: [
+                                                  TextSpan(text: '${riders.length} riders available', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                                                  const TextSpan(text: ' • tap "Assigned Rider" on an order to dispatch'),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            Row(
+                              children: [
+                                const Icon(Icons.schedule, size: 16, color: Color(0xFF0284C7)),
+                                const SizedBox(width: 8),
+                                Text('ACTIVE DELIVERY QUEUE (${filteredDeliveries.length} PENDING)', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), letterSpacing: 0.5)),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            if (filteredDeliveries.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24),
+                                child: Text('No active deliveries in this area.', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: Color(0xFF64748B))),
+                              ),
+                            ...filteredDeliveries.map((d) => _buildQueueCard(d, riders)),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -539,17 +527,17 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
         decoration: BoxDecoration(
           color: isActive ? const Color(0xFF0284C7) : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(100),
-          boxShadow: isActive ? [BoxShadow(color: const Color(0xFF0284C7).withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 2))] : [],
+          boxShadow: isActive ? [BoxShadow(color: const Color(0xFF06B6D4).withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 2))] : [],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: TextStyle(fontSize: 12, fontWeight: isActive ? FontWeight.bold : FontWeight.w500, color: isActive ? Colors.white : const Color(0xFF334155))),
+            Text(label, style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: isActive ? FontWeight.bold : FontWeight.w500, color: isActive ? Colors.white : const Color(0xFF334155))),
             const SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(color: isActive ? Colors.white.withValues(alpha: 0.25) : const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(100)),
-              child: Text('$count', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isActive ? Colors.white : const Color(0xFF475569))),
+              decoration: BoxDecoration(color: isActive ? Colors.white.withValues(alpha: 0.2) : const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(100)),
+              child: Text('$count', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, fontWeight: FontWeight.bold, color: isActive ? Colors.white : const Color(0xFF475569))),
             ),
           ],
         ),
@@ -611,203 +599,188 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE0F2FE)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(order.customerName, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A), height: 1.3), overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 2),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.location_on, size: 13, color: Color(0xFFF43F5E)),
+                        const SizedBox(width: 2),
+                        Expanded(child: Text(order.deliveryAddress ?? '', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: Color(0xFF64748B)), overflow: TextOverflow.ellipsis)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: _statusBadgeBgColor(order.status), border: Border.all(color: _statusBadgeBorderColor(order.status)), borderRadius: BorderRadius.circular(100)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (order.status == OrderStatus.outForDelivery) ...[
+                      const _BlinkingDot(color: Color(0xFF06B6D4)),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(_statusBadgeLabel(order.status), style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: _statusBadgeTextColor(order.status), fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (order.status == OrderStatus.outForDelivery && order.lastTransferReason != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: const Color(0xFFFFFBEB), border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.6)), borderRadius: BorderRadius.circular(100)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.swap_horiz, size: 14, color: Color(0xFFB45309)),
+                  const SizedBox(width: 6),
+                  Text('Transferred: ${order.lastTransferReason}', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFFB45309))),
+                ],
+              ),
+            ),
+          ],
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+          ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: const Color(0xFFF8FAFC).withValues(alpha: 0.7), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFF1F5F9))),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(order.customerName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A), height: 1.3), overflow: TextOverflow.ellipsis),
-                          const SizedBox(height: 4),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(Icons.location_on, size: 13, color: Color(0xFFF43F5E)),
-                              const SizedBox(width: 4),
-                              Expanded(child: Text(order.deliveryAddress ?? '', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)), overflow: TextOverflow.ellipsis)),
-                            ],
-                          ),
+                          const Text('ORDER & QTY', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
+                          const SizedBox(height: 2),
+                          Text(qtySummary, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)), overflow: TextOverflow.ellipsis),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: _statusBadgeBgColor(order.status), border: Border.all(color: _statusBadgeBorderColor(order.status)), borderRadius: BorderRadius.circular(100)),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (order.status == OrderStatus.outForDelivery) ...[
-                            const _BlinkingDot(color: Color(0xFF06B6D4)),
-                            const SizedBox(width: 4),
-                          ],
-                          Text(_statusBadgeLabel(order.status), style: TextStyle(fontSize: 10, color: _statusBadgeTextColor(order.status), fontWeight: FontWeight.bold)),
+                          const Text('AMOUNT DUE', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
+                          const SizedBox(height: 2),
+                          Text('₱${order.totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
                         ],
                       ),
                     ),
                   ],
                 ),
-                if (order.status == OrderStatus.outForDelivery && order.lastTransferReason != null) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: const Color(0xFFFFFBEB), border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.6)), borderRadius: BorderRadius.circular(100)),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.swap_horiz, size: 14, color: Color(0xFFB45309)),
-                        const SizedBox(width: 6),
-                        Text('Transferred: ${order.lastTransferReason}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFFB45309))),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: const Color(0xFFF8FAFC).withValues(alpha: 0.7), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFF1F5F9))),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('ORDER & QTY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
-                            const SizedBox(height: 2),
-                            Text(qtySummary, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)), overflow: TextOverflow.ellipsis),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('AMOUNT DUE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
-                            const SizedBox(height: 2),
-                            Text('₱${order.totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('PAYMENT MODE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                Container(width: 8, height: 8, decoration: BoxDecoration(color: order.paymentMethod == PaymentMethod.gcash ? const Color(0xFF3B82F6) : const Color(0xFF10B981), shape: BoxShape.circle)),
-                                const SizedBox(width: 4),
-                                Text(order.paymentMethod == PaymentMethod.gcash ? 'GCASH' : 'CASH', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('ASSIGNED RIDER', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
-                            const SizedBox(height: 2),
-                            InkWell(
-                              onTap: canReassign ? () => _showAssignRiderSheet(order, riders) : null,
-                              child: Row(
-                                children: [
-                                  Expanded(child: Text(rider, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: order.assignedRiderId == null ? const Color(0xFFF43F5E) : const Color(0xFF1E293B)), overflow: TextOverflow.ellipsis)),
-                                  if (canReassign) const Text(' ✎', style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Row(
-              children: [
-                InkWell(
-                  onTap: () => _callCustomer(order.customerPhone),
-                  borderRadius: BorderRadius.circular(100),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(color: Colors.white, border: Border.all(color: const Color(0xFFE2E8F0)), borderRadius: BorderRadius.circular(100)),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.call, size: 16, color: Color(0xFF475569)),
-                        SizedBox(width: 6),
-                        Text('Call', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => FulfillDeliveryScreen(order: order),
-                        ),
-                      );
-                    },
-                    borderRadius: BorderRadius.circular(100),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0284C7),
-                        borderRadius: BorderRadius.circular(100),
-                        boxShadow: [BoxShadow(color: const Color(0xFF0284C7).withValues(alpha: 0.2), blurRadius: 6, offset: const Offset(0, 2))],
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.check_circle_outline, size: 17, color: Colors.white),
-                          SizedBox(width: 6),
-                          Flexible(child: Text('Complete Drop-off & Verify Payment', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white), overflow: TextOverflow.ellipsis)),
+                          const Text('PAYMENT MODE', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              if (order.paymentMethod == PaymentMethod.gcash) ...[
+                                Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF3B82F6), shape: BoxShape.circle)),
+                                const SizedBox(width: 4),
+                              ],
+                              Text(order.paymentMethod == PaymentMethod.gcash ? 'GCASH' : 'CASH', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                            ],
+                          ),
                         ],
                       ),
                     ),
-                  ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('ASSIGNED RIDER', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
+                          const SizedBox(height: 2),
+                          InkWell(
+                            onTap: canReassign ? () => _showAssignRiderSheet(order, riders) : null,
+                            child: Row(
+                              children: [
+                                Expanded(child: Text(rider, style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: order.assignedRiderId == null ? const Color(0xFFF43F5E) : const Color(0xFF1E293B)), overflow: TextOverflow.ellipsis)),
+                                if (canReassign) const Text(' ✎', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: Color(0xFF94A3B8))),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 12),
+          Column(
+            children: [
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FulfillDeliveryScreen(order: order),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.check_circle, size: 17, color: Colors.white),
+                  label: const Text('Complete Drop-off & Verify Payment', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    elevation: 4,
+                    shadowColor: const Color(0xFF0284C7).withValues(alpha: 0.2),
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.chat, size: 16, color: Color(0xFF0284C7)),
+                  label: const Text('Send Message', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0284C7))),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF0F9FF),
+                    side: const BorderSide(color: Color(0xFFBAE6FD)),
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

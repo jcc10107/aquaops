@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -267,121 +269,172 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
       context: context,
       barrierColor: const Color(0xCC020617),
       builder: (ctx) {
+        final MediaQueryData mq = MediaQuery.of(ctx);
+        const double inset = 16;
+        const double chromeHeight = 210;
+        final double maxDialogWidth = math.min(mq.size.width - inset * 2, 450.0);
+        final double availableHeight = mq.size.height - mq.padding.top - mq.padding.bottom - inset * 2 - chromeHeight;
+        final double widthFromHeight = math.max(availableHeight, 0.0) * 3 / 4;
+        final double imageWidth = math.max(math.min(maxDialogWidth, widthFromHeight), 120.0);
+        final double imageHeight = imageWidth * 4 / 3;
+        final double dialogWidth = math.min(maxDialogWidth, math.max(imageWidth, 300.0));
+
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(16),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 384),
-            child: Container(
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _slate200),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: const BoxDecoration(color: _slate50, border: Border(bottom: BorderSide(color: _slate100))),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+          insetPadding: const EdgeInsets.all(inset),
+          child: SingleChildScrollView(
+            child: Center(
+              child: SizedBox(
+                width: dialogWidth,
+                child: Container(
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: _slate200),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: const BoxDecoration(color: _slate50, border: Border(bottom: BorderSide(color: _slate100))),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    title.toUpperCase(),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: _ts(size: 12, weight: FontWeight.w700, color: _slate900, letterSpacing: 0.5),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: _ts(size: 11, weight: FontWeight.w500, color: _slate500),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () => Navigator.pop(ctx),
+                              borderRadius: BorderRadius.circular(999),
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: _slate200)),
+                                child: const Icon(Icons.close, size: 16, color: _slate500),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: double.infinity,
+                        color: _slate900,
+                        alignment: Alignment.center,
+                        child: SizedBox(
+                          width: imageWidth,
+                          height: imageHeight,
+                          child: Stack(
                             children: [
-                              Text(title.toUpperCase(), style: _ts(size: 12, weight: FontWeight.w700, color: _slate900, letterSpacing: 0.5)),
-                              const SizedBox(height: 2),
-                              Text(subtitle, style: _ts(size: 11, weight: FontWeight.w500, color: _slate500)),
+                              Positioned.fill(
+                                child: ClipRect(
+                                  child: photoUrl != null
+                                      ? InteractiveViewer(
+                                    minScale: 1.0,
+                                    maxScale: 4.0,
+                                    child: SizedBox(
+                                      width: imageWidth,
+                                      height: imageHeight,
+                                      child: Image.network(
+                                        photoUrl,
+                                        fit: BoxFit.contain,
+                                        alignment: Alignment.center,
+                                        loadingBuilder: (context, child, loadingProgress) {
+                                          if (loadingProgress == null) return child;
+                                          return const Center(
+                                            child: SizedBox(
+                                              width: 28,
+                                              height: 28,
+                                              child: CircularProgressIndicator(strokeWidth: 2.5, color: _primary),
+                                            ),
+                                          );
+                                        },
+                                        errorBuilder: (context, error, stackTrace) =>
+                                        const Center(child: Icon(Icons.image, size: 48, color: _slate400)),
+                                      ),
+                                    ),
+                                  )
+                                      : const Center(child: Icon(Icons.image, size: 48, color: _slate400)),
+                                ),
+                              ),
+                              Positioned(
+                                left: 8,
+                                bottom: 8,
+                                child: IgnorePointer(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4)),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.emergency, size: 12, color: Color(0xFFFB7185)),
+                                        const SizedBox(width: 4),
+                                        Text('Impact Damage Detected', style: _ts(size: 10, weight: FontWeight.w600, color: Colors.white)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                        InkWell(
-                          onTap: () => Navigator.pop(ctx),
-                          borderRadius: BorderRadius.circular(999),
-                          child: Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: _slate200)),
-                            child: const Icon(Icons.close, size: 16, color: _slate500),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    height: 190,
-                    width: double.infinity,
-                    color: _slate900,
-                    child: Stack(
-                      children: [
-                        if (photoUrl != null)
-                          Positioned.fill(
-                            child: Image.network(
-                              photoUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                              const Center(child: Icon(Icons.image, size: 48, color: _slate400)),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(color: _slate50, borderRadius: BorderRadius.circular(12), border: Border.all(color: _slate100)),
+                              child: RichText(
+                                text: TextSpan(
+                                  style: _ts(size: 11, weight: FontWeight.w500, color: _slate600, height: 1.5),
+                                  children: [
+                                    const TextSpan(text: 'Timestamp: '),
+                                    TextSpan(text: '10:42 AM Today', style: _ts(size: 11, weight: FontWeight.w700, color: _slate800)),
+                                    const TextSpan(text: ' • Geo-verified at customer delivery address.'),
+                                  ],
+                                ),
+                              ),
                             ),
-                          )
-                        else
-                          const Center(child: Icon(Icons.image, size: 48, color: _slate400)),
-                        Positioned(
-                          left: 8,
-                          bottom: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4)),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.emergency, size: 12, color: Color(0xFFFB7185)),
-                                const SizedBox(width: 4),
-                                Text('Impact Damage Detected', style: _ts(size: 10, weight: FontWeight.w600, color: Colors.white)),
-                              ],
+                            const SizedBox(height: 8),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _slate100,
+                                foregroundColor: _slate800,
+                                elevation: 0,
+                                minimumSize: const Size(double.infinity, 36),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                              ),
+                              child: Text('Close Preview', style: _ts(size: 12, weight: FontWeight.w700, color: _slate800)),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(color: _slate50, borderRadius: BorderRadius.circular(12), border: Border.all(color: _slate100)),
-                          child: RichText(
-                            text: TextSpan(
-                              style: _ts(size: 11, weight: FontWeight.w500, color: _slate600, height: 1.5),
-                              children: [
-                                const TextSpan(text: 'Timestamp: '),
-                                TextSpan(text: '10:42 AM Today', style: _ts(size: 11, weight: FontWeight.w700, color: _slate800)),
-                                const TextSpan(text: ' • Geo-verified at customer delivery address.'),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _slate100,
-                            foregroundColor: _slate800,
-                            elevation: 0,
-                            minimumSize: const Size(double.infinity, 36),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                          ),
-                          child: Text('Close Preview', style: _ts(size: 12, weight: FontWeight.w700, color: _slate800)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

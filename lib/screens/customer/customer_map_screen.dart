@@ -69,7 +69,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 450),
+            constraints: const BoxConstraints(maxWidth: 480),
             child: Column(
               children: [
                 SizedBox(

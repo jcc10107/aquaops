@@ -96,6 +96,10 @@ class _CustomerRefundRequestScreenState
   final CloudinaryService _cloudinary = CloudinaryService();
   bool _isSubmitting = false;
   bool _isSubmitted = false;
+  String? _customError;
+  String? _descError;
+  String? _nameError;
+  String? _numberError;
 
   bool _toastVisible = false;
   String _toastTitle = '';
@@ -159,32 +163,23 @@ class _CustomerRefundRequestScreenState
     final digits = _numberCtrl.text.replaceAll(RegExp(r'\D'), '');
     final custom = _customCtrl.text.trim();
 
-    if (_selectedReason == 'Other' && custom.isEmpty) {
-      _showToast('Specify Reason', 'Please enter your custom refund reason.', 'error');
-      _customFocus.requestFocus();
-      return;
-    }
-    if (description.length < _minChars) {
-      _showToast(
-        'Description Too Short',
-        'Please enter at least $_minChars characters describing the issue.',
-        'error',
-      );
-      _descFocus.requestFocus();
-      return;
-    }
-    if (name.isEmpty) {
-      _showToast('Name Required', 'Please enter your GCash Account Name.', 'error');
-      _nameFocus.requestFocus();
-      return;
-    }
-    if (digits.length < 11) {
-      _showToast(
-        'Invalid Phone Number',
-        'Please enter an 11-digit GCash mobile number.',
-        'error',
-      );
-      _numberFocus.requestFocus();
+    setState(() {
+      _customError = (_selectedReason == 'Other' && custom.isEmpty) ? 'Please enter your custom refund reason.' : null;
+      _descError = description.length < _minChars ? 'Please enter at least $_minChars characters.' : null;
+      _nameError = name.isEmpty ? 'Please enter your GCash Account Name.' : null;
+      _numberError = digits.length < 11 ? 'Please enter an 11-digit GCash mobile number.' : null;
+    });
+    if (_customError != null || _descError != null || _nameError != null || _numberError != null) {
+      _showToast('Check the highlighted fields', 'Some required details are missing or invalid.', 'error');
+      if (_customError != null) {
+        _customFocus.requestFocus();
+      } else if (_descError != null) {
+        _descFocus.requestFocus();
+      } else if (_nameError != null) {
+        _nameFocus.requestFocus();
+      } else {
+        _numberFocus.requestFocus();
+      }
       return;
     }
 
@@ -472,23 +467,38 @@ class _CustomerRefundRequestScreenState
     double radius = 16,
     EdgeInsets padding = const EdgeInsets.symmetric(horizontal: 16),
     double? height,
+    String? errorText,
   }) {
     return AnimatedBuilder(
       animation: focusNode,
       builder: (context, _) {
         final focused = focusNode.hasFocus;
-        return Container(
-          height: height,
-          padding: padding,
-          decoration: BoxDecoration(
-            color: focused ? Colors.white : _canvas,
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(
-              color: focused ? _cyan : Colors.transparent,
-              width: 2,
+        final hasError = errorText != null;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: height,
+              padding: padding,
+              decoration: BoxDecoration(
+                color: focused ? Colors.white : _canvas,
+                borderRadius: BorderRadius.circular(radius),
+                border: Border.all(
+                  color: hasError ? _coral : (focused ? _cyan : Colors.transparent),
+                  width: 2,
+                ),
+              ),
+              child: child,
             ),
-          ),
-          child: child,
+            if (hasError)
+              Padding(
+                padding: const EdgeInsets.only(left: 4, top: 4),
+                child: Text(
+                  errorText,
+                  style: _t(11, FontWeight.w500, _coral, height: 14 / 11),
+                ),
+              ),
+          ],
         );
       },
     );
@@ -564,9 +574,13 @@ class _CustomerRefundRequestScreenState
             _inputShell(
               focusNode: _customFocus,
               height: 52,
+              errorText: _customError,
               child: TextField(
                 controller: _customCtrl,
                 focusNode: _customFocus,
+                onChanged: (_) {
+                  if (_customError != null) setState(() => _customError = null);
+                },
                 style: _t(13, FontWeight.w500, _onSurface, height: 18 / 13),
                 decoration: InputDecoration(
                   isDense: true,
@@ -606,9 +620,13 @@ class _CustomerRefundRequestScreenState
           _inputShell(
             focusNode: _descFocus,
             padding: const EdgeInsets.all(14),
+            errorText: _descError,
             child: TextField(
               controller: _descCtrl,
               focusNode: _descFocus,
+              onChanged: (_) {
+                if (_descError != null) setState(() => _descError = null);
+              },
               minLines: 4,
               maxLines: 4,
               style: _t(13, FontWeight.w500, _onSurface, height: 18 / 13),
@@ -853,6 +871,7 @@ class _CustomerRefundRequestScreenState
             focusNode: _nameFocus,
             height: 52,
             padding: const EdgeInsets.symmetric(horizontal: 14),
+            errorText: _nameError,
             child: Row(
               children: [
                 const Icon(Icons.badge, size: 18, color: _primary),
@@ -861,6 +880,9 @@ class _CustomerRefundRequestScreenState
                   child: TextField(
                     controller: _nameCtrl,
                     focusNode: _nameFocus,
+                    onChanged: (_) {
+                      if (_nameError != null) setState(() => _nameError = null);
+                    },
                     textCapitalization: TextCapitalization.words,
                     style: _t(15, FontWeight.w500, _onSurface, height: 22 / 15),
                     decoration: InputDecoration(
@@ -881,6 +903,7 @@ class _CustomerRefundRequestScreenState
             focusNode: _numberFocus,
             height: 52,
             padding: const EdgeInsets.symmetric(horizontal: 14),
+            errorText: _numberError,
             child: Row(
               children: [
                 const Icon(Icons.phone_iphone, size: 18, color: _primary),
@@ -889,6 +912,9 @@ class _CustomerRefundRequestScreenState
                   child: TextField(
                     controller: _numberCtrl,
                     focusNode: _numberFocus,
+                    onChanged: (_) {
+                      if (_numberError != null) setState(() => _numberError = null);
+                    },
                     keyboardType: TextInputType.phone,
                     inputFormatters: [_GcashNumberFormatter()],
                     style: GoogleFonts.plusJakartaSans(

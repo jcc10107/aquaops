@@ -4,6 +4,8 @@ import '../../core/constants/app_colors.dart';
 import '../../main.dart';
 import '../../models/user_model.dart';
 import '../owner/manage_team_screen.dart';
+import '../owner/terms_privacy_editor_screen.dart';
+import '../owner/manage_branches_screen.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import 'manage_profile_screen.dart';
@@ -105,6 +107,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const TermsPrivacyScreen()),
+    );
+  }
+
+  void _showEditDeliveryFeeDialog(BuildContext context, double currentBaseFee, double currentRatePerKm) {
+    final baseCtrl = TextEditingController(text: currentBaseFee.toStringAsFixed(2));
+    final rateCtrl = TextEditingController(text: currentRatePerKm.toStringAsFixed(2));
+    String? error;
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('Delivery Fee'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Base Fee', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: baseCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(prefixText: '₱ ', hintText: 'e.g. 15.00'),
+                ),
+                const SizedBox(height: 12),
+                const Text('Rate per Kilometer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: rateCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(prefixText: '₱ ', hintText: 'e.g. 5.00', errorText: error),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Charged on top of the base fee, multiplied by the real road distance from the station to the delivery address.',
+                  style: TextStyle(fontSize: 11, color: AppColors.textVariant),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+              TextButton(
+                onPressed: () async {
+                  final base = double.tryParse(baseCtrl.text.trim());
+                  final rate = double.tryParse(rateCtrl.text.trim());
+                  if (base == null || base < 0 || rate == null || rate < 0) {
+                    setDialogState(() => error = 'Enter valid, non-negative amounts.');
+                    return;
+                  }
+                  await _firestoreService.setDeliveryFeeConfig(baseFee: base, ratePerKm: rate);
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -226,6 +287,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 8),
                     _buildCardGroup([
                       _buildListTile('Manage Staff & Riders', 'Staff accounts & rider routes', Icons.groups, _primaryBlue, isDark, badge: '4 Active', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageTeamScreen()))),
+                      _buildDivider(isDark),
+                      _buildListTile('Edit Terms & Privacy', 'Update station policies', Icons.edit_document, _primaryBlue, isDark, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsPrivacyEditorScreen()))),
+                      _buildDivider(isDark),
+                      StreamBuilder<bool>(
+                        stream: _firestoreService.getServiceAreaRestrictedStream(),
+                        builder: (context, snapshot) {
+                          final restricted = snapshot.data ?? true;
+                          return _buildListTile(
+                            'Service Area',
+                            restricted ? 'San Pablo City Only' : 'Any Address Accepted',
+                            Icons.map,
+                            _primaryBlue,
+                            isDark,
+                            trailing: _buildBoolSwitch(
+                              value: restricted,
+                              onTap: () => _firestoreService.setServiceAreaRestricted(!restricted),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildDivider(isDark),
+                      _buildListTile('Manage Branches', 'Station locations', Icons.store, _primaryBlue, isDark, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageBranchesScreen()))),
+                      _buildDivider(isDark),
+                      StreamBuilder<({double baseFee, double ratePerKm})>(
+                        stream: _firestoreService.getDeliveryFeeConfigStream(),
+                        builder: (context, snapshot) {
+                          final config = snapshot.data ?? (baseFee: 0.0, ratePerKm: 0.0);
+                          final subtitle = (config.baseFee == 0 && config.ratePerKm == 0)
+                              ? 'Free (₱0.00)'
+                              : '₱${config.baseFee.toStringAsFixed(2)} base + ₱${config.ratePerKm.toStringAsFixed(2)}/km';
+                          return _buildListTile(
+                            'Delivery Fee',
+                            subtitle,
+                            Icons.local_shipping,
+                            _primaryBlue,
+                            isDark,
+                            onTap: () => _showEditDeliveryFeeDialog(context, config.baseFee, config.ratePerKm),
+                          );
+                        },
+                      ),
                     ], isDark),
                     const SizedBox(height: 20),
                   ],
@@ -697,6 +798,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
             child: enabled ? const Icon(Icons.check, size: 13, color: _primaryBlue) : null,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBoolSwitch({required bool value, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 48,
+        height: 28,
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(100),
+          color: value ? _primaryBlue : _outlineVariant.withValues(alpha: 0.6),
+        ),
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 200),
+          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 6,
+                  spreadRadius: -1,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 4,
+                  spreadRadius: -2,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: value ? const Icon(Icons.check, size: 13, color: _primaryBlue) : null,
           ),
         ),
       ),

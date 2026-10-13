@@ -42,6 +42,9 @@ class OrderModel {
   final String? barangayDisplayName;
   final List<OrderItem> items;
   final double totalAmount;
+  // Tracked separately from totalAmount purely for display/reporting
+  // transparency — totalAmount already includes this, it's not added on top.
+  final double deliveryFee;
   final OrderStatus status;
   final PaymentMethod paymentMethod;
   final bool isPaid;
@@ -56,6 +59,12 @@ class OrderModel {
   final String? gcashScreenshotUrl;
   final double? deliveryLat;
   final double? deliveryLng;
+  // The rider's live GPS position while this order is out for delivery,
+  // broadcast periodically by RiderLocationService. Null until the assigned
+  // rider's device has sent at least one update (e.g. order not yet out for
+  // delivery, or the rider hasn't granted location permission).
+  final double? riderLat;
+  final double? riderLng;
   final String? lastTransferReason;
   // Who actually collected payment: 'counter' (settled at the register
   // before dispatch) or 'rider' (collected COD at the doorstep). Null for
@@ -89,6 +98,7 @@ class OrderModel {
     this.barangayDisplayName,
     required this.items,
     required this.totalAmount,
+    this.deliveryFee = 0,
     required this.status,
     required this.paymentMethod,
     required this.isPaid,
@@ -103,6 +113,8 @@ class OrderModel {
     this.gcashScreenshotUrl,
     this.deliveryLat,
     this.deliveryLng,
+    this.riderLat,
+    this.riderLng,
     this.lastTransferReason,
     this.paymentCollectedBy,
     this.paidAt,
@@ -139,6 +151,7 @@ class OrderModel {
       'barangayDisplayName': barangayDisplayName,
       'items': items.map((i) => i.toMap()).toList(),
       'totalAmount': totalAmount,
+      'deliveryFee': deliveryFee,
       'status': status.name,
       'paymentMethod': paymentMethod.name,
       'isPaid': isPaid,

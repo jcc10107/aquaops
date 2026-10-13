@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../core/constants/app_colors.dart';
@@ -12,6 +13,8 @@ import '../../models/user_model.dart';
 import '../../services/cloudinary_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/offline_queue_service.dart';
+import '../../services/rider_location_service.dart';
+import '../customer/customer_map_screen.dart';
 import 'rider_cash_out_modal.dart';
 import 'emergency_transfer_modal.dart';
 import 'fulfill_delivery_screen.dart';
@@ -64,11 +67,15 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   final CloudinaryService _cloudinaryService = CloudinaryService();
   final OfflineQueueService _offlineQueue = OfflineQueueService();
+  final RiderLocationService _riderLocationService = RiderLocationService();
+  List<String> _lastBroadcastOrderIds = const [];
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   bool _syncing = false;
   bool _pendingListExpanded = false;
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _statusFilter = 'all';
 
   @override
   void initState() {
@@ -86,7 +93,18 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
   @override
   void dispose() {
     _connectivitySub?.cancel();
+    _searchCtrl.dispose();
+    _riderLocationService.stop();
     super.dispose();
+  }
+
+  void _syncRiderBroadcast(List<String> outForDeliveryOrderIds) {
+    outForDeliveryOrderIds.sort();
+    if (listEquals(outForDeliveryOrderIds, _lastBroadcastOrderIds)) return;
+    _lastBroadcastOrderIds = outForDeliveryOrderIds;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _riderLocationService.setActiveOrderIds(outForDeliveryOrderIds);
+    });
   }
 
   Future<void> _attemptSync({bool showResult = false}) async {
@@ -452,6 +470,43 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
     return orders.where((d) => _matchesArea(d, area)).length;
   }
 
+  bool _matchesStatus(OrderModel d, String status) {
+    if (status == 'all') return true;
+    return d.status.name == status;
+  }
+
+  bool _matchesSearch(OrderModel d, String query) {
+    if (query.trim().isEmpty) return true;
+    final q = query.trim().toLowerCase();
+    return d.customerName.toLowerCase().contains(q) ||
+        d.orderNumber.toLowerCase().contains(q) ||
+        (d.deliveryAddress ?? '').toLowerCase().contains(q);
+  }
+
+  Widget _buildStatusFilterTab(String val, String label) {
+    final bool isActive = _statusFilter == val;
+    return InkWell(
+      onTap: () => setState(() => _statusFilter = val),
+      borderRadius: BorderRadius.circular(100),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(100),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontSize: 11,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+            color: isActive ? Colors.white : const Color(0xFF334155),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final role = currentUserRoleNotifier.value;
@@ -577,7 +632,14 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                         final allOrders = snapshot.data!;
                         final isRider = currentUserRoleNotifier.value == 'rider';
                         final orders = isRider ? allOrders.where((o) => o.assignedRiderId == _uid).toList() : allOrders;
-                        final filteredDeliveries = orders.where((d) => _matchesArea(d, _area)).toList();
+                        if (isRider) {
+                          _syncRiderBroadcast(
+                            orders.where((o) => o.status == OrderStatus.outForDelivery).map((o) => o.id).toList(),
+                          );
+                        }
+                        final filteredDeliveries = orders
+                            .where((d) => _matchesArea(d, _area) && _matchesStatus(d, _statusFilter) && _matchesSearch(d, _searchCtrl.text))
+                            .toList();
 
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -627,6 +689,43 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                                         _buildFilterTab('sm', 'Barangay San Marcos', _countForArea(orders, 'sm')),
                                         const SizedBox(width: 8),
                                         _buildFilterTab('other', 'Other Barangays', _countForArea(orders, 'other')),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  TextField(
+                                    controller: _searchCtrl,
+                                    onChanged: (_) => setState(() {}),
+                                    style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: Color(0xFF0F172A)),
+                                    decoration: InputDecoration(
+                                      hintText: 'Search customer, order #, or address...',
+                                      hintStyle: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: Color(0xFF94A3B8)),
+                                      prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
+                                      suffixIcon: _searchCtrl.text.isEmpty
+                                          ? null
+                                          : IconButton(
+                                              icon: const Icon(Icons.close, size: 16, color: Color(0xFF94A3B8)),
+                                              onPressed: () => setState(() => _searchCtrl.clear()),
+                                            ),
+                                      filled: true,
+                                      fillColor: const Color(0xFFF8FAFC),
+                                      isDense: true,
+                                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: [
+                                        _buildStatusFilterTab('all', 'All Statuses'),
+                                        const SizedBox(width: 6),
+                                        _buildStatusFilterTab('pending', 'Pending'),
+                                        const SizedBox(width: 6),
+                                        _buildStatusFilterTab('refilling', 'Refilling'),
+                                        const SizedBox(width: 6),
+                                        _buildStatusFilterTab('outForDelivery', 'Out for Delivery'),
                                       ],
                                     ),
                                   ),
@@ -935,19 +1034,43 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.chat, size: 16, color: Color(0xFF0284C7)),
-                  label: const Text('Send Message', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0284C7))),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF0F9FF),
-                    side: const BorderSide(color: Color(0xFFBAE6FD)),
-                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.chat, size: 16, color: Color(0xFF0284C7)),
+                      label: const Text('Send Message', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0284C7))),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF0F9FF),
+                        side: const BorderSide(color: Color(0xFFBAE6FD)),
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CustomerMapScreen(order: order),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.map, size: 16, color: Color(0xFF0284C7)),
+                      label: const Text('View Route', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0284C7))),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF0F9FF),
+                        side: const BorderSide(color: Color(0xFFBAE6FD)),
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

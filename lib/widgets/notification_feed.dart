@@ -333,6 +333,7 @@ class _NotificationFeedState extends State<NotificationFeed> {
         message: '${o.items.map((i) => '${i.quantity}× ${i.name}').join(', ')} • ${_money(o.totalAmount)} paid via ${_payment(o)}.',
         sortTime: o.createdAt,
         tag: _payment(o),
+        trackOrder: o,
       );
     }).toList();
   }
@@ -353,6 +354,7 @@ class _NotificationFeedState extends State<NotificationFeed> {
           message: 'Order ${o.orderNumber} for ${o.customerName} needs a rider.',
           sortTime: now,
           timeLabel: 'Needs a rider',
+          trackOrder: o,
         ));
       }
       if (o.status == OrderStatus.outForDelivery && o.lastTransferReason != null && o.lastTransferReason!.trim().isNotEmpty) {
@@ -366,6 +368,7 @@ class _NotificationFeedState extends State<NotificationFeed> {
           message: 'Order ${o.orderNumber} is now with ${o.assignedRiderName ?? 'another rider'}. Reason: ${o.lastTransferReason}.',
           sortTime: o.createdAt,
           timeLabel: 'In progress',
+          trackOrder: o,
         ));
       }
       if (o.status == OrderStatus.cancelled && now.difference(o.createdAt).inDays <= 3) {
@@ -379,6 +382,7 @@ class _NotificationFeedState extends State<NotificationFeed> {
           message: 'Order ${o.orderNumber} from ${o.customerName} (${_money(o.totalAmount)}) was cancelled.',
           sortTime: o.createdAt,
           timeLabel: 'Cancelled',
+          trackOrder: o,
         ));
       }
     }
@@ -420,6 +424,7 @@ class _NotificationFeedState extends State<NotificationFeed> {
           sortTime: o.createdAt,
           timeLabel: 'Active now',
           tag: _payment(o),
+          trackOrder: o,
         ));
       } else if (o.status == OrderStatus.cancelled && now.difference(o.createdAt).inDays <= 3) {
         items.add(AppNotification(
@@ -432,6 +437,7 @@ class _NotificationFeedState extends State<NotificationFeed> {
           message: 'Order ${o.orderNumber} for ${o.customerName} was cancelled. No drop-off is needed.',
           sortTime: o.createdAt,
           timeLabel: 'Cancelled',
+          trackOrder: o,
         ));
       }
     }

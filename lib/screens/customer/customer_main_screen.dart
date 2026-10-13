@@ -15,14 +15,15 @@ import 'customer_orders_screen.dart';
 import 'customer_checkout_screen.dart';
 
 class CustomerMainScreen extends StatefulWidget {
-  const CustomerMainScreen({super.key});
+  final int initialTab;
+  const CustomerMainScreen({super.key, this.initialTab = 0});
 
   @override
   State<CustomerMainScreen> createState() => _CustomerMainScreenState();
 }
 
 class _CustomerMainScreenState extends State<CustomerMainScreen> {
-  int _navIndex = 0;
+  late int _navIndex = widget.initialTab;
   bool _isCheckoutView = false;
   final Map<String, int> _cart = {};
   String _currentAddress = 'Select delivery address';

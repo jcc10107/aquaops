@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +7,7 @@ import '../../core/constants/app_colors.dart';
 import '../../models/order_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/cloudinary_service.dart';
+import '../../services/location_service.dart';
 import '../../core/constants/zones.dart';
 
 class CustomerCheckoutScreen extends StatefulWidget {
@@ -44,9 +46,19 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
   Uint8List? _receiptBytes;
   String? _receiptUrl;
   bool _isUploadingReceipt = false;
+  String? _gcashRefError;
+  String? _receiptError;
+  double _deliveryFee = 0;
+  ({double baseFee, double ratePerKm})? _deliveryFeeConfig;
+  double? _deliveryDistanceKm;
+  bool _distanceResolved = false;
+  StreamSubscription<({double baseFee, double ratePerKm})>? _deliveryFeeConfigSub;
+
+  bool get _calculatingDeliveryFee => _deliveryFeeConfig == null || !_distanceResolved;
 
   final FirestoreService _firestoreService = FirestoreService();
   final CloudinaryService _cloudinary = CloudinaryService();
+  final LocationService _locationService = LocationService();
   final ImagePicker _picker = ImagePicker();
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
@@ -76,13 +88,53 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
   void initState() {
     super.initState();
     _emptyGallonsReturning = _orderedRefillsCount > 0 ? (_orderedRefillsCount - 1) : 0;
+    _deliveryFeeConfigSub = _firestoreService.getDeliveryFeeConfigStream().listen((config) {
+      _deliveryFeeConfig = config;
+      _recomputeDeliveryFee();
+    });
+    _resolveDeliveryDistance();
   }
 
   @override
   void dispose() {
     _gcashRefController.dispose();
     _notesController.dispose();
+    _deliveryFeeConfigSub?.cancel();
     super.dispose();
+  }
+
+  // Resolves the real road distance from the station to this checkout's
+  // delivery address once (the address is fixed for the lifetime of this
+  // screen instance, passed in via widget.currentAddress/currentLat/Lng).
+  // Never blocks checkout on failure — a null distance just means the
+  // delivery fee falls back to the base fee alone.
+  Future<void> _resolveDeliveryDistance() async {
+    try {
+      final destination = await _locationService.resolveDestination(
+        lat: widget.currentLat,
+        lng: widget.currentLng,
+        address: widget.currentAddress,
+      );
+      if (destination != null) {
+        _deliveryDistanceKm = await _locationService.getRoadDistanceKm(
+          destLat: destination.latitude,
+          destLng: destination.longitude,
+        );
+      }
+    } catch (_) {
+      // Fall back to base-fee-only — never block checkout over a routing hiccup.
+    }
+    if (!mounted) return;
+    setState(() => _distanceResolved = true);
+    _recomputeDeliveryFee();
+  }
+
+  void _recomputeDeliveryFee() {
+    final config = _deliveryFeeConfig;
+    if (config == null || !mounted) return;
+    setState(() {
+      _deliveryFee = config.baseFee + (config.ratePerKm * (_deliveryDistanceKm ?? 0));
+    });
   }
 
   double get _cartSubtotal {
@@ -112,32 +164,28 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
     return _missingContainersCount * 200.0;
   }
 
-  double get _checkoutTotal => _cartSubtotal + _missingContainerDeposit;
+  double get _checkoutTotal => _cartSubtotal + _missingContainerDeposit + _deliveryFee;
 
   Future<void> _placeOrder() async {
     if (widget.cart.isEmpty) return;
     final uid = _uid;
     if (uid == null) return;
-
-    if (_paymentMethod == 'gcash' && _gcashRefController.text.trim().length != 13) {
+    if (_calculatingDeliveryFee) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter the 13-digit GCash reference number.'),
-          backgroundColor: AppColors.error,
-        ),
+        const SnackBar(content: Text('Still calculating your delivery fee — please wait a moment.')),
       );
       return;
     }
 
-    if (_paymentMethod == 'gcash' && _receiptUrl == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please upload your GCash payment screenshot.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
+    setState(() {
+      _gcashRefError = (_paymentMethod == 'gcash' && _gcashRefController.text.trim().length != 13)
+          ? 'Enter the 13-digit GCash reference number.'
+          : null;
+      _receiptError = (_paymentMethod == 'gcash' && _receiptUrl == null)
+          ? 'Please upload your GCash payment screenshot.'
+          : null;
+    });
+    if (_gcashRefError != null || _receiptError != null) return;
 
     setState(() => _isPlacingOrder = true);
     final messenger = ScaffoldMessenger.of(context);
@@ -162,6 +210,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
         deliveryLng: widget.currentLng,
         items: items,
         totalAmount: _checkoutTotal,
+        deliveryFee: _deliveryFee,
         paymentMethod: _paymentMethod,
         gcashReference: _paymentMethod == 'gcash' && _gcashRefController.text.trim().isNotEmpty
             ? _gcashRefController.text.trim()
@@ -208,6 +257,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
         _receiptUrl = url;
         _hasUploadedReceipt = true;
         _isUploadingReceipt = false;
+        _receiptError = null;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1039,11 +1089,11 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                     decoration: BoxDecoration(
                       color: _surfaceCanvas,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.transparent),
+                      border: Border.all(color: _gcashRefError != null ? _coralAlert : Colors.transparent, width: _gcashRefError != null ? 1.5 : 1),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.tag, color: _primaryBlue, size: 20),
+                        Icon(Icons.tag, color: _gcashRefError != null ? _coralAlert : _primaryBlue, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextField(
@@ -1051,6 +1101,9 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                             maxLength: 13,
                             keyboardType: TextInputType.number,
                             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            onChanged: (_) {
+                              if (_gcashRefError != null) setState(() => _gcashRefError = null);
+                            },
                             style: const TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 15,
@@ -1065,10 +1118,22 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                             ),
                           ),
                         ),
-                        const Icon(Icons.check_circle, color: _secondary, size: 20),
+                        Icon(
+                          _gcashRefController.text.trim().length == 13 ? Icons.check_circle : Icons.circle_outlined,
+                          color: _gcashRefController.text.trim().length == 13 ? _secondary : _outline,
+                          size: 20,
+                        ),
                       ],
                     ),
                   ),
+                  if (_gcashRefError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, top: 4),
+                      child: Text(
+                        _gcashRefError!,
+                        style: const TextStyle(fontFamily: _fontFamily, fontSize: 11, fontWeight: FontWeight.w500, color: _coralAlert),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1101,7 +1166,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                       onPressed: _isUploadingReceipt ? null : _pickAndUploadReceipt,
                       style: OutlinedButton.styleFrom(
                         backgroundColor: _surfaceIce,
-                        side: BorderSide(color: _primaryBlue.withValues(alpha: 0.4), width: 1.5),
+                        side: BorderSide(color: _receiptError != null ? _coralAlert : _primaryBlue.withValues(alpha: 0.4), width: _receiptError != null ? 1.5 : 1.5),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
                       icon: _isUploadingReceipt
@@ -1122,6 +1187,14 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                       ),
                     ),
                   ),
+                  if (_receiptError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, top: 4),
+                      child: Text(
+                        _receiptError!,
+                        style: const TextStyle(fontFamily: _fontFamily, fontSize: 11, fontWeight: FontWeight.w500, color: _coralAlert),
+                      ),
+                    ),
                   if (_hasUploadedReceipt) ...[
                     const SizedBox(height: 8),
                     Container(
@@ -1349,6 +1422,45 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: _coralAlert,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (_calculatingDeliveryFee || _deliveryFee > 0) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.local_shipping, size: 16, color: _onSurfaceVariant),
+                    SizedBox(width: 6),
+                    Text(
+                      'Delivery Fee',
+                      style: TextStyle(
+                        fontFamily: _fontFamily,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: _onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                if (_calculatingDeliveryFee)
+                  const SizedBox(
+                    width: 13,
+                    height: 13,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: _onSurfaceVariant),
+                  )
+                else
+                Text(
+                  '₱${_deliveryFee.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontFamily: _fontFamily,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: _onSurface,
                   ),
                 ),
               ],

@@ -118,5 +118,19 @@ service cloud.firestore {
       // Only staff/owner can move a claim to approved/rejected/processed.
       allow update: if isStaff();
     }
+
+    match /settings/{docId} {
+      // Terms & Privacy content (and any future app-wide settings doc):
+      // readable by any signed-in user, editable only by the owner via
+      // the Terms & Privacy editor screen.
+      allow read: if isSignedIn();
+      allow write: if isOwner();
+    }
+
+    match /branches/{branchId} {
+      // Groundwork for future multi-branch support — owner-managed list.
+      allow read: if isSignedIn();
+      allow write: if isOwner();
+    }
   }
 }

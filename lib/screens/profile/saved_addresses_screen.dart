@@ -125,7 +125,7 @@ class _NewAddress {
   });
 }
 
-InputDecoration _fieldDecoration({String? hint, double vertical = 10}) {
+InputDecoration _fieldDecoration({String? hint, double vertical = 10, String? errorText}) {
   OutlineInputBorder border(Color color) => OutlineInputBorder(
     borderRadius: BorderRadius.circular(12),
     borderSide: BorderSide(color: color),
@@ -143,8 +143,17 @@ InputDecoration _fieldDecoration({String? hint, double vertical = 10}) {
     isDense: true,
     contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: vertical),
     border: border(_slate200),
-    enabledBorder: border(_slate200),
-    focusedBorder: border(_blue),
+    enabledBorder: border(errorText != null ? _errorRed : _slate200),
+    focusedBorder: border(errorText != null ? _errorRed : _blue),
+    errorBorder: border(_errorRed),
+    focusedErrorBorder: border(_errorRed),
+    errorText: errorText,
+    errorStyle: const TextStyle(
+      fontFamily: _font,
+      fontSize: 11,
+      fontWeight: FontWeight.w500,
+      color: _errorRed,
+    ),
   );
 }
 
@@ -156,13 +165,17 @@ class _AddAddressSheet extends StatefulWidget {
 }
 
 class _AddAddressSheetState extends State<_AddAddressSheet> {
+  final FirestoreService _firestoreService = FirestoreService();
   String _tag = 'Home';
   String? _barangay;
   bool _isPrimary = false;
+  String? _barangayError;
+  String? _streetError;
   final TextEditingController _streetCtrl = TextEditingController();
   final TextEditingController _landmarkCtrl = TextEditingController();
   final TextEditingController _contactCtrl = TextEditingController(text: 'Juan Dela Cruz');
   final TextEditingController _phoneCtrl = TextEditingController(text: '0917 123 4567');
+  final TextEditingController _barangayFreeTextCtrl = TextEditingController();
 
   @override
   void dispose() {
@@ -170,30 +183,17 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
     _landmarkCtrl.dispose();
     _contactCtrl.dispose();
     _phoneCtrl.dispose();
+    _barangayFreeTextCtrl.dispose();
     super.dispose();
   }
 
   void _submit() {
     final street = _streetCtrl.text.trim();
-    if (_barangay == null || _barangay!.isEmpty || street.isEmpty) {
-      showDialog(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          content: const Text(
-            'Please select a Barangay and enter street address.',
-            style: TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.w500),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
+    setState(() {
+      _barangayError = (_barangay == null || _barangay!.isEmpty) ? 'Please select a barangay.' : null;
+      _streetError = street.isEmpty ? 'Street address is required.' : null;
+    });
+    if (_barangayError != null || _streetError != null) return;
     Navigator.pop(
       context,
       _NewAddress(
@@ -358,27 +358,74 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
             ],
           ),
           const SizedBox(height: 6),
-          DropdownButtonFormField<String>(
-            isExpanded: true,
-            menuMaxHeight: 320,
-            dropdownColor: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            icon: const Icon(Icons.expand_more, size: 18, color: _slate400),
-            style: const TextStyle(
-              fontFamily: _font,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: _onSurface,
-            ),
-            decoration: _fieldDecoration(hint: 'Select Barangay...'),
-            items: _barangays
-                .map((b) => DropdownMenuItem<String>(
-              value: b,
-              child: Text(b, overflow: TextOverflow.ellipsis),
-            ))
-                .toList(),
-            onChanged: (v) => setState(() => _barangay = v),
+          StreamBuilder<bool>(
+            stream: _firestoreService.getServiceAreaRestrictedStream(),
+            builder: (context, snapshot) {
+              final restricted = snapshot.data ?? true;
+              if (!restricted) {
+                return TextField(
+                  controller: _barangayFreeTextCtrl,
+                  style: const TextStyle(
+                    fontFamily: _font,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: _onSurface,
+                  ),
+                  decoration: _fieldDecoration(hint: 'Enter city/barangay...', errorText: _barangayError),
+                  onChanged: (v) => setState(() {
+                    _barangay = v.trim().isEmpty ? null : v.trim();
+                    _barangayError = null;
+                  }),
+                );
+              }
+              return SizedBox(
+                width: double.infinity,
+                child: DropdownMenu<String>(
+                  initialSelection: _barangay,
+                  menuHeight: 320,
+                  enableFilter: true,
+                  requestFocusOnTap: true,
+                  hintText: 'Search barangay...',
+                  textStyle: const TextStyle(
+                    fontFamily: _font,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: _onSurface,
+                  ),
+                  inputDecorationTheme: InputDecorationTheme(
+                    hintStyle: const TextStyle(
+                      fontFamily: _font,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: _slate400,
+                    ),
+                    filled: true,
+                    fillColor: _canvas,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _slate200)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _slate200)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _blue)),
+                  ),
+                  dropdownMenuEntries: _barangays
+                      .map((b) => DropdownMenuEntry<String>(value: b, label: b))
+                      .toList(),
+                  onSelected: (v) => setState(() {
+                    _barangay = v;
+                    _barangayError = null;
+                  }),
+                ),
+              );
+            },
           ),
+          if (_barangayError != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 4, top: 4),
+              child: Text(
+                _barangayError!,
+                style: const TextStyle(fontFamily: _font, fontSize: 11, fontWeight: FontWeight.w500, color: _errorRed),
+              ),
+            ),
           const SizedBox(height: 16),
           const Text.rich(
             TextSpan(
@@ -397,13 +444,19 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
           const SizedBox(height: 6),
           TextField(
             controller: _streetCtrl,
+            onChanged: (_) {
+              if (_streetError != null) setState(() => _streetError = null);
+            },
             style: const TextStyle(
               fontFamily: _font,
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: _onSurface,
             ),
-            decoration: _fieldDecoration(hint: 'e.g. Block 8 Lot 14, Villa Antonio Subdivision'),
+            decoration: _fieldDecoration(
+              hint: 'e.g. Block 8 Lot 14, Villa Antonio Subdivision',
+              errorText: _streetError,
+            ),
           ),
           const SizedBox(height: 16),
           Row(

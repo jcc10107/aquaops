@@ -25,6 +25,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _obscureConfirmPassword = true;
   bool _agreeToTerms = false;
 
+  String? _nameError;
+  String? _phoneError;
+  String? _emailError;
+  String? _passwordError;
+  String? _confirmPasswordError;
+  bool _termsError = false;
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -35,29 +42,47 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
-  Future<void> _handleRegister() async {
+  bool _validateAll() {
     final name = _nameController.text.trim();
     final phone = _phoneController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    final emailValid = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
 
-    if (name.isEmpty || phone.isEmpty || email.isEmpty || password.isEmpty) {
-      _showError('Please fill in all required fields.');
-      return;
-    }
-    if (password != confirmPassword) {
-      _showError('Passwords do not match.');
-      return;
-    }
-    if (password.length < 8) {
-      _showError('Password must be at least 8 characters.');
-      return;
-    }
-    if (!_agreeToTerms) {
-      _showError('Please agree to the Terms of Service & Privacy Policy.');
-      return;
-    }
+    setState(() {
+      _nameError = name.isEmpty ? 'Full name is required.' : null;
+      _phoneError = phone.isEmpty
+          ? 'Mobile number is required.'
+          : (digits.length < 11 ? 'Enter a valid 11-digit mobile number.' : null);
+      _emailError = email.isEmpty
+          ? 'Email address is required.'
+          : (!emailValid ? 'Please enter a valid email address.' : null);
+      _passwordError = password.isEmpty
+          ? 'Password is required.'
+          : (password.length < 8 ? 'Password must be at least 8 characters.' : null);
+      _confirmPasswordError = confirmPassword.isEmpty
+          ? 'Please confirm your password.'
+          : (confirmPassword != password ? 'Passwords do not match.' : null);
+      _termsError = !_agreeToTerms;
+    });
+
+    return _nameError == null &&
+        _phoneError == null &&
+        _emailError == null &&
+        _passwordError == null &&
+        _confirmPasswordError == null &&
+        !_termsError;
+  }
+
+  Future<void> _handleRegister() async {
+    if (!_validateAll()) return;
+
+    final name = _nameController.text.trim();
+    final phone = _phoneController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
 
     setState(() => _isLoading = true);
     try {
@@ -220,6 +245,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               icon: Icons.person_outline,
                               hint: 'Elena Gomez',
                               keyboardType: TextInputType.name,
+                              errorText: _nameError,
+                              onChanged: () {
+                                if (_nameError != null) setState(() => _nameError = null);
+                              },
                             ),
                             const SizedBox(height: 14),
                             const Padding(
@@ -239,6 +268,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               icon: Icons.call_outlined,
                               hint: '0917 123 4567',
                               keyboardType: TextInputType.phone,
+                              errorText: _phoneError,
+                              onChanged: () {
+                                if (_phoneError != null) setState(() => _phoneError = null);
+                              },
                             ),
                             const SizedBox(height: 14),
                             const Padding(
@@ -258,6 +291,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               icon: Icons.mail_outline,
                               hint: 'name@example.com',
                               keyboardType: TextInputType.emailAddress,
+                              errorText: _emailError,
+                              onChanged: () {
+                                if (_emailError != null) setState(() => _emailError = null);
+                              },
                             ),
                             const SizedBox(height: 14),
                             const Padding(
@@ -277,6 +314,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               hint: 'CREATE PASSWORD',
                               isObscure: _obscurePassword,
                               onToggle: () => setState(() => _obscurePassword = !_obscurePassword),
+                              errorText: _passwordError,
+                              onChanged: () {
+                                if (_passwordError != null) setState(() => _passwordError = null);
+                              },
                             ),
                             const SizedBox(height: 14),
                             const Padding(
@@ -297,6 +338,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               isObscure: _obscureConfirmPassword,
                               onToggle: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
                               icon: Icons.lock_reset_outlined,
+                              errorText: _confirmPasswordError,
+                              onChanged: () {
+                                if (_confirmPasswordError != null) setState(() => _confirmPasswordError = null);
+                              },
                             ),
                             const SizedBox(height: 4),
                             Padding(
@@ -305,7 +350,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   GestureDetector(
-                                    onTap: () => setState(() => _agreeToTerms = !_agreeToTerms),
+                                    onTap: () => setState(() {
+                                      _agreeToTerms = !_agreeToTerms;
+                                      if (_agreeToTerms) _termsError = false;
+                                    }),
                                     child: Container(
                                       width: 16,
                                       height: 16,
@@ -314,8 +362,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                         color: _agreeToTerms ? const Color(0xFF006194) : const Color(0xFFFFFFFF),
                                         borderRadius: BorderRadius.circular(4),
                                         border: Border.all(
-                                          color: _agreeToTerms ? const Color(0xFF006194) : const Color(0xFFBFC7D2),
-                                          width: 1,
+                                          color: _agreeToTerms
+                                              ? const Color(0xFF006194)
+                                              : (_termsError ? AppColors.error : const Color(0xFFBFC7D2)),
+                                          width: _termsError ? 1.5 : 1,
                                         ),
                                       ),
                                       child: _agreeToTerms
@@ -325,7 +375,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   ),
                                   Expanded(
                                     child: GestureDetector(
-                                      onTap: () => setState(() => _agreeToTerms = !_agreeToTerms),
+                                      onTap: () => setState(() {
+                                        _agreeToTerms = !_agreeToTerms;
+                                        if (_agreeToTerms) _termsError = false;
+                                      }),
                                       child: RichText(
                                         text: const TextSpan(
                                           text: 'By signing up, you agree to our ',
@@ -358,6 +411,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 ],
                               ),
                             ),
+                            if (_termsError)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 30, top: 2),
+                                child: Text(
+                                  'Please agree to the Terms of Service & Privacy Policy.',
+                                  style: TextStyle(
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.error,
+                                  ),
+                                ),
+                              ),
                             const SizedBox(height: 12),
                             Container(
                               height: 48,
@@ -509,51 +575,74 @@ class _SignUpScreenState extends State<SignUpScreen> {
     required IconData icon,
     required String hint,
     TextInputType keyboardType = TextInputType.text,
+    String? errorText,
+    VoidCallback? onChanged,
   }) {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
+    final bool hasError = errorText != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFFFF),
+            borderRadius: BorderRadius.circular(12),
+            border: hasError ? Border.all(color: AppColors.error, width: 1.5) : null,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 14, right: 10),
+                child: Icon(icon, color: hasError ? AppColors.error : const Color(0xFF707881), size: 18),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: keyboardType,
+                  onChanged: (_) => onChanged?.call(),
+                  style: const TextStyle(
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF131B2E),
+                  ),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF707881),
+                      fontWeight: FontWeight.w400,
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+            ],
+          ),
+        ),
+        if (hasError)
           Padding(
-            padding: const EdgeInsets.only(left: 14, right: 10),
-            child: Icon(icon, color: const Color(0xFF707881), size: 18),
-          ),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              keyboardType: keyboardType,
+            padding: const EdgeInsets.only(left: 4, top: 4),
+            child: Text(
+              errorText,
               style: const TextStyle(
                 fontFamily: 'Plus Jakarta Sans',
-                fontSize: 13,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF131B2E),
-              ),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: const TextStyle(
-                  color: Color(0xFF707881),
-                  fontWeight: FontWeight.w400,
-                ),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
+                color: AppColors.error,
               ),
             ),
           ),
-          const SizedBox(width: 16),
-        ],
-      ),
+      ],
     );
   }
 
@@ -563,61 +652,84 @@ class _SignUpScreenState extends State<SignUpScreen> {
     required bool isObscure,
     required VoidCallback onToggle,
     IconData icon = Icons.lock_outline,
+    String? errorText,
+    VoidCallback? onChanged,
   }) {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
+    final bool hasError = errorText != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFFFF),
+            borderRadius: BorderRadius.circular(12),
+            border: hasError ? Border.all(color: AppColors.error, width: 1.5) : null,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 14, right: 10),
+                child: Icon(icon, color: hasError ? AppColors.error : const Color(0xFF707881), size: 18),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  obscureText: isObscure,
+                  onChanged: (_) => onChanged?.call(),
+                  style: const TextStyle(
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF131B2E),
+                  ),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF707881),
+                      fontWeight: FontWeight.w400,
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: onToggle,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  child: Icon(
+                    isObscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                    color: const Color(0xFF707881),
+                    size: 18,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (hasError)
           Padding(
-            padding: const EdgeInsets.only(left: 14, right: 10),
-            child: Icon(icon, color: const Color(0xFF707881), size: 18),
-          ),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              obscureText: isObscure,
+            padding: const EdgeInsets.only(left: 4, top: 4),
+            child: Text(
+              errorText,
               style: const TextStyle(
                 fontFamily: 'Plus Jakarta Sans',
-                fontSize: 13,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF131B2E),
-              ),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: const TextStyle(
-                  color: Color(0xFF707881),
-                  fontWeight: FontWeight.w400,
-                ),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
+                color: AppColors.error,
               ),
             ),
           ),
-          GestureDetector(
-            onTap: onToggle,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              child: Icon(
-                isObscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                color: const Color(0xFF707881),
-                size: 18,
-              ),
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }

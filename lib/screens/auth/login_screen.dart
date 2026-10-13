@@ -23,6 +23,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   final FocusNode _passwordFocus = FocusNode();
   bool _obscurePassword = true;
   bool _isEmailValid = false;
+  String? _emailError;
+  String? _passwordError;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -59,21 +61,28 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   void _onEmailChanged() {
     final valid = _emailController.text.trim().length > 4;
-    if (_isEmailValid != valid) {
+    if (_isEmailValid != valid || _emailError != null) {
       setState(() {
         _isEmailValid = valid;
+        _emailError = null;
       });
     }
   }
 
-  Future<void> _handleLogin() async {
+  bool _validateAll() {
     final email = _emailController.text.trim();
     final password = _passController.text;
+    setState(() {
+      _emailError = email.isEmpty ? 'Email address is required.' : null;
+      _passwordError = password.isEmpty ? 'Password is required.' : null;
+    });
+    return _emailError == null && _passwordError == null;
+  }
 
-    if (email.isEmpty || password.isEmpty) {
-      _showError('Please enter your email and password.');
-      return;
-    }
+  Future<void> _handleLogin() async {
+    if (!_validateAll()) return;
+    final email = _emailController.text.trim();
+    final password = _passController.text;
 
     setState(() => _isLoading = true);
     try {
@@ -147,29 +156,51 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   Widget _buildInputContainer({
     required FocusNode focusNode,
     required Widget child,
+    String? errorText,
   }) {
     final bool isFocused = focusNode.hasFocus;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isFocused ? const Color(0xFF0284C7) : const Color(0xFFE5E9EB).withValues(alpha: 0.8),
-          width: 1,
+    final bool hasError = errorText != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFFFF),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: hasError
+                  ? AppColors.error
+                  : (isFocused ? const Color(0xFF0284C7) : const Color(0xFFE5E9EB).withValues(alpha: 0.8)),
+              width: hasError ? 1.5 : 1,
+            ),
+            boxShadow: isFocused
+                ? [
+              BoxShadow(
+                color: const Color(0xFF0284C7).withValues(alpha: 0.15),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              )
+            ]
+                : [],
+          ),
+          child: child,
         ),
-        boxShadow: isFocused
-            ? [
-          BoxShadow(
-            color: const Color(0xFF0284C7).withValues(alpha: 0.15),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          )
-        ]
-            : [],
-      ),
-      child: child,
+        if (hasError)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 4),
+            child: Text(
+              errorText,
+              style: const TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: AppColors.error,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -274,6 +305,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       ),
                       _buildInputContainer(
                         focusNode: _emailFocus,
+                        errorText: _emailError,
                         child: Row(
                           children: [
                             const Icon(Icons.mail_outline, color: Color(0xFF005E9F), size: 20),
@@ -322,6 +354,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       ),
                       _buildInputContainer(
                         focusNode: _passwordFocus,
+                        errorText: _passwordError,
                         child: Row(
                           children: [
                             const Icon(Icons.lock_outline, color: Color(0xFF005E9F), size: 20),
@@ -331,6 +364,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 controller: _passController,
                                 focusNode: _passwordFocus,
                                 obscureText: _obscurePassword,
+                                onChanged: (_) {
+                                  if (_passwordError != null) setState(() => _passwordError = null);
+                                },
                                 style: const TextStyle(
                                   fontFamily: 'Plus Jakarta Sans',
                                   fontSize: 15,

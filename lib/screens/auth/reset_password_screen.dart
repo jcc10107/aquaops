@@ -17,6 +17,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final AuthService _authService = AuthService();
   final FocusNode _emailFocus = FocusNode();
   bool _isSending = false;
+  String? _emailError;
 
   @override
   void initState() {
@@ -45,7 +46,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   Future<void> _handleReset() async {
     final email = _resetEmailController.text.trim();
-    if (email.isEmpty) return;
+    final emailValid = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+    setState(() {
+      _emailError = email.isEmpty
+          ? 'Email address is required.'
+          : (!emailValid ? 'Please enter a valid email address.' : null);
+    });
+    if (_emailError != null) return;
     setState(() => _isSending = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -195,8 +202,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: _emailFocus.hasFocus ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
-                                  width: 1,
+                                  color: _emailError != null
+                                      ? AppColors.error
+                                      : (_emailFocus.hasFocus ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0)),
+                                  width: _emailError != null ? 1.5 : 1,
                                 ),
                                 boxShadow: _emailFocus.hasFocus
                                     ? [
@@ -225,6 +234,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                                       controller: _resetEmailController,
                                       focusNode: _emailFocus,
                                       keyboardType: TextInputType.emailAddress,
+                                      onChanged: (_) {
+                                        if (_emailError != null) setState(() => _emailError = null);
+                                      },
                                       style: const TextStyle(
                                         fontFamily: 'Plus Jakarta Sans',
                                         fontSize: 14,
@@ -245,6 +257,19 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                                 ],
                               ),
                             ),
+                            if (_emailError != null)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 2, top: 4),
+                                child: Text(
+                                  _emailError!,
+                                  style: const TextStyle(
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.error,
+                                  ),
+                                ),
+                              ),
                             const SizedBox(height: 12),
                             Container(
                               height: 48,

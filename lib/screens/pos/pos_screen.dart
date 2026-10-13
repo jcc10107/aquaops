@@ -8,6 +8,7 @@ import '../../core/constants/zones.dart';
 import '../../models/order_model.dart';
 import '../../models/shift_model.dart';
 import '../../services/firestore_service.dart';
+import '../../services/location_service.dart';
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -41,13 +42,74 @@ class _PosScreenState extends State<PosScreen> {
   // collected COD at the doorstep (today's only prior behavior).
   String _deliveryPaymentTiming = 'rider';
   String? _zoneValue;
+  String? _deliveryNameError;
+  String? _deliveryPhoneError;
+  String? _deliveryAddressError;
+  String? _deliveryZoneError;
   Timer? _toastTimer;
   final TextEditingController _tenderCtrl = TextEditingController(text: '35');
   final TextEditingController _gcashRefCtrl = TextEditingController();
   final TextEditingController _phoneCtrl = TextEditingController();
   final TextEditingController _nameCtrl = TextEditingController();
   final TextEditingController _addressCtrl = TextEditingController();
+  final TextEditingController _zoneFreeTextCtrl = TextEditingController();
   final FirestoreService _firestoreService = FirestoreService();
+  final LocationService _locationService = LocationService();
+  double _deliveryFee = 0;
+  ({double baseFee, double ratePerKm})? _deliveryFeeConfig;
+  StreamSubscription<({double baseFee, double ratePerKm})>? _deliveryFeeConfigSub;
+  bool _resolvingDeliveryFee = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _deliveryFeeConfigSub = _firestoreService.getDeliveryFeeConfigStream().listen((config) {
+      _deliveryFeeConfig = config;
+      // No distance resolved yet for a config that just loaded/changed — the
+      // base-only estimate below updates live; the real distance-aware
+      // amount is (re)computed right before submission, which is what's
+      // actually charged.
+      if (mounted) setState(() => _deliveryFee = config.baseFee);
+    });
+  }
+
+  // Recomputes _deliveryFee from the real road distance to the typed
+  // delivery address, right before submission (so the amount charged is
+  // always distance-accurate, even though the live summary preview only
+  // shows the base fee until then). Never blocks the sale — on any
+  // geocoding/routing failure, falls back to the base fee alone.
+  Future<void> _resolveDeliveryFeeForSubmit(String address, String zone) async {
+    final config = _deliveryFeeConfig;
+    if (config == null) return;
+    if (config.ratePerKm == 0) {
+      if (mounted) setState(() => _deliveryFee = config.baseFee);
+      return;
+    }
+    setState(() => _resolvingDeliveryFee = true);
+    try {
+      final destination = await _locationService.resolveDestination(
+        address: '$address, $zone, San Pablo City, Laguna',
+      );
+      double? distanceKm;
+      if (destination != null) {
+        distanceKm = await _locationService.getRoadDistanceKm(
+          destLat: destination.latitude,
+          destLng: destination.longitude,
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        _deliveryFee = config.baseFee + (config.ratePerKm * (distanceKm ?? 0));
+        _resolvingDeliveryFee = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _deliveryFee = config.baseFee;
+        _resolvingDeliveryFee = false;
+      });
+    }
+  }
 
   int get _totalItems => _round + _slim + _newB + _bottle500;
 
@@ -57,7 +119,7 @@ class _PosScreenState extends State<PosScreen> {
           (_newB * _newBottlePrice) +
           (_bottle500 * _bottle500Price);
 
-  double get _tot => _subtotal;
+  double get _tot => _subtotal + (_deliveryMode ? _deliveryFee : 0);
 
   double get _changeDue {
     final double tendered = double.tryParse(_tenderCtrl.text) ?? 0.0;
@@ -76,11 +138,13 @@ class _PosScreenState extends State<PosScreen> {
 
   @override
   void dispose() {
+    _deliveryFeeConfigSub?.cancel();
     _tenderCtrl.dispose();
     _gcashRefCtrl.dispose();
     _phoneCtrl.dispose();
     _nameCtrl.dispose();
     _addressCtrl.dispose();
+    _zoneFreeTextCtrl.dispose();
     _toastTimer?.cancel();
     super.dispose();
   }
@@ -238,24 +302,23 @@ class _PosScreenState extends State<PosScreen> {
     final String name = _nameCtrl.text.trim();
     final String phone = _phoneCtrl.text.trim();
     final String address = _addressCtrl.text.trim();
-    if (name.isEmpty || phone.isEmpty || address.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Enter the customer name, phone, and delivery address.'),
-          backgroundColor: AppColors.coralAlert,
-        ),
-      );
+    setState(() {
+      _deliveryNameError = name.isEmpty ? 'Customer name is required.' : null;
+      _deliveryPhoneError = phone.isEmpty ? 'Mobile phone is required.' : null;
+      _deliveryAddressError = address.isEmpty ? 'Delivery address is required.' : null;
+      _deliveryZoneError = _zoneValue == null ? 'Please select a barangay/zone.' : null;
+    });
+    if (_deliveryNameError != null ||
+        _deliveryPhoneError != null ||
+        _deliveryAddressError != null ||
+        _deliveryZoneError != null) {
       return;
     }
-    if (_zoneValue == null) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Select the delivery barangay/zone.'),
-          backgroundColor: AppColors.coralAlert,
-        ),
-      );
-      return;
-    }
+
+    // Resolve the real distance-based fee now, before anything (the cash-
+    // tendered check below, the order total) depends on _tot being accurate.
+    await _resolveDeliveryFeeForSubmit(address, zoneLabel(_zoneValue!));
+    if (!mounted) return;
 
     final bool isCounterPaid = _deliveryPaymentTiming == 'counter';
     String? gcashRef;
@@ -302,6 +365,7 @@ class _PosScreenState extends State<PosScreen> {
         zone: _zoneValue!,
         items: _orderItems(),
         totalAmount: _tot,
+        deliveryFee: _deliveryFee,
         paymentChoice: _deliveryPaymentTiming,
         paymentMethod: isCounterPaid ? _pay : _deliveryPay,
         gcashReference: gcashRef,
@@ -717,51 +781,69 @@ class _PosScreenState extends State<PosScreen> {
     int maxLines = 1,
     List<TextInputFormatter>? inputFormatters,
     TextCapitalization capitalization = TextCapitalization.none,
+    String? errorText,
+    VoidCallback? onChanged,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.outlineVariant.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment:
-        maxLines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(top: maxLines > 1 ? 10 : 0),
-            child: Icon(icon, color: const Color(0xFF0284C7), size: 20),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              keyboardType: keyboardType,
-              maxLines: maxLines,
-              inputFormatters: inputFormatters,
-              textCapitalization: capitalization,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textMain,
-              ),
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                hintText: hint,
-                hintStyle: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.outline,
-                ),
-              ),
+    final bool hasError = errorText != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: hasError ? AppColors.coralAlert : AppColors.outlineVariant.withValues(alpha: 0.3),
+              width: hasError ? 1.5 : 1,
             ),
           ),
-        ],
-      ),
+          child: Row(
+            crossAxisAlignment:
+            maxLines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+            children: [
+              Padding(
+                padding: EdgeInsets.only(top: maxLines > 1 ? 10 : 0),
+                child: Icon(icon, color: hasError ? AppColors.coralAlert : const Color(0xFF0284C7), size: 20),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: keyboardType,
+                  maxLines: maxLines,
+                  inputFormatters: inputFormatters,
+                  textCapitalization: capitalization,
+                  onChanged: (_) => onChanged?.call(),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textMain,
+                  ),
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                    hintText: hint,
+                    hintStyle: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.outline,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (hasError)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 4),
+            child: Text(
+              errorText,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.coralAlert),
+            ),
+          ),
+      ],
     );
   }
 
@@ -861,6 +943,10 @@ class _PosScreenState extends State<PosScreen> {
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]')),
             ],
+            errorText: _deliveryPhoneError,
+            onChanged: () {
+              if (_deliveryPhoneError != null) setState(() => _deliveryPhoneError = null);
+            },
           ),
           const SizedBox(height: 12),
           _deliveryLabel('Customer Name'),
@@ -870,6 +956,10 @@ class _PosScreenState extends State<PosScreen> {
             icon: Icons.person,
             hint: 'Full Name',
             capitalization: TextCapitalization.words,
+            errorText: _deliveryNameError,
+            onChanged: () {
+              if (_deliveryNameError != null) setState(() => _deliveryNameError = null);
+            },
           ),
           const SizedBox(height: 12),
           Container(
@@ -901,66 +991,107 @@ class _PosScreenState extends State<PosScreen> {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceLowest,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFF0284C7).withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.holiday_village,
-                        color: Color(0xFF0284C7),
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _zoneValue,
-                            isExpanded: true,
-                            hint: const Text(
-                              'Select barangay / zone',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.outline,
-                                fontFamily: 'Plus Jakarta Sans',
-                              ),
-                            ),
-                            menuMaxHeight: 420,
-                            icon: const Icon(
-                              Icons.expand_more,
-                              size: 18,
-                              color: AppColors.outline,
-                            ),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textMain,
-                              fontFamily: 'Plus Jakarta Sans',
-                            ),
-                            items: _zoneOptions
-                                .map(
-                                  (z) => DropdownMenuItem<String>(
-                                value: z.value,
-                                child: Text(z.label),
-                              ),
-                            )
-                                .toList(),
-                            onChanged: (val) {
-                              if (val != null) setState(() => _zoneValue = val);
-                            },
-                          ),
+                StreamBuilder<bool>(
+                  stream: _firestoreService.getServiceAreaRestrictedStream(),
+                  builder: (context, snapshot) {
+                    final restricted = snapshot.data ?? true;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceLowest,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFF0284C7).withValues(alpha: 0.3),
                         ),
                       ),
-                    ],
-                  ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.holiday_village,
+                            color: Color(0xFF0284C7),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: restricted
+                                ? DropdownMenu<String>(
+                                    initialSelection: _zoneValue,
+                                    menuHeight: 420,
+                                    enableFilter: true,
+                                    requestFocusOnTap: true,
+                                    hintText: 'Search barangay / zone',
+                                    textStyle: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textMain,
+                                      fontFamily: 'Plus Jakarta Sans',
+                                    ),
+                                    inputDecorationTheme: InputDecorationTheme(
+                                      hintStyle: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.outline,
+                                        fontFamily: 'Plus Jakarta Sans',
+                                      ),
+                                      filled: true,
+                                      fillColor: AppColors.surfaceLowest,
+                                      isDense: true,
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                                    ),
+                                    dropdownMenuEntries: _zoneOptions
+                                        .map((z) => DropdownMenuEntry<String>(value: z.value, label: z.label))
+                                        .toList(),
+                                    onSelected: (val) {
+                                      if (val != null) {
+                                        setState(() {
+                                          _zoneValue = val;
+                                          _deliveryZoneError = null;
+                                        });
+                                      }
+                                    },
+                                  )
+                                : TextField(
+                                    controller: _zoneFreeTextCtrl,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textMain,
+                                      fontFamily: 'Plus Jakarta Sans',
+                                    ),
+                                    decoration: const InputDecoration(
+                                      hintText: 'Enter city/barangay...',
+                                      hintStyle: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.outline,
+                                        fontFamily: 'Plus Jakarta Sans',
+                                      ),
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.symmetric(vertical: 10),
+                                      border: InputBorder.none,
+                                    ),
+                                    onChanged: (v) => setState(() {
+                                      _zoneValue = v.trim().isEmpty ? null : v.trim();
+                                      _deliveryZoneError = null;
+                                    }),
+                                  ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
+                if (_deliveryZoneError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, top: 6),
+                    child: Text(
+                      _deliveryZoneError!,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.coralAlert),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -974,6 +1105,10 @@ class _PosScreenState extends State<PosScreen> {
             maxLines: 2,
             keyboardType: TextInputType.multiline,
             capitalization: TextCapitalization.sentences,
+            errorText: _deliveryAddressError,
+            onChanged: () {
+              if (_deliveryAddressError != null) setState(() => _deliveryAddressError = null);
+            },
           ),
           const SizedBox(height: 12),
           Container(
@@ -1651,6 +1786,30 @@ class _PosScreenState extends State<PosScreen> {
                             ),
                           ],
                         ),
+                        if (_deliveryMode && _deliveryFee > 0) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Delivery Fee',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textVariant,
+                                ),
+                              ),
+                              Text(
+                                '₱${_deliveryFee.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textMain,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 12),
                           child: Divider(
@@ -1689,7 +1848,7 @@ class _PosScreenState extends State<PosScreen> {
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: _isCheckingOut
+                      onPressed: (_isCheckingOut || _resolvingDeliveryFee)
                           ? null
                           : (_deliveryMode ? _submitDelivery : _triggerCheckout),
                       style: ElevatedButton.styleFrom(
@@ -1702,7 +1861,7 @@ class _PosScreenState extends State<PosScreen> {
                         shadowColor:
                         const Color(0xFF0284C7).withValues(alpha: 0.4),
                       ),
-                      child: _isCheckingOut
+                      child: (_isCheckingOut || _resolvingDeliveryFee)
                           ? const SizedBox(
                         width: 20,
                         height: 20,

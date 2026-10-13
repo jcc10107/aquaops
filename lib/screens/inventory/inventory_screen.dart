@@ -639,7 +639,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                           style: GoogleFonts.plusJakartaSans(
                                               fontSize: 13, fontWeight: FontWeight.bold, color: _activeTab == 'machinery' ? Colors.white : AppColors.textSecondary)),
                                       const SizedBox(width: 4),
-                                      Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.coralAlert, shape: BoxShape.circle))
+                                      StreamBuilder<List<MaintenanceAlertModel>>(
+                                        stream: _firestoreService.getMaintenanceAlertsStream(),
+                                        builder: (context, snapshot) {
+                                          final hasOverdue = (snapshot.data ?? const <MaintenanceAlertModel>[]).any((a) => a.isOverdue);
+                                          if (!hasOverdue) return const SizedBox.shrink();
+                                          return Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.coralAlert, shape: BoxShape.circle));
+                                        },
+                                      ),
                                     ]
                                 )
                             )

@@ -19,6 +19,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   bool _isMatch = false;
   int _strength = 0;
   bool _isSubmitting = false;
+  bool _submitAttempted = false;
   bool _showCurrent = false;
   bool _showNew = false;
   bool _showConfirm = false;
@@ -47,6 +48,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   }
 
   Future<void> _changePassword() async {
+    setState(() => _submitAttempted = true);
+    if (_currPassController.text.isEmpty || !_isMatch) return;
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || user.email == null) return;
 
@@ -202,8 +206,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     required bool visible,
     required VoidCallback onToggle,
     bool showForgot = false,
+    String? errorText,
   }) {
     final bool focused = focusNode.hasFocus;
+    final bool hasError = errorText != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -242,7 +248,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: focused ? _blue : _slate200, width: 1),
+            border: Border.all(
+              color: hasError ? AppColors.error : (focused ? _blue : _slate200),
+              width: hasError ? 1.5 : 1,
+            ),
             boxShadow: focused
                 ? [
               BoxShadow(
@@ -306,6 +315,19 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             ],
           ),
         ),
+        if (hasError)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 4),
+            child: Text(
+              errorText,
+              style: const TextStyle(
+                fontFamily: _font,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: AppColors.error,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -397,6 +419,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           visible: _showCurrent,
           onToggle: () => setState(() => _showCurrent = !_showCurrent),
           showForgot: true,
+          errorText: _submitAttempted && _currPassController.text.isEmpty ? 'Current password is required.' : null,
         ),
         const SizedBox(height: 16),
         Column(
@@ -410,6 +433,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               focusNode: _newFocus,
               visible: _showNew,
               onToggle: () => setState(() => _showNew = !_showNew),
+              errorText: _submitAttempted && _newPassController.text.length < 8
+                  ? 'Password must be at least 8 characters.'
+                  : null,
             ),
             _buildStrengthMeter(),
           ],
@@ -423,6 +449,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           focusNode: _confirmFocus,
           visible: _showConfirm,
           onToggle: () => setState(() => _showConfirm = !_showConfirm),
+          errorText: _submitAttempted && _confirmPassController.text.isNotEmpty && !_isMatch
+              ? 'Passwords do not match.'
+              : null,
         ),
         const SizedBox(height: 16),
         _buildHintBanner(),
@@ -462,7 +491,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(9999),
-                onTap: canSubmit ? _changePassword : null,
+                onTap: _isSubmitting ? null : _changePassword,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Row(

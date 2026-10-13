@@ -3,8 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../main.dart';
+import '../../models/order_model.dart';
 import '../../widgets/notification_feed.dart';
 import '../customer/customer_map_screen.dart';
+import '../customer/customer_main_screen.dart';
+import '../delivery/fulfill_delivery_screen.dart';
+import '../main_shell.dart';
+import '../refund/owner_request_screen.dart';
 
 class _ChipDef {
   final String key;
@@ -224,7 +229,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               children: [
                 for (int i = 0; i < filtered.length; i++) ...[
                   if (i > 0) const SizedBox(height: 12),
-                  _buildCard(uid, filtered[i]),
+                  _buildCard(context, uid, role, filtered[i]),
                 ],
               ],
             ),
@@ -361,13 +366,69 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
   }
 
-  Widget _buildCard(String uid, AppNotification n) {
+  // Where tapping a notification should take you, based on who's looking at
+  // it and what the notification is about. Returns null when there's no
+  // safe destination yet (e.g. a customer's own non-active order status —
+  // CustomerOrdersScreen needs externally-supplied cart/products data that
+  // isn't available from here, so that case is left as mark-read-only).
+  Widget? _destinationFor(String role, AppNotification n) {
+    final bool isRefund = n.id.startsWith('refund_request:') || n.id.startsWith('cust_refund:');
+    if (isRefund) {
+      if (role == 'owner' || role == 'staff') return const OwnerRequestScreen();
+      if (role != 'rider') return const CustomerMainScreen(initialTab: 1);
+      return null;
+    }
+    final OrderModel? order = n.trackOrder;
+    if (order == null) {
+      // Inventory/Dispatch have no Scaffold of their own — they're only ever
+      // meant to be mounted as a tab inside MainShell's IndexedStack, so we
+      // navigate there by tab index rather than pushing the bare screen
+      // (which would crash with "No Material widget found").
+      if (role == 'owner' && n.category == NotificationCategory.system) {
+        return const MainShell(initialIndex: 3); // Inventory tab (owner)
+      }
+      if (role == 'staff' && n.category == NotificationCategory.system) {
+        return const MainShell(initialIndex: 1); // Inventory tab (staff)
+      }
+      return null;
+    }
+    final bool orderActive = order.status != OrderStatus.delivered && order.status != OrderStatus.cancelled;
+    if (role == 'rider') {
+      if (orderActive && order.assignedRiderId == FirebaseAuth.instance.currentUser?.uid) {
+        return FulfillDeliveryScreen(order: order);
+      }
+      return const MainShell(initialIndex: 0); // Dispatch tab (rider)
+    }
+    if (role == 'owner') {
+      return const MainShell(initialIndex: 2); // Dispatch tab (owner)
+    }
+    if (role == 'staff') {
+      // Staff's MainShell has no Dispatch tab today — nothing sensible to
+      // jump to, so this stays mark-read-only rather than guessing.
+      return null;
+    }
+    // Customer: out-for-delivery goes straight to live tracking, matching
+    // the existing "Track Live Map" button; every other order status still
+    // lands on the Orders tab so the notification is never a dead end.
+    if (order.status == OrderStatus.outForDelivery) {
+      return CustomerMapScreen(order: order);
+    }
+    return const CustomerMainScreen(initialTab: 1);
+  }
+
+  Widget _buildCard(BuildContext context, String uid, String role, AppNotification n) {
     final bool read = _store.isRead(n.id);
     final String timeText = n.timeLabel ?? notificationTimeText(n.sortTime);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => _store.markRead(uid, n.id),
+      onTap: () {
+        _store.markRead(uid, n.id);
+        final destination = _destinationFor(role, n);
+        if (destination != null) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => destination));
+        }
+      },
       child: Opacity(
         opacity: read ? 0.9 : 1,
         child: Container(

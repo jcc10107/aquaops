@@ -22,6 +22,8 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   late final TextEditingController _nameCtrl;
   late final TextEditingController _phoneCtrl;
+  String? _nameError;
+  String? _phoneError;
 
   static const String _font = 'Plus Jakarta Sans';
 
@@ -43,16 +45,15 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final name = _nameCtrl.text.trim();
     final phone = _phoneCtrl.text.trim();
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
 
-    if (name.isEmpty || phone.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
+    setState(() {
+      _nameError = name.isEmpty ? 'Full name is required.' : null;
+      _phoneError = phone.isEmpty
+          ? 'Mobile number is required.'
+          : (digits.length < 11 ? 'Enter a valid 11-digit mobile number.' : null);
+    });
+    if (_nameError != null || _phoneError != null) return;
 
     Navigator.pop(context);
     try {
@@ -218,6 +219,10 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
                               icon: Icons.person_outline,
                               hint: 'Full name',
                               keyboardType: TextInputType.name,
+                              errorText: _nameError,
+                              onChanged: () {
+                                if (_nameError != null) setState(() => _nameError = null);
+                              },
                             ),
                             const SizedBox(height: 14),
                             const Padding(
@@ -237,6 +242,10 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
                               icon: Icons.call_outlined,
                               hint: '0917 123 4567',
                               keyboardType: TextInputType.phone,
+                              errorText: _phoneError,
+                              onChanged: () {
+                                if (_phoneError != null) setState(() => _phoneError = null);
+                              },
                             ),
                             const SizedBox(height: 14),
                             const Padding(
@@ -337,51 +346,74 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
     required IconData icon,
     required String hint,
     TextInputType keyboardType = TextInputType.text,
+    String? errorText,
+    VoidCallback? onChanged,
   }) {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
+    final bool hasError = errorText != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFFFF),
+            borderRadius: BorderRadius.circular(12),
+            border: hasError ? Border.all(color: AppColors.error, width: 1.5) : null,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 14, right: 10),
+                child: Icon(icon, color: hasError ? AppColors.error : const Color(0xFF707881), size: 18),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: keyboardType,
+                  onChanged: (_) => onChanged?.call(),
+                  style: const TextStyle(
+                    fontFamily: _font,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF131B2E),
+                  ),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF707881),
+                      fontWeight: FontWeight.w400,
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+            ],
+          ),
+        ),
+        if (hasError)
           Padding(
-            padding: const EdgeInsets.only(left: 14, right: 10),
-            child: Icon(icon, color: const Color(0xFF707881), size: 18),
-          ),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              keyboardType: keyboardType,
+            padding: const EdgeInsets.only(left: 4, top: 4),
+            child: Text(
+              errorText,
               style: const TextStyle(
                 fontFamily: _font,
-                fontSize: 13,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF131B2E),
-              ),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: const TextStyle(
-                  color: Color(0xFF707881),
-                  fontWeight: FontWeight.w400,
-                ),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
+                color: AppColors.error,
               ),
             ),
           ),
-          const SizedBox(width: 16),
-        ],
-      ),
+      ],
     );
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/firestore_service.dart';
 
 class TermsPrivacyScreen extends StatefulWidget {
   const TermsPrivacyScreen({super.key});
@@ -7,8 +8,40 @@ class TermsPrivacyScreen extends StatefulWidget {
   State<TermsPrivacyScreen> createState() => _TermsPrivacyScreenState();
 }
 
+// Fallback content shown immediately and whenever the owner hasn't saved
+// anything yet via the Terms & Privacy editor — so this screen never looks
+// broken/empty before a Firestore doc exists at settings/terms_privacy.
+const String fallbackEffectiveDate = 'September 21, 2026';
+const String fallbackJurisdiction = 'San Pablo City, Laguna';
+const String fallbackContactEmail = 'support@drink8water.ph';
+const List<Map<String, String>> fallbackTermsClauses = [
+  {
+    'title': 'Acceptance of Terms',
+    'body': 'By accessing, creating an account, or ordering through the Drink 8 Refilling Station platform (AquaOps), you confirm that you have read, understood, and agreed to be bound by these Terms of Service and applicable municipal health regulations.',
+  },
+  {
+    'title': 'User Accounts & Registration',
+    'body': 'Customers must provide accurate residential delivery addresses, active mobile contact numbers, and ensure credentials remain secure. Account holders are responsible for all refill orders requested under their authenticated profile.',
+  },
+  {
+    'title': 'Product & Gallon Policy',
+    'body': 'All 5-gallon slim and round containers exchanged must be thoroughly inspectable, free from contamination, oil residues, chemical odours, or structural fissures. Damaged customer-owned containers may be rejected to preserve hygienic purification integrity.',
+  },
+];
+const List<Map<String, String>> fallbackPrivacyClauses = [
+  {
+    'title': 'Information Collection',
+    'body': 'We collect personal details necessary to facilitate scheduled water distribution: full legal name, delivery drop-off point coordinates, mobile contact digits, and historical replenishment intervals.',
+  },
+  {
+    'title': 'Data Usage & Protection',
+    'body': 'Customer telemetry and contact records are strictly utilized for delivery dispatches, sanitation notices, and billing receipts. Data is never shared or sold to third-party commercial marketing entities without explicit written consent.',
+  },
+];
+
 class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
   bool _accepting = false;
+  final FirestoreService _firestoreService = FirestoreService();
 
   static const String _font = 'Plus Jakarta Sans';
   static const Color _background = Color(0xFFF6FAFC);
@@ -230,7 +263,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
     );
   }
 
-  Widget _buildInfoCard() {
+  Widget _buildInfoCard(String effectiveDate, String jurisdiction) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -246,7 +279,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
             child: _buildInfoBlock(
               Icons.calendar_today_outlined,
               'Effective Date',
-              'September 21, 2026',
+              effectiveDate,
             ),
           ),
           Container(
@@ -259,7 +292,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
             child: _buildInfoBlock(
               Icons.location_on_outlined,
               'Jurisdiction',
-              'San Pablo City, Laguna',
+              jurisdiction,
             ),
           ),
         ],
@@ -327,33 +360,17 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
     );
   }
 
-  Widget _buildTermsSection() {
+  Widget _buildTermsSection(String effectiveDate, String jurisdiction, List<Map<String, String>> clauses) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTitle('Part 1: Terms of Service', _sky600),
         const SizedBox(height: 24),
-        _buildInfoCard(),
+        _buildInfoCard(effectiveDate, jurisdiction),
         const SizedBox(height: 24),
         _buildClauseCard([
-          _buildClause(
-            '1.',
-            'Acceptance of Terms',
-            'By accessing, creating an account, or ordering through the Drink 8 Refilling Station platform (AquaOps), you confirm that you have read, understood, and agreed to be bound by these Terms of Service and applicable municipal health regulations.',
-            _sky600,
-          ),
-          _buildClause(
-            '2.',
-            'User Accounts & Registration',
-            'Customers must provide accurate residential delivery addresses, active mobile contact numbers, and ensure credentials remain secure. Account holders are responsible for all refill orders requested under their authenticated profile.',
-            _sky600,
-          ),
-          _buildClause(
-            '3.',
-            'Product & Gallon Policy',
-            'All 5-gallon slim and round containers exchanged must be thoroughly inspectable, free from contamination, oil residues, chemical odours, or structural fissures. Damaged customer-owned containers may be rejected to preserve hygienic purification integrity.',
-            _sky600,
-          ),
+          for (int i = 0; i < clauses.length; i++)
+            _buildClause('${i + 1}.', clauses[i]['title'] ?? '', clauses[i]['body'] ?? '', _sky600),
         ]),
       ],
     );
@@ -404,7 +421,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
     );
   }
 
-  Widget _buildPrivacySection() {
+  Widget _buildPrivacySection(String contactEmail, List<Map<String, String>> clauses) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -413,39 +430,29 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
         _buildComplianceBadge(),
         const SizedBox(height: 16),
         _buildClauseCard([
-          _buildClause(
-            '1.',
-            'Information Collection',
-            'We collect personal details necessary to facilitate scheduled water distribution: full legal name, delivery drop-off point coordinates, mobile contact digits, and historical replenishment intervals.',
-            _teal600,
-          ),
-          _buildClause(
-            '2.',
-            'Data Usage & Protection',
-            'Customer telemetry and contact records are strictly utilized for delivery dispatches, sanitation notices, and billing receipts. Data is never shared or sold to third-party commercial marketing entities without explicit written consent.',
-            _teal600,
-          ),
+          for (int i = 0; i < clauses.length; i++)
+            _buildClause('${i + 1}.', clauses[i]['title'] ?? '', clauses[i]['body'] ?? '', _teal600),
         ]),
         const SizedBox(height: 16),
-        const Center(
+        Center(
           child: Padding(
-            padding: EdgeInsets.only(top: 0),
+            padding: const EdgeInsets.only(top: 0),
             child: Text.rich(
               TextSpan(
                 children: [
-                  TextSpan(text: 'Questions regarding legal guidelines? Contact station administration at '),
+                  const TextSpan(text: 'Questions regarding legal guidelines? Contact station administration at '),
                   TextSpan(
-                    text: 'support@drink8water.ph',
-                    style: TextStyle(
+                    text: contactEmail,
+                    style: const TextStyle(
                       fontWeight: FontWeight.w500,
                       color: _sky700,
                     ),
                   ),
-                  TextSpan(text: '.'),
+                  const TextSpan(text: '.'),
                 ],
               ),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontFamily: _font,
                 fontSize: 11,
                 fontWeight: FontWeight.w400,
@@ -521,31 +528,45 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
           children: [
             _buildHeader(),
             Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 450),
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(20, 8, 20, 24 + bottomInset),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildTitleBlock(),
-                          const SizedBox(height: 24),
-                          _buildTermsSection(),
-                          const SizedBox(height: 28),
-                          _buildDivider(),
-                          const SizedBox(height: 28),
-                          _buildPrivacySection(),
-                          const SizedBox(height: 28),
-                          _buildAcceptButton(),
-                        ],
+              child: StreamBuilder<Map<String, dynamic>?>(
+                stream: _firestoreService.getTermsPrivacyStream(),
+                builder: (context, snapshot) {
+                  final data = snapshot.data;
+                  final effectiveDate = (data?['effectiveDate'] as String?) ?? fallbackEffectiveDate;
+                  final jurisdiction = (data?['jurisdiction'] as String?) ?? fallbackJurisdiction;
+                  final contactEmail = (data?['contactEmail'] as String?) ?? fallbackContactEmail;
+                  final termsClauses = (data?['termsClauses'] as List?)?.map((c) => Map<String, String>.from(c as Map)).toList()
+                      ?? fallbackTermsClauses;
+                  final privacyClauses = (data?['privacyClauses'] as List?)?.map((c) => Map<String, String>.from(c as Map)).toList()
+                      ?? fallbackPrivacyClauses;
+
+                  return SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 450),
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(20, 8, 20, 24 + bottomInset),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildTitleBlock(),
+                              const SizedBox(height: 24),
+                              _buildTermsSection(effectiveDate, jurisdiction, termsClauses),
+                              const SizedBox(height: 28),
+                              _buildDivider(),
+                              const SizedBox(height: 28),
+                              _buildPrivacySection(contactEmail, privacyClauses),
+                              const SizedBox(height: 28),
+                              _buildAcceptButton(),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
           ],

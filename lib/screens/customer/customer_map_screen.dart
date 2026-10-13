@@ -1,8 +1,14 @@
-import 'dart:ui';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
+import '../../core/constants/zones.dart';
 import '../../models/order_model.dart';
+import '../../services/firestore_service.dart';
+import '../../services/location_service.dart';
 
 class CustomerMapScreen extends StatefulWidget {
   final OrderModel order;
@@ -19,7 +25,18 @@ class CustomerMapScreen extends StatefulWidget {
 class _CustomerMapScreenState extends State<CustomerMapScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
-  double _zoomLevel = 1.0;
+  final MapController _mapController = MapController();
+  final LocationService _locationService = LocationService();
+  final FirestoreService _firestoreService = FirestoreService();
+
+  static const LatLng _station = LatLng(stationLat, stationLng);
+
+  bool _loadingRoute = true;
+  String? _routeError;
+  LatLng? _destination;
+  List<LatLng> _routePoints = [];
+  double? _distanceKm;
+  int? _etaMinutes;
 
   @override
   void initState() {
@@ -29,6 +46,8 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
+
+    _loadRoute();
   }
 
   @override
@@ -37,22 +56,83 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
     super.dispose();
   }
 
+  Future<void> _loadRoute() async {
+    try {
+      final destination = await _locationService.resolveDestination(
+        lat: widget.order.deliveryLat,
+        lng: widget.order.deliveryLng,
+        address: widget.order.deliveryAddress,
+      );
+
+      if (destination == null) {
+        if (!mounted) return;
+        setState(() {
+          _loadingRoute = false;
+          _routeError = 'Exact delivery location unavailable';
+        });
+        return;
+      }
+
+      final uri = Uri.parse(
+        'https://router.project-osrm.org/route/v1/driving/'
+        '${_station.longitude},${_station.latitude};'
+        '${destination.longitude},${destination.latitude}'
+        '?overview=full&geometries=geojson',
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200) {
+        throw Exception('Routing service returned ${response.statusCode}');
+      }
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final routes = data['routes'] as List?;
+      if (routes == null || routes.isEmpty) {
+        throw Exception('No route found');
+      }
+      final route = routes.first as Map<String, dynamic>;
+      final geometry = route['geometry'] as Map<String, dynamic>;
+      final coords = (geometry['coordinates'] as List)
+          .map((c) => LatLng((c as List)[1] as double, c[0] as double))
+          .toList();
+      final distanceMeters = (route['distance'] as num).toDouble();
+      final durationSeconds = (route['duration'] as num).toDouble();
+
+      if (!mounted) return;
+      setState(() {
+        _destination = destination;
+        _routePoints = coords;
+        _distanceKm = distanceMeters / 1000;
+        _etaMinutes = (durationSeconds / 60).ceil();
+        _loadingRoute = false;
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitRoute());
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingRoute = false;
+        _routeError = 'Could not load the delivery route.';
+      });
+    }
+  }
+
+  void _fitRoute() {
+    final destination = _destination;
+    if (destination == null) {
+      _mapController.move(_station, 15);
+      return;
+    }
+    final bounds = LatLngBounds.fromPoints(
+      _routePoints.isNotEmpty ? _routePoints : [_station, destination],
+    );
+    _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(48)));
+  }
+
   void _zoomIn() {
-    setState(() {
-      _zoomLevel = (_zoomLevel + 0.1).clamp(0.5, 2.0);
-    });
+    _mapController.move(_mapController.camera.center, _mapController.camera.zoom + 1);
   }
 
   void _zoomOut() {
-    setState(() {
-      _zoomLevel = (_zoomLevel - 0.1).clamp(0.5, 2.0);
-    });
-  }
-
-  void _resetZoom() {
-    setState(() {
-      _zoomLevel = 1.0;
-    });
+    _mapController.move(_mapController.camera.center, _mapController.camera.zoom - 1);
   }
 
   @override
@@ -226,7 +306,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                                         ),
                                         const SizedBox(width: 6),
                                         Text(
-                                          '8-12 MINS ETA',
+                                          _etaMinutes != null ? '~$_etaMinutes MINS ETA' : '— MINS ETA',
                                           style: GoogleFonts.plusJakartaSans(
                                             fontSize: 10,
                                             fontWeight: FontWeight.bold,
@@ -305,6 +385,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
       builder: (context, constraints) {
         final double mapWidth = constraints.maxWidth;
         final double mapHeight = mapWidth * 0.95;
+        final destination = _destination;
 
         return Container(
           width: mapWidth,
@@ -324,38 +405,108 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
               clipBehavior: Clip.hardEdge,
               children: [
                 Positioned.fill(
-                  child: ClipRect(
-                    child: Transform.scale(
-                      scale: _zoomLevel,
-                      child: CustomPaint(
-                        painter: _MapPainter(),
+                  child: StreamBuilder<OrderModel?>(
+                    stream: _firestoreService.watchOrder(widget.order.id),
+                    builder: (context, liveOrderSnapshot) {
+                      final liveOrder = liveOrderSnapshot.data;
+                      final riderLat = liveOrder?.riderLat;
+                      final riderLng = liveOrder?.riderLng;
+                      final hasLiveRiderPosition = riderLat != null && riderLng != null;
+                      final riderPoint = hasLiveRiderPosition ? LatLng(riderLat, riderLng) : null;
+
+                      return FlutterMap(
+                        mapController: _mapController,
+                        options: MapOptions(
+                          initialCenter: destination ?? _station,
+                          initialZoom: 15,
+                          maxZoom: 19,
+                          minZoom: 4,
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'com.aquaops.app',
+                            maxNativeZoom: 19,
+                          ),
+                          if (_routePoints.isNotEmpty)
+                            PolylineLayer(
+                              polylines: [
+                                Polyline(points: _routePoints, strokeWidth: 5, color: const Color(0xFF0284C7)),
+                              ],
+                            ),
+                          MarkerLayer(
+                            markers: [
+                              Marker(
+                                point: _station,
+                                width: 90,
+                                height: 70,
+                                child: _buildLocationMarker(
+                                  label: 'Water Station',
+                                  icon: Icons.water_drop,
+                                  color: const Color(0xFF0284C7),
+                                ),
+                              ),
+                              if (destination != null)
+                                Marker(
+                                  point: destination,
+                                  width: 90,
+                                  height: 70,
+                                  child: _buildLocationMarker(
+                                    label: 'Client Home',
+                                    icon: Icons.home,
+                                    color: const Color(0xFF006C49),
+                                  ),
+                                ),
+                              // Only shown once the rider's device has actually
+                              // broadcast a real GPS fix — never the old fake
+                              // midpoint placeholder, so a visible marker here
+                              // always means a genuinely live position.
+                              if (riderPoint != null)
+                                Marker(
+                                  point: riderPoint,
+                                  width: 70,
+                                  height: 70,
+                                  child: _buildRiderMarker(),
+                                ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                if (_loadingRoute)
+                  Container(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    alignment: Alignment.center,
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF0284C7)),
+                        SizedBox(height: 10),
+                        Text('Calculating route…', style: TextStyle(fontSize: 12, color: Color(0xFF3F4850))),
+                      ],
+                    ),
+                  )
+                else if (_routeError != null)
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                      ),
+                      child: Text(
+                        _routeError!,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: const Color(0xFF3F4850)),
                       ),
                     ),
                   ),
-                ),
-                Positioned(
-                  left: mapWidth * 0.11,
-                  top: mapHeight * 0.17,
-                  child: _buildLocationMarker(
-                    label: 'Hub San Antonio',
-                    icon: Icons.water_drop,
-                    color: const Color(0xFF0284C7),
-                  ),
-                ),
-                Positioned(
-                  left: mapWidth * 0.60,
-                  top: mapHeight * 0.40,
-                  child: _buildRiderMarker(),
-                ),
-                Positioned(
-                  left: mapWidth * 0.82,
-                  top: mapHeight * 0.63,
-                  child: _buildLocationMarker(
-                    label: 'Client Home',
-                    icon: Icons.home,
-                    color: const Color(0xFF006C49),
-                  ),
-                ),
                 Positioned(
                   right: 12,
                   top: 12,
@@ -363,26 +514,13 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                     children: [
                       FloatingActionButton.small(
                         heroTag: 'recenter',
-                        onPressed: _resetZoom,
+                        onPressed: _fitRoute,
                         backgroundColor:
                         Colors.white.withValues(alpha: 0.94),
                         elevation: 4,
                         child: const Icon(
                           Icons.my_location,
                           color: Color(0xFF0284C7),
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      FloatingActionButton.small(
-                        heroTag: 'fit',
-                        onPressed: _resetZoom,
-                        backgroundColor:
-                        Colors.white.withValues(alpha: 0.94),
-                        elevation: 4,
-                        child: const Icon(
-                          Icons.polyline,
-                          color: Color(0xFF707881),
                           size: 20,
                         ),
                       ),
@@ -463,7 +601,9 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '1.4 km remaining • Batch #04',
+                          _distanceKm != null
+                              ? '${_distanceKm!.toStringAsFixed(1)} km route • Order ${widget.order.orderNumber}'
+                              : (_routeError ?? 'Calculating route…'),
                           style: GoogleFonts.plusJakartaSans(
                             color: const Color(0xFF131B2E),
                             fontSize: 10,
@@ -488,66 +628,63 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
     required IconData icon,
     required Color color,
   }) {
-    return FractionalTranslation(
-      translation: const Offset(-0.5, -0.5),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 3,
-            ),
-            decoration: BoxDecoration(
-              color: color == const Color(0xFF006C49)
-                  ? const Color(0xFF006C49)
-                  : const Color(0xFF283044),
-              borderRadius: BorderRadius.circular(100),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 4,
-                ),
-              ],
-            ),
-            child: Text(
-              label,
-              style: GoogleFonts.plusJakartaSans(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 3,
+          ),
+          decoration: BoxDecoration(
+            color: color == const Color(0xFF006C49)
+                ? const Color(0xFF006C49)
+                : const Color(0xFF283044),
+            borderRadius: BorderRadius.circular(100),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 4,
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 8,
-                ),
-              ],
-            ),
-            child: Icon(
-              icon,
+          child: Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
               color: Colors.white,
-              size: 20,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
             ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 8,
+              ),
+            ],
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildRiderMarker() {
-    return FractionalTranslation(
-      translation: const Offset(-0.5, -0.5),
-      child: Column(
-        children: [
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 10,
@@ -573,20 +710,11 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  '28 km/h',
+                  'On Route',
                   style: GoogleFonts.plusJakartaSans(
                     color: const Color(0xFF0284C7),
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '• On Route',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: const Color(0xFF3F4850),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -639,7 +767,6 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
             ],
           ),
         ],
-      ),
     );
   }
 
@@ -971,250 +1098,5 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
         ],
       ),
     );
-  }
-}
-
-class _MapPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    const double designWidth = 400;
-    const double designHeight = 380;
-
-    final double scaleX = size.width / designWidth;
-    final double scaleY = size.height / designHeight;
-
-    canvas.save();
-    canvas.scale(scaleX, scaleY);
-
-    final Paint gridPaint = Paint()
-      ..color = const Color(0xFFEAEDFF)
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke;
-
-    final Paint gridSubPaint = Paint()
-      ..color = const Color(0xFFF2F3FF)
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-
-    for (double i = 0; i < designWidth; i += 40) {
-      canvas.drawLine(
-        Offset(i, 0),
-        Offset(i, designHeight),
-        gridPaint,
-      );
-
-      canvas.drawLine(
-        Offset(i + 20, 0),
-        Offset(i + 20, designHeight),
-        gridSubPaint,
-      );
-    }
-
-    for (double i = 0; i < designHeight; i += 40) {
-      canvas.drawLine(
-        Offset(0, i),
-        Offset(designWidth, i),
-        gridPaint,
-      );
-
-      canvas.drawLine(
-        Offset(0, i + 20),
-        Offset(designWidth, i + 20),
-        gridSubPaint,
-      );
-    }
-
-    final Paint riverBgPaint = Paint()
-      ..color = const Color(0xFFE0F2FE)
-      ..strokeWidth = 32
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    final Paint riverDashPaint = Paint()
-      ..color = const Color(0xFFBAE6FD)
-      ..strokeWidth = 6
-      ..style = PaintingStyle.stroke;
-
-    final Path riverPath = Path()
-      ..moveTo(-20, 180)
-      ..cubicTo(
-        80,
-        190,
-        140,
-        240,
-        240,
-        220,
-      )
-      ..cubicTo(
-        310,
-        205,
-        350,
-        260,
-        420,
-        250,
-      );
-
-    canvas.drawPath(
-      riverPath,
-      riverBgPaint,
-    );
-
-    double dashWidth = 10;
-    double dashSpace = 6;
-    double distance = 0;
-
-    for (final PathMetric metric in riverPath.computeMetrics()) {
-      while (distance < metric.length) {
-        final Path segment = metric.extractPath(
-          distance,
-          distance + dashWidth,
-        );
-
-        canvas.drawPath(
-          segment,
-          riverDashPaint,
-        );
-
-        distance += dashWidth + dashSpace;
-      }
-
-      distance = 0;
-    }
-
-    final Paint roadPaint = Paint()
-      ..color = const Color(0xFFDAE2FD)
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawLine(
-      const Offset(40, 0),
-      const Offset(40, designHeight),
-      roadPaint,
-    );
-
-    canvas.drawLine(
-      const Offset(160, 0),
-      const Offset(160, designHeight),
-      roadPaint,
-    );
-
-    canvas.drawLine(
-      const Offset(320, 0),
-      const Offset(320, designHeight),
-      roadPaint,
-    );
-
-    canvas.drawLine(
-      const Offset(0, 80),
-      const Offset(designWidth, 80),
-      roadPaint,
-    );
-
-    canvas.drawLine(
-      const Offset(0, 280),
-      const Offset(designWidth, 280),
-      roadPaint,
-    );
-
-    canvas.drawLine(
-      const Offset(0, 360),
-      const Offset(designWidth, 360),
-      roadPaint,
-    );
-
-    final Paint highwayBgPaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 14
-      ..style = PaintingStyle.stroke;
-
-    final Paint highwayPaint = Paint()
-      ..color = const Color(0xFFCBD5E1)
-      ..strokeWidth = 8
-      ..style = PaintingStyle.stroke;
-
-    final Path highwayPath = Path()
-      ..moveTo(10, 60)
-      ..quadraticBezierTo(
-        140,
-        110,
-        220,
-        160,
-      )
-      ..quadraticBezierTo(
-        300,
-        250,
-        380,
-        340,
-      );
-
-    canvas.drawPath(
-      highwayPath,
-      highwayBgPaint,
-    );
-
-    canvas.drawPath(
-      highwayPath,
-      highwayPaint,
-    );
-
-    final Paint routeGlowPaint = Paint()
-      ..color = const Color(0xFF0284C7).withValues(
-        alpha: 0.25,
-      )
-      ..strokeWidth = 10
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-
-    final Paint routeLinePaint = Paint()
-      ..color = const Color(0xFF0284C7)
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-
-    final Path routePath = Path()
-      ..moveTo(64, 88)
-      ..lineTo(112, 88)
-      ..lineTo(160, 140)
-      ..lineTo(228, 140)
-      ..lineTo(280, 240)
-      ..lineTo(332, 272);
-
-    canvas.drawPath(
-      routePath,
-      routeGlowPaint,
-    );
-
-    distance = 0;
-    dashWidth = 8;
-    dashSpace = 5;
-
-    for (final PathMetric metric in routePath.computeMetrics()) {
-      while (distance < metric.length) {
-        final Path segment = metric.extractPath(
-          distance,
-          distance + dashWidth,
-        );
-
-        canvas.drawPath(
-          segment,
-          routeLinePaint,
-        );
-
-        distance += dashWidth + dashSpace;
-      }
-
-      distance = 0;
-    }
-
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(
-      covariant CustomPainter oldDelegate,
-      ) {
-    return false;
   }
 }

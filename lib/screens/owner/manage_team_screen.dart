@@ -41,6 +41,10 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
     UserRole selectedRole = UserRole.staff;
     bool isSaving = false;
     String? errorText;
+    String? nameError;
+    String? emailError;
+    String? passwordError;
+    String? phoneError;
     final messenger = ScaffoldMessenger.of(context);
 
     showModalBottomSheet<void>(
@@ -56,12 +60,16 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
             final email = emailCtrl.text.trim();
             final password = passwordCtrl.text;
             final phone = phoneCtrl.text.trim();
-            if (name.isEmpty || email.isEmpty || phone.isEmpty) {
-              setSheetState(() => errorText = 'Please fill in all required fields.');
-              return;
-            }
-            if (password.length < 8) {
-              setSheetState(() => errorText = 'Password must be at least 8 characters.');
+            final emailValid = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+            setSheetState(() {
+              nameError = name.isEmpty ? 'Full name is required.' : null;
+              emailError = email.isEmpty ? 'Email is required.' : (!emailValid ? 'Enter a valid email address.' : null);
+              passwordError = password.isEmpty
+                  ? 'Password is required.'
+                  : (password.length < 8 ? 'Password must be at least 8 characters.' : null);
+              phoneError = phone.isEmpty ? 'Phone number is required.' : null;
+            });
+            if (nameError != null || emailError != null || passwordError != null || phoneError != null) {
               return;
             }
             setSheetState(() {
@@ -195,6 +203,10 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                               controller: nameCtrl,
                               hint: 'e.g. Maria Santos',
                               keyboardType: TextInputType.name,
+                              errorText: nameError,
+                              onChanged: () {
+                                if (nameError != null) setSheetState(() => nameError = null);
+                              },
                             ),
                             const SizedBox(height: 8),
                             _SheetField(
@@ -204,6 +216,10 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                               controller: emailCtrl,
                               hint: 'name@aquaops.com',
                               keyboardType: TextInputType.emailAddress,
+                              errorText: emailError,
+                              onChanged: () {
+                                if (emailError != null) setSheetState(() => emailError = null);
+                              },
                             ),
                             const SizedBox(height: 8),
                             _SheetField(
@@ -213,6 +229,10 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                               controller: passwordCtrl,
                               hint: 'Min. 8 characters',
                               obscure: true,
+                              errorText: passwordError,
+                              onChanged: () {
+                                if (passwordError != null) setSheetState(() => passwordError = null);
+                              },
                             ),
                             const SizedBox(height: 8),
                             _SheetField(
@@ -222,6 +242,10 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                               controller: phoneCtrl,
                               hint: '+63 900 000 0000',
                               keyboardType: TextInputType.phone,
+                              errorText: phoneError,
+                              onChanged: () {
+                                if (phoneError != null) setSheetState(() => phoneError = null);
+                              },
                             ),
                             const SizedBox(height: 8),
                             _SheetField(
@@ -1055,6 +1079,8 @@ class _SheetField extends StatefulWidget {
   final String hint;
   final TextInputType keyboardType;
   final bool obscure;
+  final String? errorText;
+  final VoidCallback? onChanged;
 
   const _SheetField({
     required this.label,
@@ -1064,6 +1090,8 @@ class _SheetField extends StatefulWidget {
     required this.hint,
     this.keyboardType = TextInputType.text,
     this.obscure = false,
+    this.errorText,
+    this.onChanged,
   });
 
   @override
@@ -1091,6 +1119,7 @@ class _SheetFieldState extends State<_SheetField> {
 
   @override
   Widget build(BuildContext context) {
+    final bool hasError = widget.errorText != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1113,10 +1142,11 @@ class _SheetFieldState extends State<_SheetField> {
           decoration: BoxDecoration(
             color: _focused ? _frost : _fieldBg,
             borderRadius: BorderRadius.circular(12),
+            border: hasError ? Border.all(color: _errorRed, width: 1.5) : null,
           ),
           child: Row(
             children: [
-              Icon(widget.icon, size: 18, color: widget.iconColor),
+              Icon(widget.icon, size: 18, color: hasError ? _errorRed : widget.iconColor),
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
@@ -1124,6 +1154,7 @@ class _SheetFieldState extends State<_SheetField> {
                   focusNode: _focusNode,
                   keyboardType: widget.keyboardType,
                   obscureText: widget.obscure,
+                  onChanged: (_) => widget.onChanged?.call(),
                   style: const TextStyle(
                     fontFamily: _font,
                     fontSize: 13,
@@ -1147,6 +1178,14 @@ class _SheetFieldState extends State<_SheetField> {
             ],
           ),
         ),
+        if (hasError)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 4),
+            child: Text(
+              widget.errorText!,
+              style: const TextStyle(fontFamily: _font, fontSize: 11, fontWeight: FontWeight.w500, color: _errorRed),
+            ),
+          ),
       ],
     );
   }

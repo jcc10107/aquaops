@@ -6,6 +6,7 @@ import '../models/shift_model.dart';
 import '../models/rider_cash_out_model.dart';
 import '../models/saved_address_model.dart';
 import '../models/refund_model.dart';
+import '../models/branch_model.dart';
 import '../core/constants/zones.dart';
 
 class FirestoreService {
@@ -114,13 +115,16 @@ class FirestoreService {
   }
 
   OrderModel _orderFromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data();
+    return _orderFromData(doc.data(), doc.id);
+  }
+
+  OrderModel _orderFromData(Map<String, dynamic> data, String id) {
     final itemsData = (data['items'] as List<dynamic>?) ?? [];
     final createdAtRaw = data['createdAt'];
     final deliveredAtRaw = data['deliveredAt'];
 
     return OrderModel(
-      id: doc.id,
+      id: id,
       orderNumber: data['orderNumber'] ?? '',
       customerId: data['customerId'],
       customerName: data['customerName'] ?? '',
@@ -139,6 +143,7 @@ class FirestoreService {
         );
       }).toList(),
       totalAmount: (data['totalAmount'] ?? 0).toDouble(),
+      deliveryFee: (data['deliveryFee'] as num?)?.toDouble() ?? 0,
       status: OrderStatus.values.firstWhere(
         (s) => s.name == data['status'],
         orElse: () => OrderStatus.pending,
@@ -159,6 +164,8 @@ class FirestoreService {
       gcashScreenshotUrl: data['gcashScreenshotUrl'],
       deliveryLat: (data['deliveryLat'] as num?)?.toDouble(),
       deliveryLng: (data['deliveryLng'] as num?)?.toDouble(),
+      riderLat: (data['riderLat'] as num?)?.toDouble(),
+      riderLng: (data['riderLng'] as num?)?.toDouble(),
       lastTransferReason: data['lastTransferReason'],
       paymentCollectedBy: data['paymentCollectedBy'],
       paidAt: (data['paidAt'] as Timestamp?)?.toDate(),
@@ -217,6 +224,7 @@ class FirestoreService {
     String? gcashScreenshotUrl,
     double? deliveryLat,
     double? deliveryLng,
+    double deliveryFee = 0,
   }) async {
     final orderRef = _db.collection('orders').doc();
     final orderNumber = 'ORD-${orderRef.id.substring(0, 6).toUpperCase()}';
@@ -231,6 +239,7 @@ class FirestoreService {
       'barangayDisplayName': zoneLabel(areaZone),
       'items': items.map((i) => i.toMap()).toList(),
       'totalAmount': totalAmount,
+      'deliveryFee': deliveryFee,
       'status': 'pending',
       'paymentMethod': paymentMethod,
       'gcashReference': gcashReference,
@@ -262,6 +271,7 @@ class FirestoreService {
     required String paymentChoice, // 'counter' or 'rider'
     String? paymentMethod, // cash/gcash, only meaningful when paymentChoice == 'counter'
     String? gcashReference,
+    double deliveryFee = 0,
   }) async {
     final orderRef = _db.collection('orders').doc();
     final orderNumber = 'ORD-${orderRef.id.substring(0, 6).toUpperCase()}';
@@ -277,6 +287,7 @@ class FirestoreService {
       'barangayDisplayName': zoneLabel(zone),
       'items': items.map((i) => i.toMap()).toList(),
       'totalAmount': totalAmount,
+      'deliveryFee': deliveryFee,
       'status': 'pending',
       'paymentMethod': isCounterPaid ? (paymentMethod ?? 'cash') : 'cash',
       'gcashReference': isCounterPaid ? gcashReference : null,
@@ -783,6 +794,117 @@ class FirestoreService {
       if (redeliveryScheduledAt != null) 'redeliveryScheduledAt': Timestamp.fromDate(redeliveryScheduledAt),
       'processedAt': FieldValue.serverTimestamp(),
       if (rejectionReason != null) 'rejectionReason': rejectionReason,
+    });
+  }
+
+  // Live Terms & Privacy content, editable by the owner without a rebuild.
+  Stream<Map<String, dynamic>?> getTermsPrivacyStream() {
+    return _db.collection('settings').doc('terms_privacy').snapshots().map((doc) => doc.data());
+  }
+
+  Future<Map<String, dynamic>?> getTermsPrivacyOnce() async {
+    final doc = await _db.collection('settings').doc('terms_privacy').get();
+    return doc.data();
+  }
+
+  Future<void> updateTermsPrivacy(Map<String, dynamic> data) async {
+    await _db.collection('settings').doc('terms_privacy').set({
+      ...data,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // Whether address pickers should restrict input to the San Pablo barangay
+  // list (true, default) or accept free-text addresses from anywhere.
+  Stream<bool> getServiceAreaRestrictedStream() {
+    return _db.collection('settings').doc('service_area').snapshots().map((doc) {
+      final data = doc.data();
+      if (data == null || data['sanPabloOnly'] == null) return true;
+      return data['sanPabloOnly'] as bool;
+    });
+  }
+
+  Future<void> setServiceAreaRestricted(bool sanPabloOnly) async {
+    await _db.collection('settings').doc('service_area').set({
+      'sanPabloOnly': sanPabloOnly,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // Distance-based delivery fee config, owner-editable: a flat base plus a
+  // per-km rate applied to the real road distance from the station to the
+  // delivery address (see LocationService.getRoadDistanceKm). Both default
+  // to 0 until an owner explicitly sets them, so nothing changes/surprises
+  // anyone on first load.
+  Stream<({double baseFee, double ratePerKm})> getDeliveryFeeConfigStream() {
+    return _db.collection('settings').doc('delivery_fee').snapshots().map((doc) {
+      final data = doc.data();
+      final base = (data?['baseFee'] as num?)?.toDouble() ?? 0.0;
+      final rate = (data?['ratePerKm'] as num?)?.toDouble() ?? 0.0;
+      return (baseFee: base, ratePerKm: rate);
+    });
+  }
+
+  Future<void> setDeliveryFeeConfig({required double baseFee, required double ratePerKm}) async {
+    await _db.collection('settings').doc('delivery_fee').set({
+      'baseFee': baseFee,
+      'ratePerKm': ratePerKm,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // Station branches — groundwork for future multi-branch support. Not yet
+  // consumed by orders/inventory/staff, which still assume a single station.
+  Stream<List<BranchModel>> getBranchesStream() {
+    return _db.collection('branches').orderBy('createdAt').snapshots().map(
+          (snapshot) => snapshot.docs.map((doc) => BranchModel.fromMap(doc.data(), doc.id)).toList(),
+        );
+  }
+
+  Future<void> addBranch({required String name, required String address, String? phone}) async {
+    await _db.collection('branches').add(
+      BranchModel(id: '', name: name, address: address, phone: phone).toMap(),
+    );
+  }
+
+  Future<void> updateBranch({
+    required String branchId,
+    required String name,
+    required String address,
+    String? phone,
+  }) async {
+    await _db.collection('branches').doc(branchId).update({
+      'name': name,
+      'address': address,
+      'phone': phone,
+    });
+  }
+
+  Future<void> deleteBranch(String branchId) async {
+    await _db.collection('branches').doc(branchId).delete();
+  }
+
+  // Live view of a single order — used by the map screen to watch
+  // riderLat/riderLng update in real time while a delivery is in progress.
+  Stream<OrderModel?> watchOrder(String orderId) {
+    return _db.collection('orders').doc(orderId).snapshots().map((doc) {
+      final data = doc.data();
+      if (data == null) return null;
+      return _orderFromData(data, doc.id);
+    });
+  }
+
+  // Called by RiderLocationService on each GPS update while a delivery is
+  // out for the door — a plain field write, covered by the existing
+  // "rider can update their own assigned order, any field" rule.
+  Future<void> updateRiderLocation({
+    required String orderId,
+    required double lat,
+    required double lng,
+  }) async {
+    await _db.collection('orders').doc(orderId).update({
+      'riderLat': lat,
+      'riderLng': lng,
     });
   }
 }

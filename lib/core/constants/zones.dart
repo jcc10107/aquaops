@@ -186,3 +186,10 @@ List<ZoneOption> buildZoneOptions() {
     return ZoneOption(_stripPrefix(b), code ?? b);
   }).toList();
 }
+
+// Placeholder station/hub coordinates (San Pablo City, Laguna center-point)
+// used as the delivery route's origin on the live tracking map. There's no
+// stored station address/coordinate anywhere in this app yet — replace with
+// the real refilling station location once that becomes configurable.
+const double stationLat = 14.0683;
+const double stationLng = 121.3256;

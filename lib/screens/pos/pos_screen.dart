@@ -1612,11 +1612,17 @@ class _PosScreenState extends State<PosScreen> {
                                       .withValues(alpha: 0.25),
                                 ),
                               ),
-                              child: Column(
+                              child: StreamBuilder<({String accountName, String accountNumber, String? qrImageUrl})>(
+                                stream: _firestoreService.getGcashAccountStream(),
+                                builder: (context, snapshot) {
+                                  final accountName = snapshot.data?.accountName ?? 'Station Owner (Aquaflow)';
+                                  final accountNumber = snapshot.data?.accountNumber ?? '09171234567';
+                                  final qrImageUrl = snapshot.data?.qrImageUrl;
+                                  return Column(
                                 children: [
                                   Container(
-                                    width: 144,
-                                    height: 144,
+                                    width: 220,
+                                    height: 220,
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
                                       color: AppColors.surfaceLowest,
@@ -1633,24 +1639,34 @@ class _PosScreenState extends State<PosScreen> {
                                         ),
                                       ],
                                     ),
-                                    child: const Icon(
-                                      Icons.qr_code_2,
-                                      size: 100,
-                                      color: Color(0xFF0284C7),
-                                    ),
+                                    child: qrImageUrl == null
+                                        ? const Center(
+                                            child: Padding(
+                                              padding: EdgeInsets.all(8.0),
+                                              child: Text(
+                                                'No GCash QR uploaded yet. Use the reference number below.',
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(fontSize: 10, color: AppColors.textVariant),
+                                              ),
+                                            ),
+                                          )
+                                        : ClipRRect(
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Image.network(qrImageUrl, fit: BoxFit.contain),
+                                          ),
                                   ),
                                   const SizedBox(height: 12),
-                                  const Text(
-                                    'Scan to Pay Station Merchant',
-                                    style: TextStyle(
+                                  Text(
+                                    qrImageUrl == null ? 'GCash Account Details' : 'Scan with the GCash App to Pay',
+                                    style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
                                       color: AppColors.textMain,
                                     ),
                                   ),
-                                  const Text(
-                                    'AquaOps • Merchant ID: AQ-88219',
-                                    style: TextStyle(
+                                  Text(
+                                    '$accountName • $accountNumber',
+                                    style: const TextStyle(
                                       fontSize: 11,
                                       color: AppColors.textVariant,
                                     ),
@@ -1719,6 +1735,8 @@ class _PosScreenState extends State<PosScreen> {
                                     ),
                                   ),
                                 ],
+                                  );
+                                },
                               ),
                             ),
                           ],

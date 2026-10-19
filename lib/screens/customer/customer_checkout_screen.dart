@@ -53,6 +53,9 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
   double? _deliveryDistanceKm;
   bool _distanceResolved = false;
   StreamSubscription<({double baseFee, double ratePerKm})>? _deliveryFeeConfigSub;
+  ({String accountName, String accountNumber, String? qrImageUrl}) _gcashAccount =
+      (accountName: 'Station Owner (Aquaflow)', accountNumber: '09171234567', qrImageUrl: null);
+  StreamSubscription<({String accountName, String accountNumber, String? qrImageUrl})>? _gcashAccountSub;
 
   bool get _calculatingDeliveryFee => _deliveryFeeConfig == null || !_distanceResolved;
 
@@ -92,6 +95,10 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
       _deliveryFeeConfig = config;
       _recomputeDeliveryFee();
     });
+    _gcashAccountSub = _firestoreService.getGcashAccountStream().listen((account) {
+      if (!mounted) return;
+      setState(() => _gcashAccount = account);
+    });
     _resolveDeliveryDistance();
   }
 
@@ -100,6 +107,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
     _gcashRefController.dispose();
     _notesController.dispose();
     _deliveryFeeConfigSub?.cancel();
+    _gcashAccountSub?.cancel();
     super.dispose();
   }
 
@@ -274,8 +282,16 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
     }
   }
 
+  // '09171234567' -> '0917 123 4567'. Falls back to the raw value for
+  // anything that doesn't match the expected 11-digit shape (e.g. while a
+  // stream update is still loading, or an owner saved something unusual).
+  String _formatGcashNumber(String number) {
+    if (!RegExp(r'^\d{11}$').hasMatch(number)) return number;
+    return '${number.substring(0, 4)} ${number.substring(4, 7)} ${number.substring(7)}';
+  }
+
   void _copyGcashNumber() {
-    Clipboard.setData(const ClipboardData(text: '09171234567'));
+    Clipboard.setData(ClipboardData(text: _gcashAccount.accountNumber));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('GCash number copied to clipboard!'),
@@ -1022,10 +1038,10 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'GCASH ACCOUNT NAME',
                             style: TextStyle(
                               fontFamily: _fontFamily,
@@ -1036,8 +1052,8 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                             ),
                           ),
                           Text(
-                            'Station Owner (Aquaflow)',
-                            style: TextStyle(
+                            _gcashAccount.accountName,
+                            style: const TextStyle(
                               fontFamily: _fontFamily,
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -1045,8 +1061,8 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                             ),
                           ),
                           Text(
-                            '0917 123 4567',
-                            style: TextStyle(
+                            _formatGcashNumber(_gcashAccount.accountNumber),
+                            style: const TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
@@ -1072,6 +1088,35 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                       ),
                     ],
                   ),
+                  if (_gcashAccount.qrImageUrl != null) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Or scan with the GCash app:',
+                      style: TextStyle(
+                        fontFamily: _fontFamily,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: Container(
+                        width: 220,
+                        height: 220,
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: _surfaceLowest,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(_gcashAccount.qrImageUrl!, fit: BoxFit.contain),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   const Text(
                     '13-Digit Ref Number',

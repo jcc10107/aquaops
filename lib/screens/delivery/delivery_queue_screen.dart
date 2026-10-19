@@ -1038,7 +1038,11 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () {},
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('In-app messaging is coming soon. Please call or text the customer directly for now.')),
+                        );
+                      },
                       icon: const Icon(Icons.chat, size: 16, color: Color(0xFF0284C7)),
                       label: const Text('Send Message', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0284C7))),
                       style: OutlinedButton.styleFrom(

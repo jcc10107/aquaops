@@ -864,7 +864,11 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () {},
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('In-app messaging is coming soon. Please call the station for now.')),
+                );
+              },
               icon: const Icon(
                 Icons.chat_bubble,
                 size: 20,

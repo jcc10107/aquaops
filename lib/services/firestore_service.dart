@@ -853,6 +853,32 @@ class FirestoreService {
     });
   }
 
+  // The GCash account customers/cashiers are told to pay — editable by the
+  // owner so a maxed-out or compromised GCash number can be swapped without
+  // a code change. Defaults keep the previously-hardcoded values until an
+  // owner explicitly sets this. qrImageUrl, when set, is a photo of the
+  // owner's own GCash app's personal "My QR" code — the only kind of GCash
+  // QR the real GCash app will actually recognize as valid when scanned;
+  // null until an owner uploads one.
+  Stream<({String accountName, String accountNumber, String? qrImageUrl})> getGcashAccountStream() {
+    return _db.collection('settings').doc('gcash_account').snapshots().map((doc) {
+      final data = doc.data();
+      final name = (data?['accountName'] as String?) ?? 'Station Owner (Aquaflow)';
+      final number = (data?['accountNumber'] as String?) ?? '09171234567';
+      final qrImageUrl = data?['qrImageUrl'] as String?;
+      return (accountName: name, accountNumber: number, qrImageUrl: qrImageUrl);
+    });
+  }
+
+  Future<void> setGcashAccount({required String accountName, required String accountNumber, String? qrImageUrl}) async {
+    await _db.collection('settings').doc('gcash_account').set({
+      'accountName': accountName,
+      'accountNumber': accountNumber,
+      'qrImageUrl': qrImageUrl,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   // Station branches — groundwork for future multi-branch support. Not yet
   // consumed by orders/inventory/staff, which still assume a single station.
   Stream<List<BranchModel>> getBranchesStream() {

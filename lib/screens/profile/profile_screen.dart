@@ -5,6 +5,7 @@ import '../../main.dart';
 import '../../models/user_model.dart';
 import '../owner/manage_team_screen.dart';
 import '../owner/terms_privacy_editor_screen.dart';
+import '../owner/gcash_account_editor_screen.dart';
 import '../owner/manage_branches_screen.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
@@ -289,6 +290,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildListTile('Manage Staff & Riders', 'Staff accounts & rider routes', Icons.groups, _primaryBlue, isDark, badge: '4 Active', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageTeamScreen()))),
                       _buildDivider(isDark),
                       _buildListTile('Edit Terms & Privacy', 'Update station policies', Icons.edit_document, _primaryBlue, isDark, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsPrivacyEditorScreen()))),
+                      _buildDivider(isDark),
+                      _buildListTile('Edit GCash Account', 'Payment number shown to customers', Icons.qr_code_2, _primaryBlue, isDark, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GcashAccountEditorScreen()))),
                       _buildDivider(isDark),
                       StreamBuilder<bool>(
                         stream: _firestoreService.getServiceAreaRestrictedStream(),

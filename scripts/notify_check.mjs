@@ -131,7 +131,9 @@ async function sendPush(accessToken, token, title, body) {
   });
   if (!res.ok) {
     console.error(`Push to ${token.slice(0, 12)}... failed: ${JSON.stringify(await res.json())}`);
+    return false;
   }
+  return true;
 }
 
 async function main() {
@@ -165,7 +167,11 @@ async function main() {
   for (const order of unassigned) {
     const title = 'Order needs a rider';
     const body = `${field(order, 'orderNumber')} (${field(order, 'customerName')}) has been waiting 10+ min.`;
-    await Promise.all(recipients.map((token) => sendPush(accessToken, token, title, body)));
+    const results = await Promise.all(recipients.map((token) => sendPush(accessToken, token, title, body)));
+    if (!results.some(Boolean)) {
+      console.error(`Skipping markNotified for ${field(order, 'orderNumber')} - every push failed, will retry next run.`);
+      continue;
+    }
     await markNotified(idToken, `orders/${docId(order)}`, 'notifiedUnassigned');
     console.log(`Notified: ${title} - ${field(order, 'orderNumber')}`);
   }
@@ -177,7 +183,11 @@ async function main() {
   for (const item of lowStock) {
     const title = 'Low stock alert';
     const body = `${field(item, 'name')} is at ${field(item, 'currentStock')} ${field(item, 'unit')} (min ${field(item, 'minimumThreshold')}).`;
-    await Promise.all(recipients.map((token) => sendPush(accessToken, token, title, body)));
+    const results = await Promise.all(recipients.map((token) => sendPush(accessToken, token, title, body)));
+    if (!results.some(Boolean)) {
+      console.error(`Skipping markNotified for ${field(item, 'name')} - every push failed, will retry next run.`);
+      continue;
+    }
     await markNotified(idToken, `inventory/${docId(item)}`, 'notifiedLowStock');
     console.log(`Notified: ${title} - ${field(item, 'name')}`);
   }

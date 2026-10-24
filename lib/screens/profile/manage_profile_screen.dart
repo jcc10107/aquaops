@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/layout_constants.dart';
+import '../../core/utils/validators.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/aqua_logo.dart';
+import '../../widgets/sub_screen_header.dart';
 
 class ManageProfileScreen extends StatefulWidget {
   final UserModel user;
@@ -45,61 +48,35 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final name = _nameCtrl.text.trim();
     final phone = _phoneCtrl.text.trim();
-    final digits = phone.replaceAll(RegExp(r'\D'), '');
 
     setState(() {
       _nameError = name.isEmpty ? 'Full name is required.' : null;
-      _phoneError = phone.isEmpty
-          ? 'Mobile number is required.'
-          : (digits.length < 11 ? 'Enter a valid 11-digit mobile number.' : null);
+      _phoneError = Validators.validateGCash(
+        phone,
+        requiredMessage: 'Mobile number is required.',
+        invalidMessage: 'Enter a valid 11-digit mobile number.',
+      );
     });
     if (_nameError != null || _phoneError != null) return;
 
     Navigator.pop(context);
     try {
-      await _firestoreService.updateUserProfile(uid: widget.user.id, name: name, phone: phone);
-      messenger.showSnackBar(const SnackBar(content: Text('Profile saved successfully!')));
+      await _firestoreService.updateUserProfile(
+        uid: widget.user.id,
+        name: name,
+        phone: phone,
+      );
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Profile saved successfully!')),
+      );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Failed to save: $e'), backgroundColor: AppColors.error),
+        SnackBar(
+          content: Text('Failed to save: $e'),
+          backgroundColor: AppColors.error,
+        ),
       );
     }
-  }
-
-  Widget _buildHeader() {
-    return SizedBox(
-      height: 64,
-      width: double.infinity,
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => Navigator.maybePop(context),
-            child: const Padding(
-              padding: EdgeInsets.all(8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.arrow_back, color: Color(0xFF475569), size: 22),
-                  SizedBox(width: 6),
-                  Text(
-                    'Back to Profile',
-                    style: TextStyle(
-                      fontFamily: _font,
-                      color: Color(0xFF475569),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   @override
@@ -109,22 +86,26 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
     final String email = widget.userData['email'] ?? '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.surfaceCanvas,
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            _buildHeader(),
+            const SubScreenHeader(),
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                keyboardDismissBehavior:
+                ScrollViewKeyboardDismissBehavior.onDrag,
                 child: Align(
                   alignment: Alignment.topCenter,
                   child: Container(
                     width: double.infinity,
-                    constraints: const BoxConstraints(maxWidth: 450),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
@@ -137,7 +118,7 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
                             fontSize: 22,
                             fontWeight: FontWeight.w700,
                             letterSpacing: -0.44,
-                            color: Color(0xFF131B2E),
+                            color: AppColors.textLight,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -148,17 +129,20 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
                             fontFamily: _font,
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFF3F4850),
+                            color: AppColors.textSecondary,
                           ),
                         ),
                         const SizedBox(height: 12),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF0F9FF),
+                            color: AppColors.surfaceIce,
                             borderRadius: BorderRadius.circular(9999),
                             border: Border.all(
-                              color: const Color(0xFF22D3EE).withValues(alpha: 0.2),
+                              color: AppColors.cyanHighlight.withValues(alpha: 0.2),
                             ),
                           ),
                           child: Row(
@@ -169,7 +153,7 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
                                 height: 24,
                                 alignment: Alignment.center,
                                 decoration: const BoxDecoration(
-                                  color: Color(0xFF006194),
+                                  color: AppColors.primary,
                                   shape: BoxShape.circle,
                                 ),
                                 child: Text(
@@ -191,7 +175,7 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
                                     fontFamily: _font,
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF006194),
+                                    color: AppColors.primary,
                                   ),
                                 ),
                               ),
@@ -210,7 +194,7 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
                                   fontFamily: _font,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
-                                  color: Color(0xFF3F4850),
+                                  color: AppColors.textSecondary,
                                 ),
                               ),
                             ),
@@ -221,7 +205,9 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
                               keyboardType: TextInputType.name,
                               errorText: _nameError,
                               onChanged: () {
-                                if (_nameError != null) setState(() => _nameError = null);
+                                if (_nameError != null) {
+                                  setState(() => _nameError = null);
+                                }
                               },
                             ),
                             const SizedBox(height: 14),
@@ -233,7 +219,7 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
                                   fontFamily: _font,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
-                                  color: Color(0xFF3F4850),
+                                  color: AppColors.textSecondary,
                                 ),
                               ),
                             ),
@@ -244,14 +230,21 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
                               keyboardType: TextInputType.phone,
                               errorText: _phoneError,
                               onChanged: () {
-                                if (_phoneError != null) setState(() => _phoneError = null);
+                                if (_phoneError != null) {
+                                  setState(() => _phoneError = null);
+                                }
                               },
                             ),
                             const SizedBox(height: 14),
                             const Padding(
-                              padding: EdgeInsets.only(left: 4, right: 4, bottom: 4),
+                              padding: EdgeInsets.only(
+                                left: 4,
+                                right: 4,
+                                bottom: 4,
+                              ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     'Email Address',
@@ -259,13 +252,17 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
                                       fontFamily: _font,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w500,
-                                      color: Color(0xFF3F4850),
+                                      color: AppColors.textSecondary,
                                     ),
                                   ),
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.verified, size: 13, color: Color(0xFF006C49)),
+                                      Icon(
+                                        Icons.verified,
+                                        size: 13,
+                                        color: AppColors.secondary,
+                                      ),
                                       SizedBox(width: 4),
                                       Text(
                                         'Verified',
@@ -274,7 +271,7 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
                                           fontSize: 10,
                                           fontWeight: FontWeight.w800,
                                           letterSpacing: 0.6,
-                                          color: Color(0xFF006C49),
+                                          color: AppColors.secondary,
                                         ),
                                       ),
                                     ],
@@ -291,16 +288,16 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
                               height: 48,
                               width: double.infinity,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF007BB9),
+                                color: AppColors.primaryContainer,
                                 borderRadius: BorderRadius.circular(9999),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF007BB9).withValues(alpha: 0.3),
+                                    color: AppColors.primaryContainer.withValues(alpha: 0.3),
                                     blurRadius: 15,
                                     offset: const Offset(0, 10),
                                   ),
                                   BoxShadow(
-                                    color: const Color(0xFF007BB9).withValues(alpha: 0.1),
+                                    color: AppColors.primaryContainer.withValues(alpha: 0.1),
                                     blurRadius: 6,
                                     offset: const Offset(0, 4),
                                   ),
@@ -356,9 +353,11 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
         Container(
           height: 48,
           decoration: BoxDecoration(
-            color: const Color(0xFFFFFFFF),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: hasError ? Border.all(color: AppColors.error, width: 1.5) : null,
+            border: hasError
+                ? Border.all(color: AppColors.error, width: 1.5)
+                : null,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
@@ -371,7 +370,13 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
             children: [
               Padding(
                 padding: const EdgeInsets.only(left: 14, right: 10),
-                child: Icon(icon, color: hasError ? AppColors.error : const Color(0xFF707881), size: 18),
+                child: Icon(
+                  icon,
+                  color: hasError
+                      ? AppColors.error
+                      : AppColors.outline,
+                  size: 18,
+                ),
               ),
               Expanded(
                 child: TextField(
@@ -382,12 +387,12 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
                     fontFamily: _font,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF131B2E),
+                    color: AppColors.textLight,
                   ),
                   decoration: InputDecoration(
                     hintText: hint,
                     hintStyle: const TextStyle(
-                      color: Color(0xFF707881),
+                      color: AppColors.outline,
                       fontWeight: FontWeight.w400,
                     ),
                     border: InputBorder.none,
@@ -426,7 +431,7 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
       child: Container(
         height: 48,
         decoration: BoxDecoration(
-          color: const Color(0xFFF2F3FF),
+          color: AppColors.surfaceContainerLow,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -440,7 +445,7 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.only(left: 14, right: 10),
-              child: Icon(icon, color: const Color(0xFF707881), size: 18),
+              child: Icon(icon, color: AppColors.outline, size: 18),
             ),
             Expanded(
               child: Text(
@@ -450,13 +455,17 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
                   fontFamily: _font,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: Color(0xFF131B2E),
+                  color: AppColors.textLight,
                 ),
               ),
             ),
             const Padding(
               padding: EdgeInsets.only(left: 8, right: 14),
-              child: Icon(Icons.lock_outline, color: Color(0xFF707881), size: 16),
+              child: Icon(
+                Icons.lock_outline,
+                color: AppColors.outline,
+                size: 16,
+              ),
             ),
           ],
         ),

@@ -1,11 +1,14 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../core/constants/app_colors.dart';
+import '../../core/constants/layout_constants.dart'; // Added centralized layout constants
 import '../../widgets/aqua_bottom_nav.dart';
+import '../../widgets/bottom_sheet_chrome.dart';
 import '../../widgets/custom_header.dart';
 import '../../models/inventory_model.dart';
 import '../../models/order_model.dart';
 import '../../models/saved_address_model.dart';
 import '../../models/user_model.dart';
+import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/location_service.dart';
 import 'location_picker_map_screen.dart';
@@ -30,7 +33,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
 
   final FirestoreService _firestoreService = FirestoreService();
   final LocationService _locationService = LocationService();
-  String? get _uid => FirebaseAuth.instance.currentUser?.uid;
+
   double? _currentLat;
   double? _currentLng;
   bool _fetchingLocation = false;
@@ -85,7 +88,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   @override
   void initState() {
     super.initState();
-    final uid = _uid;
+    final uid = AuthService().currentUserId;
     _userFuture = uid == null
         ? Future<UserModel?>.value(null)
         : _firestoreService.getUser(uid);
@@ -146,7 +149,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
               contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               filled: true,
-              fillColor: const Color(0xFFF2F3FF),
+              fillColor: AppColors.surfaceContainerLow,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -156,13 +159,13 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
         ),
         const SizedBox(width: 8),
         Material(
-          color: const Color(0xFF006194),
+          color: AppColors.primary,
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
             onTap: () async {
               final text = addressCtrl.text.trim();
-              final uid = _uid;
+              final uid = AuthService().currentUserId;
               if (text.isEmpty || uid == null) return;
               final navigator = Navigator.of(sheetContext);
               final messenger = ScaffoldMessenger.of(sheetContext);
@@ -234,7 +237,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
           builder: (context, setSheetState) => Align(
             alignment: Alignment.bottomCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 450),
+              constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
               child: Container(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
                 decoration: const BoxDecoration(
@@ -253,58 +256,12 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(
-                      child: Container(
-                        width: 48,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFBFC7D2),
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                      ),
-                    ),
+                    const BottomSheetDragHandle(),
                     const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Choose Delivery Address',
-                              style: TextStyle(
-                                fontFamily: 'Plus Jakarta Sans',
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF131B2E),
-                              ),
-                            ),
-                            Text(
-                              'Select your preferred delivery location',
-                              style: TextStyle(
-                                fontFamily: 'Plus Jakarta Sans',
-                                fontSize: 11,
-                                fontWeight: FontWeight.w400,
-                                color: Color(0xFF3F4850),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Material(
-                          color: const Color(0xFFEAEDFF),
-                          shape: const CircleBorder(),
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: () => Navigator.pop(sheetContext),
-                            child: const SizedBox(
-                              width: 32,
-                              height: 32,
-                              child: Icon(Icons.close,
-                                  size: 20, color: Color(0xFF3F4850)),
-                            ),
-                          ),
-                        ),
-                      ],
+                    BottomSheetHeader(
+                      title: 'Choose Delivery Address',
+                      subtitle: 'Select your preferred delivery location',
+                      onClose: () => Navigator.pop(sheetContext),
                     ),
                     const SizedBox(height: 16),
                     Material(
@@ -321,7 +278,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                                 width: 36,
                                 height: 36,
                                 decoration: const BoxDecoration(
-                                  color: Color(0xFF059669),
+                                  color: AppColors.emerald600,
                                   shape: BoxShape.circle,
                                 ),
                                 child: _fetchingLocation
@@ -339,7 +296,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                                     fontFamily: 'Plus Jakarta Sans',
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFF059669),
+                                    color: AppColors.emerald600,
                                   ),
                                 ),
                               ),
@@ -350,9 +307,9 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                     ),
                     const SizedBox(height: 12),
                     StreamBuilder<List<SavedAddressModel>>(
-                      stream: _uid == null
+                      stream: AuthService().currentUserId == null
                           ? const Stream.empty()
-                          : _firestoreService.getSavedAddressesStream(_uid!),
+                          : _firestoreService.getSavedAddressesStream(AuthService().currentUserId!),
                       builder: (context, addrSnapshot) {
                         if (!addrSnapshot.hasData) {
                           return const Padding(
@@ -372,7 +329,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                                   style: TextStyle(
                                     fontFamily: 'Plus Jakarta Sans',
                                     fontSize: 12,
-                                    color: Color(0xFF3F4850),
+                                    color: AppColors.textSecondary,
                                   ),
                                 ),
                                 const SizedBox(height: 12),
@@ -389,8 +346,8 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                               padding: const EdgeInsets.only(bottom: 8),
                               child: Material(
                                 color: isSelected
-                                    ? const Color(0xFFE0F2FE)
-                                    : const Color(0xFFF2F3FF),
+                                    ? AppColors.surfaceFrost
+                                    : AppColors.surfaceContainerLow,
                                 borderRadius: BorderRadius.circular(16),
                                 child: InkWell(
                                   onTap: () {
@@ -411,8 +368,8 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                                           height: 36,
                                           decoration: BoxDecoration(
                                             color: isSelected
-                                                ? const Color(0xFF006194)
-                                                : const Color(0xFFE0F2FE),
+                                                ? AppColors.primary
+                                                : AppColors.surfaceFrost,
                                             shape: BoxShape.circle,
                                           ),
                                           child: Icon(
@@ -420,7 +377,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                                             size: 20,
                                             color: isSelected
                                                 ? Colors.white
-                                                : const Color(0xFF006194),
+                                                : AppColors.primary,
                                           ),
                                         ),
                                         const SizedBox(width: 12),
@@ -436,7 +393,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                                                   'Plus Jakarta Sans',
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF131B2E),
+                                                  color: AppColors.textLight,
                                                 ),
                                               ),
                                               Text(
@@ -447,7 +404,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                                                   fontFamily:
                                                   'Plus Jakarta Sans',
                                                   fontSize: 11,
-                                                  color: Color(0xFF3F4850),
+                                                  color: AppColors.textSecondary,
                                                 ),
                                               ),
                                             ],
@@ -459,8 +416,8 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                                               : Icons.radio_button_unchecked,
                                           size: 22,
                                           color: isSelected
-                                              ? const Color(0xFF006194)
-                                              : const Color(0xFFBFC7D2),
+                                              ? AppColors.primary
+                                              : AppColors.borderLight,
                                         ),
                                       ],
                                     ),
@@ -476,7 +433,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: Material(
-                        color: const Color(0xFF0284C7),
+                        color: AppColors.primarySky,
                         borderRadius: BorderRadius.circular(100),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(100),
@@ -513,12 +470,12 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6FAFC),
+      backgroundColor: AppColors.surfaceBackground,
       extendBody: true,
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 450),
+          constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
           child: _isCheckoutView
               ? _buildCheckoutStream(isDark)
               : Stack(
@@ -661,16 +618,16 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      constraints: const BoxConstraints(maxWidth: 450),
+      constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
       height: 56,
       decoration: BoxDecoration(
-        color: const Color(0xFF0284C7),
+        color: AppColors.primarySky,
         borderRadius: BorderRadius.circular(100),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x73007BB9),
+            color: AppColors.primaryContainer.withValues(alpha: 0.45),
             blurRadius: 24,
-            offset: Offset(0, 8),
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -719,7 +676,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                         style: const TextStyle(
                           fontFamily: 'Plus Jakarta Sans',
                           fontSize: 10,
-                          color: Color(0xFF0284C7),
+                          color: AppColors.primarySky,
                           fontWeight: FontWeight.w800,
                         ),
                       ),

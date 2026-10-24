@@ -1,4 +1,18 @@
-enum UserRole { owner, staff, rider, customer }
+enum UserRole {
+  owner,
+  staff,
+  rider,
+  customer;
+
+  /// Helper to safely parse a string into a UserRole.
+  /// Defaults to [UserRole.customer] if the string is unrecognized or null.
+  static UserRole fromString(String? role) {
+    return UserRole.values.firstWhere(
+          (r) => r.name == role,
+      orElse: () => UserRole.customer,
+    );
+  }
+}
 
 class UserModel {
   final String id;
@@ -34,10 +48,8 @@ class UserModel {
       id: id,
       name: data['name'] ?? '',
       email: data['email'] ?? '',
-      role: UserRole.values.firstWhere(
-            (r) => r.name == (data['role'] ?? 'customer'),
-        orElse: () => UserRole.customer,
-      ),
+      // TASK 5.3: Centralized role parsing using the new helper
+      role: UserRole.fromString(data['role'] as String?),
       phone: data['phone'] ?? '',
       address: data['address'],
       assignedArea: data['assignedArea'],

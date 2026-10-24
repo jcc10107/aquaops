@@ -1,8 +1,8 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
 import '../main.dart';
 import '../screens/notifications/notification_screen.dart';
+import '../services/auth_service.dart';
 import 'notification_feed.dart';
 
 class NotificationBell extends StatelessWidget {
@@ -11,7 +11,7 @@ class NotificationBell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String? uid = FirebaseAuth.instance.currentUser?.uid;
+    final String? uid = AuthService().currentUserId;
     final NotificationReadStore store = NotificationReadStore.instance;
 
     return ValueListenableBuilder<String>(
@@ -81,7 +81,7 @@ class NotificationBell extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [AppColors.coralAlert, Color(0xFFDC2626)]),
+                    gradient: const LinearGradient(colors: [AppColors.coralAlert, AppColors.red700]),
                     borderRadius: BorderRadius.circular(100),
                     border: Border.all(color: Colors.white, width: 2),
                   ),

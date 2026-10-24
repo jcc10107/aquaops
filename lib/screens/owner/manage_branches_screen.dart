@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../core/constants/app_colors.dart';
+import '../../core/constants/layout_constants.dart';
 import '../../models/branch_model.dart';
 import '../../services/firestore_service.dart';
 
 const String _font = 'Plus Jakarta Sans';
-const Color _background = Color(0xFFF6FAFC);
-const Color _onSurface = Color(0xFF131B2E);
-const Color _onSurfaceVariant = Color(0xFF3F4850);
-const Color _blue = Color(0xFF0284C7);
-const Color _fieldBg = Color(0xFFF2F3FF);
-const Color _coral = Color(0xFFF43F5E);
-const double _maxWidth = 450;
 
 class ManageBranchesScreen extends StatefulWidget {
   const ManageBranchesScreen({super.key});
@@ -74,7 +69,7 @@ class _ManageBranchesScreenState extends State<ManageBranchesScreen> {
             return Align(
               alignment: Alignment.bottomCenter,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: _maxWidth),
+                constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
                 child: Container(
                   padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
                   decoration: const BoxDecoration(
@@ -88,7 +83,7 @@ class _ManageBranchesScreenState extends State<ManageBranchesScreen> {
                       children: [
                         Text(
                           existing == null ? 'Add Branch' : 'Edit Branch',
-                          style: const TextStyle(fontFamily: _font, fontSize: 18, fontWeight: FontWeight.w800, color: _onSurface),
+                          style: const TextStyle(fontFamily: _font, fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textLight),
                         ),
                         const SizedBox(height: 16),
                         _field('Branch Name', nameCtrl, error: nameError),
@@ -102,14 +97,14 @@ class _ManageBranchesScreenState extends State<ManageBranchesScreen> {
                           child: ElevatedButton(
                             onPressed: saving ? null : save,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _blue,
+                              backgroundColor: AppColors.primarySky,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                             ),
                             child: saving
                                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                 : Text(existing == null ? 'Add Branch' : 'Save Changes',
-                                    style: const TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
+                                style: const TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
                           ),
                         ),
                       ],
@@ -128,20 +123,20 @@ class _ManageBranchesScreenState extends State<ManageBranchesScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.w700, color: _onSurfaceVariant)),
+        Text(label, style: const TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
           maxLines: maxLines,
-          style: const TextStyle(fontFamily: _font, fontSize: 13, color: _onSurface),
+          style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
           decoration: InputDecoration(
             filled: true,
-            fillColor: _fieldBg,
+            fillColor: AppColors.surfaceContainerLow,
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-            errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _coral)),
-            focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _coral, width: 1.5)),
+            errorBorder: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)), borderSide: BorderSide(color: AppColors.coralAlert)),
+            focusedErrorBorder: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)), borderSide: BorderSide(color: AppColors.coralAlert, width: 1.5)),
             errorText: error,
           ),
         ),
@@ -163,7 +158,7 @@ class _ManageBranchesScreenState extends State<ManageBranchesScreen> {
               Navigator.pop(dialogContext);
               await _firestoreService.deleteBranch(branch.id);
             },
-            child: const Text('Remove', style: TextStyle(color: _coral)),
+            child: const Text('Remove', style: TextStyle(color: AppColors.coralAlert)),
           ),
         ],
       ),
@@ -173,16 +168,16 @@ class _ManageBranchesScreenState extends State<ManageBranchesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: AppColors.surfaceBackground,
       appBar: AppBar(
-        backgroundColor: _background,
+        backgroundColor: AppColors.surfaceBackground,
         elevation: 0,
-        iconTheme: const IconThemeData(color: _onSurface),
-        title: const Text('Manage Branches', style: TextStyle(fontFamily: _font, color: _onSurface, fontWeight: FontWeight.w800, fontSize: 17)),
+        iconTheme: const IconThemeData(color: AppColors.textLight),
+        title: const Text('Manage Branches', style: TextStyle(fontFamily: _font, color: AppColors.textLight, fontWeight: FontWeight.w800, fontSize: 17)),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openBranchSheet(),
-        backgroundColor: _blue,
+        backgroundColor: AppColors.primarySky,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text('Add Branch', style: TextStyle(fontFamily: _font, color: Colors.white, fontWeight: FontWeight.w700)),
       ),
@@ -190,7 +185,7 @@ class _ManageBranchesScreenState extends State<ManageBranchesScreen> {
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _maxWidth),
+            constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
             child: StreamBuilder<List<BranchModel>>(
               stream: _firestoreService.getBranchesStream(),
               builder: (context, snapshot) {
@@ -199,22 +194,22 @@ class _ManageBranchesScreenState extends State<ManageBranchesScreen> {
                 }
                 final branches = snapshot.data!;
                 if (branches.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 48, 20, 20),
+                  return const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 48, 20, 20),
                     child: Column(
                       children: [
-                        const Icon(Icons.store_mall_directory_outlined, size: 48, color: _onSurfaceVariant),
-                        const SizedBox(height: 12),
-                        const Text(
+                        Icon(Icons.store_mall_directory_outlined, size: 48, color: AppColors.textSecondary),
+                        SizedBox(height: 12),
+                        Text(
                           'No branches added yet. This station is currently treated as the only location.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontFamily: _font, fontSize: 13, color: _onSurfaceVariant),
+                          style: TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textSecondary),
                         ),
-                        const SizedBox(height: 12),
-                        const Text(
+                        SizedBox(height: 12),
+                        Text(
                           'Adding a branch here is groundwork for future expansion — it does not yet split inventory, staff, or orders by location.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontFamily: _font, fontSize: 11, color: _onSurfaceVariant),
+                          style: TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.textSecondary),
                         ),
                       ],
                     ),
@@ -231,34 +226,34 @@ class _ManageBranchesScreenState extends State<ManageBranchesScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: AppColors.slate200),
                       ),
                       child: Row(
                         children: [
                           Container(
                             width: 40,
                             height: 40,
-                            decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
-                            child: const Icon(Icons.store, color: _blue, size: 20),
+                            decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle),
+                            child: const Icon(Icons.store, color: AppColors.primarySky, size: 20),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(b.name, style: const TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.w700, color: _onSurface)),
-                                Text(b.address, style: const TextStyle(fontFamily: _font, fontSize: 12, color: _onSurfaceVariant)),
+                                Text(b.name, style: const TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textLight)),
+                                Text(b.address, style: const TextStyle(fontFamily: _font, fontSize: 12, color: AppColors.textSecondary)),
                                 if (b.phone != null && b.phone!.isNotEmpty)
-                                  Text(b.phone!, style: const TextStyle(fontFamily: _font, fontSize: 11, color: _onSurfaceVariant)),
+                                  Text(b.phone!, style: const TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.textSecondary)),
                               ],
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.edit, size: 18, color: _onSurfaceVariant),
+                            icon: const Icon(Icons.edit, size: 18, color: AppColors.textSecondary),
                             onPressed: () => _openBranchSheet(existing: b),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.delete_outline, size: 18, color: _coral),
+                            icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.coralAlert),
                             onPressed: () => _confirmDelete(b),
                           ),
                         ],

@@ -1,16 +1,17 @@
+import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-import 'firebase_options.dart';
 import 'core/constants/app_colors.dart';
-import 'services/offline_queue_service.dart';
+import 'firebase_options.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/customer/customer_main_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/profile/profile_screen.dart';
+import 'services/offline_queue_service.dart';
 
 final ValueNotifier<bool> isDarkModeNotifier = ValueNotifier(false);
 final ValueNotifier<String> currentUserRoleNotifier = ValueNotifier('none');
@@ -36,61 +37,30 @@ void main() async {
 
 enum ShellTab { dashboard, pos, queue, stock, refund, profile }
 
+const Map<String, Map<ShellTab, int>> _roleTabMapping = {
+  'owner': {
+    ShellTab.dashboard: 0,
+    ShellTab.pos: 1,
+    ShellTab.queue: 2,
+    ShellTab.stock: 3,
+    ShellTab.refund: 4,
+    ShellTab.profile: 5,
+  },
+  'staff': {
+    ShellTab.pos: 0,
+    ShellTab.stock: 1,
+    ShellTab.profile: 2,
+  },
+  'rider': {
+    ShellTab.queue: 0,
+    ShellTab.profile: 1,
+  },
+};
+
 Widget shellAt(ShellTab tab) {
   final String role = currentUserRoleNotifier.value;
-  int index = 0;
-  if (role == 'owner') {
-    switch (tab) {
-      case ShellTab.dashboard:
-        index = 0;
-        break;
-      case ShellTab.pos:
-        index = 1;
-        break;
-      case ShellTab.queue:
-        index = 2;
-        break;
-      case ShellTab.stock:
-        index = 3;
-        break;
-      case ShellTab.refund:
-        index = 4;
-        break;
-      case ShellTab.profile:
-        index = 5;
-        break;
-    }
-  } else if (role == 'staff') {
-    switch (tab) {
-      case ShellTab.stock:
-        index = 1;
-        break;
-      case ShellTab.profile:
-        index = 2;
-        break;
-      default:
-        index = 0;
-        break;
-    }
-  } else if (role == 'rider') {
-    switch (tab) {
-      case ShellTab.profile:
-        index = 1;
-        break;
-      default:
-        index = 0;
-        break;
-    }
-  } else {
-    switch (tab) {
-      case ShellTab.profile:
-        index = 2;
-        break;
-      default:
-        index = 0;
-        break;
-    }
-  }
+  final roleMap = _roleTabMapping[role] ?? {ShellTab.profile: 2};
+  final index = roleMap[tab] ?? 0;
   return MainShell(initialIndex: index);
 }
 
@@ -102,27 +72,17 @@ class AquaOpsApp extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: isDarkModeNotifier,
       builder: (context, isDark, child) {
+        final baseTheme = isDark ? ThemeData.dark() : ThemeData.light();
         return MaterialApp(
           title: 'AquaOps',
           debugShowCheckedModeBanner: false,
           themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+          // TASK 7.4: Standardize global Plus Jakarta Sans typography across textTheme
           theme: ThemeData(
-            brightness: Brightness.light,
-            scaffoldBackgroundColor: AppColors.backgroundLight,
-            fontFamily: 'Plus Jakarta Sans',
-            elevatedButtonTheme: ElevatedButtonThemeData(
-              style: ElevatedButton.styleFrom(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(100),
-                ),
-              ),
-            ),
-          ),
-          darkTheme: ThemeData(
-            brightness: Brightness.dark,
-            scaffoldBackgroundColor: AppColors.backgroundDark,
-            fontFamily: 'Plus Jakarta Sans',
+            brightness: isDark ? Brightness.dark : Brightness.light,
+            scaffoldBackgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+            fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
+            textTheme: GoogleFonts.plusJakartaSansTextTheme(baseTheme.textTheme),
             elevatedButtonTheme: ElevatedButtonThemeData(
               style: ElevatedButton.styleFrom(
                 elevation: 0,
@@ -135,7 +95,7 @@ class AquaOpsApp extends StatelessWidget {
           initialRoute: '/login',
           routes: {
             '/login': (context) => const LoginScreen(),
-            '/signup': (context) => const SignUpScreen(),
+            '/signup': (context) => const SignupScreen(),
             '/profile': (context) =>
             currentUserRoleNotifier.value == 'customer'
                 ? const Scaffold(

@@ -12,9 +12,57 @@ import '../core/constants/zones.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // Collection Constants
+  static const String _colInventory = 'inventory';
+  static const String _colMaintenanceAlerts = 'maintenance_alerts';
+  static const String _colOrders = 'orders';
+  static const String _colUsers = 'users';
+  static const String _colAddresses = 'addresses';
+  static const String _colShifts = 'shifts';
+  static const String _colRiderCashouts = 'rider_cashouts';
+  static const String _colRefundRequests = 'refund_requests';
+  static const String _colSettings = 'settings';
+  static const String _colBranches = 'branches';
+
+  // Inventory Document ID Constants
+  static const String _invWaterRound = 'inv_water_round';
+  static const String _invWaterSlim = 'inv_water_slim';
+  static const String _invPkgCaps = 'inv_pkg_caps';
+  static const String _invPkgSeals = 'inv_pkg_seals';
+
+  // Settings Document ID Constants
+  static const String _docTermsPrivacy = 'terms_privacy';
+  static const String _docServiceArea = 'service_area';
+  static const String _docDeliveryFee = 'delivery_fee';
+  static const String _docGcashAccount = 'gcash_account';
+
+  // Path Helpers
+  CollectionReference<Map<String, dynamic>> _userAddressRef(String uid) {
+    return _db.collection(_colUsers).doc(uid).collection(_colAddresses);
+  }
+
+  // Helper for Order ID Generation
+  String _generateOrderNumber(String prefix) {
+    final docId = _db.collection(_colOrders).doc().id;
+    return '$prefix-${docId.substring(0, 6).toUpperCase()}';
+  }
+
+  // Pure Helper for Stock Clamping & Shortfall Calculation
+  ({int actualDeduction, bool shortfall}) _calculateStockAdjustment(
+      int currentStock,
+      int requestedQuantity,
+      ) {
+    if (requestedQuantity <= 0) {
+      return (actualDeduction: 0, shortfall: false);
+    }
+    final actual = requestedQuantity > currentStock ? currentStock : requestedQuantity;
+    final shortfall = actual < requestedQuantity;
+    return (actualDeduction: actual, shortfall: shortfall);
+  }
+
   // Stream of all inventory items, ordered by category then name
   Stream<List<InventoryModel>> getInventoryStream() {
-    return _db.collection('inventory').snapshots().map((snapshot) {
+    return _db.collection(_colInventory).snapshots().map((snapshot) {
       final items = snapshot.docs
           .map((doc) => InventoryModel.fromMap(doc.data(), doc.id))
           .toList();
@@ -27,7 +75,7 @@ class FirestoreService {
   }
 
   Future<void> restockItem(String itemId, int quantityToAdd) async {
-    await _db.collection('inventory').doc(itemId).update({
+    await _db.collection(_colInventory).doc(itemId).update({
       'currentStock': FieldValue.increment(quantityToAdd),
       // Clears the low-stock push-notification flag so a future dip below
       // threshold notifies again instead of staying silently suppressed.
@@ -37,7 +85,7 @@ class FirestoreService {
 
   // Stream of maintenance/machinery alerts, most urgent & soonest due first.
   Stream<List<MaintenanceAlertModel>> getMaintenanceAlertsStream() {
-    return _db.collection('maintenance_alerts').snapshots().map((snapshot) {
+    return _db.collection(_colMaintenanceAlerts).snapshots().map((snapshot) {
       final alerts = snapshot.docs
           .map((doc) => MaintenanceAlertModel.fromMap(doc.data(), doc.id))
           .toList();
@@ -52,11 +100,11 @@ class FirestoreService {
   }
 
   Future<void> addMaintenanceAlert(MaintenanceAlertModel alert) async {
-    await _db.collection('maintenance_alerts').add(alert.toMap());
+    await _db.collection(_colMaintenanceAlerts).add(alert.toMap());
   }
 
   Future<void> setMaintenanceAlertCompleted(String alertId, bool isCompleted) async {
-    await _db.collection('maintenance_alerts').doc(alertId).update({'isCompleted': isCompleted});
+    await _db.collection(_colMaintenanceAlerts).doc(alertId).update({'isCompleted': isCompleted});
   }
 
   // Records a walk-in POS sale and atomically deducts the water/packaging it consumed.
@@ -70,8 +118,8 @@ class FirestoreService {
     int packagingUnits = 0,
   }) async {
     final batch = _db.batch();
-    final orderRef = _db.collection('orders').doc();
-    final orderNumber = 'POS-${orderRef.id.substring(0, 6).toUpperCase()}';
+    final orderRef = _db.collection(_colOrders).doc();
+    final orderNumber = _generateOrderNumber('POS');
 
     batch.set(orderRef, {
       'orderNumber': orderNumber,
@@ -92,20 +140,20 @@ class FirestoreService {
     });
 
     if (roundGallons > 0) {
-      batch.update(_db.collection('inventory').doc('inv_water_round'), {
+      batch.update(_db.collection(_colInventory).doc(_invWaterRound), {
         'currentStock': FieldValue.increment(-roundGallons),
       });
     }
     if (slimGallons > 0) {
-      batch.update(_db.collection('inventory').doc('inv_water_slim'), {
+      batch.update(_db.collection(_colInventory).doc(_invWaterSlim), {
         'currentStock': FieldValue.increment(-slimGallons),
       });
     }
     if (packagingUnits > 0) {
-      batch.update(_db.collection('inventory').doc('inv_pkg_caps'), {
+      batch.update(_db.collection(_colInventory).doc(_invPkgCaps), {
         'currentStock': FieldValue.increment(-packagingUnits),
       });
-      batch.update(_db.collection('inventory').doc('inv_pkg_seals'), {
+      batch.update(_db.collection(_colInventory).doc(_invPkgSeals), {
         'currentStock': FieldValue.increment(-packagingUnits),
       });
     }
@@ -119,67 +167,12 @@ class FirestoreService {
   }
 
   OrderModel _orderFromData(Map<String, dynamic> data, String id) {
-    final itemsData = (data['items'] as List<dynamic>?) ?? [];
-    final createdAtRaw = data['createdAt'];
-    final deliveredAtRaw = data['deliveredAt'];
-
-    return OrderModel(
-      id: id,
-      orderNumber: data['orderNumber'] ?? '',
-      customerId: data['customerId'],
-      customerName: data['customerName'] ?? '',
-      customerPhone: data['customerPhone'] ?? '',
-      deliveryAddress: data['deliveryAddress'],
-      areaZone: data['areaZone'] ?? '',
-      barangayDisplayName: data['barangayDisplayName'],
-      items: itemsData.map((i) {
-        final item = i as Map<String, dynamic>;
-        return OrderItem(
-          name: item['name'] ?? '',
-          quantity: (item['quantity'] ?? 0).toInt(),
-          unitPrice: (item['unitPrice'] ?? 0).toDouble(),
-          requiresPackaging: item['requiresPackaging'] ?? true,
-          productKey: item['productKey'],
-        );
-      }).toList(),
-      totalAmount: (data['totalAmount'] ?? 0).toDouble(),
-      deliveryFee: (data['deliveryFee'] as num?)?.toDouble() ?? 0,
-      status: OrderStatus.values.firstWhere(
-        (s) => s.name == data['status'],
-        orElse: () => OrderStatus.pending,
-      ),
-      paymentMethod: PaymentMethod.values.firstWhere(
-        (p) => p.name == data['paymentMethod'],
-        orElse: () => PaymentMethod.cash,
-      ),
-      isPaid: data['isPaid'] ?? false,
-      gcashReference: data['gcashReference'],
-      assignedRiderId: data['assignedRiderId'],
-      assignedRiderName: data['assignedRiderName'],
-      gallonsDelivered: (data['gallonsDelivered'] ?? 0).toInt(),
-      emptyGallonsReturned: (data['emptyGallonsReturned'] ?? 0).toInt(),
-      unreturnedDiff: (data['unreturnedDiff'] ?? 0).toInt(),
-      proofOfDeliveryUrl: data['proofOfDeliveryUrl'],
-      recipientName: data['recipientName'],
-      gcashScreenshotUrl: data['gcashScreenshotUrl'],
-      deliveryLat: (data['deliveryLat'] as num?)?.toDouble(),
-      deliveryLng: (data['deliveryLng'] as num?)?.toDouble(),
-      riderLat: (data['riderLat'] as num?)?.toDouble(),
-      riderLng: (data['riderLng'] as num?)?.toDouble(),
-      lastTransferReason: data['lastTransferReason'],
-      paymentCollectedBy: data['paymentCollectedBy'],
-      paidAt: (data['paidAt'] as Timestamp?)?.toDate(),
-      orderSource: data['orderSource'],
-      stockDeductedAt: (data['stockDeductedAt'] as Timestamp?)?.toDate(),
-      stockShortfall: data['stockShortfall'] ?? false,
-      createdAt: createdAtRaw is Timestamp ? createdAtRaw.toDate() : DateTime.now(),
-      deliveredAt: deliveredAtRaw is Timestamp ? deliveredAtRaw.toDate() : null,
-    );
+    return OrderModel.fromMap(data, id);
   }
 
   // Stream of active (not yet delivered/cancelled) orders, newest first.
   Stream<List<OrderModel>> getActiveOrdersStream() {
-    return _db.collection('orders').snapshots().map((snapshot) {
+    return _db.collection(_colOrders).snapshots().map((snapshot) {
       final orders = snapshot.docs
           .map(_orderFromDoc)
           .where((o) => o.status != OrderStatus.delivered && o.status != OrderStatus.cancelled)
@@ -191,15 +184,15 @@ class FirestoreService {
 
   // Stream of every order, regardless of status — used for revenue/reporting.
   Stream<List<OrderModel>> getAllOrdersStream() {
-    return _db.collection('orders').snapshots().map(
-      (snapshot) => snapshot.docs.map(_orderFromDoc).toList(),
+    return _db.collection(_colOrders).snapshots().map(
+          (snapshot) => snapshot.docs.map(_orderFromDoc).toList(),
     );
   }
 
   // Stream of a single customer's own orders, newest first.
   Stream<List<OrderModel>> getOrdersForCustomerStream(String customerId) {
     return _db
-        .collection('orders')
+        .collection(_colOrders)
         .where('customerId', isEqualTo: customerId)
         .snapshots()
         .map((snapshot) {
@@ -226,8 +219,8 @@ class FirestoreService {
     double? deliveryLng,
     double deliveryFee = 0,
   }) async {
-    final orderRef = _db.collection('orders').doc();
-    final orderNumber = 'ORD-${orderRef.id.substring(0, 6).toUpperCase()}';
+    final orderRef = _db.collection(_colOrders).doc();
+    final orderNumber = _generateOrderNumber('ORD');
 
     await orderRef.set({
       'orderNumber': orderNumber,
@@ -258,9 +251,7 @@ class FirestoreService {
 
   // Places a staff-initiated delivery order from the POS counter — a
   // walk-in customer (possibly a guest with no account) who wants their
-  // order delivered instead of handed over on the spot. Keeps the ORD-
-  // prefix (not a separate DLV- prefix) because the notification feed and
-  // POS toast already key off of it.
+  // order delivered instead of handed over on the spot.
   Future<String> placeCounterDeliveryOrder({
     required String customerName,
     required String customerPhone,
@@ -273,8 +264,8 @@ class FirestoreService {
     String? gcashReference,
     double deliveryFee = 0,
   }) async {
-    final orderRef = _db.collection('orders').doc();
-    final orderNumber = 'ORD-${orderRef.id.substring(0, 6).toUpperCase()}';
+    final orderRef = _db.collection(_colOrders).doc();
+    final orderNumber = _generateOrderNumber('ORD');
     final bool isCounterPaid = paymentChoice == 'counter';
 
     await orderRef.set({
@@ -302,10 +293,8 @@ class FirestoreService {
   }
 
   // Cancelling is status-guarded: a delivered order can never be cancelled.
-  // Nothing is deducted from stock before delivery under the current
-  // timing, so a pre-delivery cancel has nothing to restore.
   Future<void> cancelOrder(String orderId) async {
-    final orderRef = _db.collection('orders').doc(orderId);
+    final orderRef = _db.collection(_colOrders).doc(orderId);
     await _db.runTransaction((transaction) async {
       final snap = await transaction.get(orderRef);
       if (!snap.exists) return;
@@ -317,29 +306,22 @@ class FirestoreService {
   }
 
   // Resolves which inventory doc (if any) an order item's quantity should
-  // be deducted from. Prefers the item's own productKey (set explicitly by
-  // the POS screen); falls back to name-matching for legacy/customer-app
-  // items that predate productKey, same rule the walk-in sale path already
-  // uses for its own New Jug item.
+  // be deducted from.
   String? _waterInventoryKeyFor(OrderItem item) {
     if (item.productKey != null) {
-      return (item.productKey == 'inv_water_round' || item.productKey == 'inv_water_slim')
+      return (item.productKey == _invWaterRound || item.productKey == _invWaterSlim)
           ? item.productKey
           : null;
     }
     final name = item.name.toLowerCase();
-    if (name.contains('slim') || name.contains('alkaline')) return 'inv_water_slim';
+    if (name.contains('slim') || name.contains('alkaline')) return _invWaterSlim;
     if (name.contains('round') || name.contains('gallon') || name.contains('jug')) {
-      return 'inv_water_round';
+      return _invWaterRound;
     }
-    return null; // e.g. 500ml bottled water — no inventory doc, no deduction
+    return null;
   }
 
-  // Fulfill drop-off: deducts water/caps/seals exactly once, derived from
-  // the order's own stored items (not the rider's manually-entered count),
-  // in a single transaction. Guards against a double-tap deducting twice,
-  // and never blocks the rider at the door over a stock mismatch — it just
-  // clamps at 0 and flags stockShortfall for the dispatcher to see.
+  // Fulfill drop-off: deducts water/caps/seals exactly once in a transaction.
   Future<void> fulfillDelivery({
     required String orderId,
     required String customerId,
@@ -349,7 +331,7 @@ class FirestoreService {
     String? proofOfDeliveryUrl,
     String? recipientName,
   }) async {
-    final orderRef = _db.collection('orders').doc(orderId);
+    final orderRef = _db.collection(_colOrders).doc(orderId);
 
     await _db.runTransaction((transaction) async {
       final orderSnap = await transaction.get(orderRef);
@@ -363,16 +345,9 @@ class FirestoreService {
       }
 
       final itemsData = (data['items'] as List<dynamic>?) ?? [];
-      final items = itemsData.map((i) {
-        final m = i as Map<String, dynamic>;
-        return OrderItem(
-          name: m['name'] ?? '',
-          quantity: (m['quantity'] ?? 0).toInt(),
-          unitPrice: (m['unitPrice'] ?? 0).toDouble(),
-          requiresPackaging: m['requiresPackaging'] ?? true,
-          productKey: m['productKey'],
-        );
-      }).toList();
+      final items = itemsData
+          .map((i) => OrderItem.fromMap(i as Map<String, dynamic>))
+          .toList();
 
       final Map<String, int> waterNeeded = {};
       int packagingNeeded = 0;
@@ -386,31 +361,47 @@ class FirestoreService {
         }
       }
 
-      // All reads must happen before any writes in a Firestore transaction,
-      // so gather every inventory doc's current stock first.
-      final Map<String, int> decrements = {};
-      bool shortfall = false;
+      // 1. READ STEP: Gather every inventory doc's current stock first.
+      final Map<String, int> waterCurrentStock = {};
       for (final entry in waterNeeded.entries) {
         if (entry.value <= 0) continue;
-        final invSnap = await transaction.get(_db.collection('inventory').doc(entry.key));
-        final current = ((invSnap.data()?['currentStock'] ?? 0) as num).toInt();
-        final actual = entry.value > current ? current : entry.value;
-        if (actual < entry.value) shortfall = true;
-        decrements[entry.key] = actual;
+        final invSnap = await transaction.get(_db.collection(_colInventory).doc(entry.key));
+        waterCurrentStock[entry.key] = ((invSnap.data()?['currentStock'] ?? 0) as num).toInt();
       }
+
+      final Map<String, int> pkgCurrentStock = {};
       if (packagingNeeded > 0) {
-        for (final key in ['inv_pkg_caps', 'inv_pkg_seals']) {
-          final invSnap = await transaction.get(_db.collection('inventory').doc(key));
-          final current = ((invSnap.data()?['currentStock'] ?? 0) as num).toInt();
-          final actual = packagingNeeded > current ? current : packagingNeeded;
-          if (actual < packagingNeeded) shortfall = true;
-          decrements[key] = actual;
+        for (final key in [_invPkgCaps, _invPkgSeals]) {
+          final invSnap = await transaction.get(_db.collection(_colInventory).doc(key));
+          pkgCurrentStock[key] = ((invSnap.data()?['currentStock'] ?? 0) as num).toInt();
         }
       }
 
+      // 2. CALCULATION STEP: Calculate decrements and shortfall using pure helper.
+      final Map<String, int> decrements = {};
+      bool shortfall = false;
+
+      for (final entry in waterNeeded.entries) {
+        if (entry.value <= 0) continue;
+        final current = waterCurrentStock[entry.key] ?? 0;
+        final adj = _calculateStockAdjustment(current, entry.value);
+        if (adj.shortfall) shortfall = true;
+        decrements[entry.key] = adj.actualDeduction;
+      }
+
+      if (packagingNeeded > 0) {
+        for (final key in [_invPkgCaps, _invPkgSeals]) {
+          final current = pkgCurrentStock[key] ?? 0;
+          final adj = _calculateStockAdjustment(current, packagingNeeded);
+          if (adj.shortfall) shortfall = true;
+          decrements[key] = adj.actualDeduction;
+        }
+      }
+
+      // 3. WRITE STEP: Execute all updates after reads are complete.
       for (final entry in decrements.entries) {
         if (entry.value <= 0) continue;
-        transaction.update(_db.collection('inventory').doc(entry.key), {
+        transaction.update(_db.collection(_colInventory).doc(entry.key), {
           'currentStock': FieldValue.increment(-entry.value),
         });
       }
@@ -427,8 +418,7 @@ class FirestoreService {
         'stockShortfall': shortfall,
         'deliveredAt': FieldValue.serverTimestamp(),
       };
-      // A counter-paid order was already settled at the register — never
-      // let this call overwrite its payment fields.
+
       if (data['paymentCollectedBy'] != 'counter') {
         orderUpdate['isPaid'] = true;
         orderUpdate['paymentMethod'] = paymentMethod;
@@ -438,37 +428,35 @@ class FirestoreService {
       transaction.update(orderRef, orderUpdate);
 
       if (customerId.isNotEmpty) {
-        transaction.update(_db.collection('users').doc(customerId), {
+        transaction.update(_db.collection(_colUsers).doc(customerId), {
           'unreturnedContainers': FieldValue.increment(unreturnedDiff),
         });
       }
     });
   }
 
-  // Stream of all rider accounts, for dispatch assignment.
-  // Stream of Staff and Rider accounts, for the owner's team management screen.
+  // Stream of Staff and Rider accounts.
   Stream<List<UserModel>> getTeamMembersStream() {
-    return _db.collection('users').where('role', whereIn: ['staff', 'rider']).snapshots().map((snapshot) {
+    return _db.collection(_colUsers).where('role', whereIn: ['staff', 'rider']).snapshots().map((snapshot) {
       final members = snapshot.docs.map((doc) => UserModel.fromMap(doc.data(), doc.id)).toList();
       members.sort((a, b) => a.name.compareTo(b.name));
       return members;
     });
   }
 
+  // Stream of all rider accounts.
   Stream<List<UserModel>> getRidersStream() {
-    return _db.collection('users').where('role', isEqualTo: 'rider').snapshots().map(
-      (snapshot) => snapshot.docs.map((doc) => UserModel.fromMap(doc.data(), doc.id)).toList(),
+    return _db.collection(_colUsers).where('role', isEqualTo: 'rider').snapshots().map(
+          (snapshot) => snapshot.docs.map((doc) => UserModel.fromMap(doc.data(), doc.id)).toList(),
     );
   }
 
-  // Assigning a rider is what actually dispatches the order — a pending
-  // order that gets a rider becomes "out for delivery" for real.
   Future<void> assignRider({
     required String orderId,
     required String riderId,
     required String riderName,
   }) async {
-    await _db.collection('orders').doc(orderId).update({
+    await _db.collection(_colOrders).doc(orderId).update({
       'assignedRiderId': riderId,
       'assignedRiderName': riderName,
       'status': 'outForDelivery',
@@ -476,37 +464,29 @@ class FirestoreService {
   }
 
   Future<UserModel?> getUser(String uid) async {
-    final doc = await _db.collection('users').doc(uid).get();
+    final doc = await _db.collection(_colUsers).doc(uid).get();
     if (doc.exists && doc.data() != null) {
       return UserModel.fromMap(doc.data()!, doc.id);
     }
     return null;
   }
 
-  // Live version of getUser — used where the profile should update on screen
-  // as soon as it changes (e.g. after an edit), without a manual refetch.
   Stream<UserModel?> getUserStream(String uid) {
-    return _db.collection('users').doc(uid).snapshots().map(
-      (doc) => (doc.exists && doc.data() != null) ? UserModel.fromMap(doc.data()!, doc.id) : null,
+    return _db.collection(_colUsers).doc(uid).snapshots().map(
+          (doc) => (doc.exists && doc.data() != null) ? UserModel.fromMap(doc.data()!, doc.id) : null,
     );
   }
 
   Future<void> createUser(UserModel user) async {
-    await _db.collection('users').doc(user.id).set(user.toMap());
+    await _db.collection(_colUsers).doc(user.id).set(user.toMap());
   }
 
-  // Saves this device's FCM token so the notification-check script (run on
-  // a schedule by GitHub Actions, since this project doesn't use Cloud
-  // Functions) knows where to send a push for this user.
   Future<void> saveFcmToken(String uid, String token) async {
-    await _db.collection('users').doc(uid).update({'fcmToken': token});
+    await _db.collection(_colUsers).doc(uid).update({'fcmToken': token});
   }
 
-  // Removes a team member's AquaOps profile document. Does NOT delete their
-  // Firebase Auth login — that requires Admin SDK privileges we don't have
-  // client-side, so their account can still authenticate even after this.
   Future<void> deleteUserProfile(String uid) async {
-    await _db.collection('users').doc(uid).delete();
+    await _db.collection(_colUsers).doc(uid).delete();
   }
 
   Future<void> updateUserProfile({
@@ -515,7 +495,7 @@ class FirestoreService {
     required String phone,
     String? address,
   }) async {
-    await _db.collection('users').doc(uid).update({
+    await _db.collection(_colUsers).doc(uid).update({
       'name': name,
       'phone': phone,
       if (address != null) 'address': address,
@@ -523,25 +503,36 @@ class FirestoreService {
   }
 
   Future<void> setNotificationsEnabled(String uid, bool enabled) async {
-    await _db.collection('users').doc(uid).update({'notificationsEnabled': enabled});
+    await _db.collection(_colUsers).doc(uid).update({'notificationsEnabled': enabled});
   }
 
-  // Stream of the currently open shift, if any (null when none is open).
+  // Helper mapping for Shift snapshots
+  ShiftModel? _mapShiftSnapshot(QuerySnapshot<Map<String, dynamic>> snapshot) {
+    return snapshot.docs.isEmpty
+        ? null
+        : ShiftModel.fromMap(snapshot.docs.first.data(), snapshot.docs.first.id);
+  }
+
   Stream<ShiftModel?> getOpenShiftStream() {
-    return _db.collection('shifts').where('status', isEqualTo: 'open').limit(1).snapshots().map(
-      (snapshot) => snapshot.docs.isEmpty ? null : ShiftModel.fromMap(snapshot.docs.first.data(), snapshot.docs.first.id),
-    );
+    return _db
+        .collection(_colShifts)
+        .where('status', isEqualTo: 'open')
+        .limit(1)
+        .snapshots()
+        .map(_mapShiftSnapshot);
   }
 
-  // Stream of the most recently opened shift, open or closed — for status display.
   Stream<ShiftModel?> getLatestShiftStream() {
-    return _db.collection('shifts').orderBy('openedAt', descending: true).limit(1).snapshots().map(
-      (snapshot) => snapshot.docs.isEmpty ? null : ShiftModel.fromMap(snapshot.docs.first.data(), snapshot.docs.first.id),
-    );
+    return _db
+        .collection(_colShifts)
+        .orderBy('openedAt', descending: true)
+        .limit(1)
+        .snapshots()
+        .map(_mapShiftSnapshot);
   }
 
   Future<void> openShift({required String openedByName, required double openingCash}) async {
-    await _db.collection('shifts').add({
+    await _db.collection(_colShifts).add({
       'openedByName': openedByName,
       'openingCash': openingCash,
       'openedAt': FieldValue.serverTimestamp(),
@@ -549,8 +540,6 @@ class FirestoreService {
     });
   }
 
-  // Closes a shift and reconciles it: expected cash = opening float + all
-  // paid cash sales recorded since the shift opened.
   Future<double> closeShift({
     required String shiftId,
     required DateTime openedAt,
@@ -559,14 +548,11 @@ class FirestoreService {
     required String closedByName,
   }) async {
     final snapshot = await _db
-        .collection('orders')
+        .collection(_colOrders)
         .where('paymentMethod', isEqualTo: 'cash')
         .where('isPaid', isEqualTo: true)
         .get();
 
-    // Uses paidDate (not revenueDate) so a counter-paid order counts in the
-    // shift it was actually paid in, not double-counted again at delivery
-    // time in a later shift. Cancelled orders are excluded outright.
     final cashCollected = snapshot.docs
         .map(_orderFromDoc)
         .where((o) => o.status != OrderStatus.cancelled && !o.paidDate.isBefore(openedAt))
@@ -575,7 +561,7 @@ class FirestoreService {
     final expectedCash = openingCash + cashCollected;
     final discrepancy = closingCash - expectedCash;
 
-    await _db.collection('shifts').doc(shiftId).update({
+    await _db.collection(_colShifts).doc(shiftId).update({
       'status': 'closed',
       'closedByName': closedByName,
       'closingCash': closingCash,
@@ -587,11 +573,9 @@ class FirestoreService {
     return discrepancy;
   }
 
-  // Stream of a rider's most recent cash-out, closed or not — used both to
-  // display their last result and to know the cutoff for their next one.
   Stream<RiderCashOutModel?> getLatestRiderCashOutStream(String riderId) {
     return _db
-        .collection('rider_cashouts')
+        .collection(_colRiderCashouts)
         .where('riderId', isEqualTo: riderId)
         .snapshots()
         .map((snapshot) {
@@ -602,9 +586,6 @@ class FirestoreService {
     });
   }
 
-  // Reconciles a rider's cash-out: tallies their delivered orders since their
-  // last cash-out (or all time, if this is their first) and records the
-  // physical cash actually handed over against what was expected.
   Future<double> closeRiderCashOut({
     required String riderId,
     required String riderName,
@@ -613,19 +594,16 @@ class FirestoreService {
     required String verifiedByName,
   }) async {
     final snapshot = await _db
-        .collection('orders')
+        .collection(_colOrders)
         .where('assignedRiderId', isEqualTo: riderId)
         .where('status', isEqualTo: 'delivered')
         .get();
 
     final orders = snapshot.docs.map(_orderFromDoc).where((o) => o.revenueDate.isAfter(since)).toList();
-
-    // Shared with the cash-out modal's live preview (rider_cash_out_modal.dart)
-    // so the two can never compute different numbers for the same rider.
     final summary = summarizeRiderCashOut(orders);
     final discrepancy = cashHandedOver - summary.cashCollected;
 
-    await _db.collection('rider_cashouts').add({
+    await _db.collection(_colRiderCashouts).add({
       'riderId': riderId,
       'riderName': riderName,
       'stopsCompleted': summary.stopsCompleted,
@@ -642,8 +620,6 @@ class FirestoreService {
     return discrepancy;
   }
 
-  // Bulk-reassigns every active (not yet delivered) order currently on a
-  // rider's queue to a different rider — an emergency route handoff.
   Future<int> transferRiderOrders({
     required String fromRiderId,
     required String toRiderId,
@@ -651,7 +627,7 @@ class FirestoreService {
     required String reason,
   }) async {
     final snapshot = await _db
-        .collection('orders')
+        .collection(_colOrders)
         .where('assignedRiderId', isEqualTo: fromRiderId)
         .where('status', isEqualTo: 'outForDelivery')
         .get();
@@ -671,12 +647,8 @@ class FirestoreService {
     return snapshot.docs.length;
   }
 
-  // Stream of a customer's saved delivery addresses, oldest (primary) first.
   Stream<List<SavedAddressModel>> getSavedAddressesStream(String uid) {
-    return _db
-        .collection('users')
-        .doc(uid)
-        .collection('addresses')
+    return _userAddressRef(uid)
         .orderBy('createdAt')
         .snapshots()
         .map((snapshot) => snapshot.docs.map((doc) => SavedAddressModel.fromMap(doc.data(), doc.id)).toList());
@@ -691,7 +663,7 @@ class FirestoreService {
     String? phone,
     bool isPrimary = false,
   }) async {
-    final addressesRef = _db.collection('users').doc(uid).collection('addresses');
+    final addressesRef = _userAddressRef(uid);
     final newAddress = SavedAddressModel(
       id: '',
       label: label,
@@ -707,7 +679,6 @@ class FirestoreService {
       return;
     }
 
-    // Only one address may be primary at a time, so demote any existing one first.
     final currentPrimary = await addressesRef.where('isPrimary', isEqualTo: true).get();
     final batch = _db.batch();
     for (final doc in currentPrimary.docs) {
@@ -722,29 +693,33 @@ class FirestoreService {
     required String addressId,
     required String label,
   }) async {
-    await _db.collection('users').doc(uid).collection('addresses').doc(addressId).update({'label': label});
+    await _userAddressRef(uid).doc(addressId).update({'label': label});
   }
 
   Future<void> deleteSavedAddress({required String uid, required String addressId}) async {
-    await _db.collection('users').doc(uid).collection('addresses').doc(addressId).delete();
+    await _userAddressRef(uid).doc(addressId).delete();
   }
 
-  // Stream of all refund requests (owner/staff view), newest first.
+  // Helper mapping for Refund Request snapshots
+  List<RefundModel> _mapRefundRequestsSnapshot(QuerySnapshot<Map<String, dynamic>> snapshot) {
+    final refunds = snapshot.docs.map((doc) => RefundModel.fromMap(doc.data(), doc.id)).toList();
+    refunds.sort((a, b) => b.requestedAt.compareTo(a.requestedAt));
+    return refunds;
+  }
+
   Stream<List<RefundModel>> getRefundRequestsStream() {
-    return _db.collection('refund_requests').snapshots().map((snapshot) {
-      final refunds = snapshot.docs.map((doc) => RefundModel.fromMap(doc.data(), doc.id)).toList();
-      refunds.sort((a, b) => b.requestedAt.compareTo(a.requestedAt));
-      return refunds;
-    });
+    return _db
+        .collection(_colRefundRequests)
+        .snapshots()
+        .map(_mapRefundRequestsSnapshot);
   }
 
-  // Stream of a single customer's own refund requests, newest first.
   Stream<List<RefundModel>> getRefundRequestsForCustomerStream(String customerId) {
-    return _db.collection('refund_requests').where('customerId', isEqualTo: customerId).snapshots().map((snapshot) {
-      final refunds = snapshot.docs.map((doc) => RefundModel.fromMap(doc.data(), doc.id)).toList();
-      refunds.sort((a, b) => b.requestedAt.compareTo(a.requestedAt));
-      return refunds;
-    });
+    return _db
+        .collection(_colRefundRequests)
+        .where('customerId', isEqualTo: customerId)
+        .snapshots()
+        .map(_mapRefundRequestsSnapshot);
   }
 
   Future<void> submitRefundRequest({
@@ -760,7 +735,7 @@ class FirestoreService {
     String itemsSummary = '',
     String? photoUrl,
   }) async {
-    await _db.collection('refund_requests').add({
+    await _db.collection(_colRefundRequests).add({
       'orderId': orderId,
       'orderNumber': orderNumber,
       'customerId': customerId,
@@ -786,7 +761,7 @@ class FirestoreService {
     String? gcashRefNumber,
     DateTime? redeliveryScheduledAt,
   }) async {
-    await _db.collection('refund_requests').doc(refundId).update({
+    await _db.collection(_colRefundRequests).doc(refundId).update({
       'status': status,
       'processedByName': processedByName,
       if (resolutionType != null) 'resolutionType': resolutionType,
@@ -797,27 +772,24 @@ class FirestoreService {
     });
   }
 
-  // Live Terms & Privacy content, editable by the owner without a rebuild.
   Stream<Map<String, dynamic>?> getTermsPrivacyStream() {
-    return _db.collection('settings').doc('terms_privacy').snapshots().map((doc) => doc.data());
+    return _db.collection(_colSettings).doc(_docTermsPrivacy).snapshots().map((doc) => doc.data());
   }
 
   Future<Map<String, dynamic>?> getTermsPrivacyOnce() async {
-    final doc = await _db.collection('settings').doc('terms_privacy').get();
+    final doc = await _db.collection(_colSettings).doc(_docTermsPrivacy).get();
     return doc.data();
   }
 
   Future<void> updateTermsPrivacy(Map<String, dynamic> data) async {
-    await _db.collection('settings').doc('terms_privacy').set({
+    await _db.collection(_colSettings).doc(_docTermsPrivacy).set({
       ...data,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
-  // Whether address pickers should restrict input to the San Pablo barangay
-  // list (true, default) or accept free-text addresses from anywhere.
   Stream<bool> getServiceAreaRestrictedStream() {
-    return _db.collection('settings').doc('service_area').snapshots().map((doc) {
+    return _db.collection(_colSettings).doc(_docServiceArea).snapshots().map((doc) {
       final data = doc.data();
       if (data == null || data['sanPabloOnly'] == null) return true;
       return data['sanPabloOnly'] as bool;
@@ -825,19 +797,14 @@ class FirestoreService {
   }
 
   Future<void> setServiceAreaRestricted(bool sanPabloOnly) async {
-    await _db.collection('settings').doc('service_area').set({
+    await _db.collection(_colSettings).doc(_docServiceArea).set({
       'sanPabloOnly': sanPabloOnly,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
-  // Distance-based delivery fee config, owner-editable: a flat base plus a
-  // per-km rate applied to the real road distance from the station to the
-  // delivery address (see LocationService.getRoadDistanceKm). Both default
-  // to 0 until an owner explicitly sets them, so nothing changes/surprises
-  // anyone on first load.
   Stream<({double baseFee, double ratePerKm})> getDeliveryFeeConfigStream() {
-    return _db.collection('settings').doc('delivery_fee').snapshots().map((doc) {
+    return _db.collection(_colSettings).doc(_docDeliveryFee).snapshots().map((doc) {
       final data = doc.data();
       final base = (data?['baseFee'] as num?)?.toDouble() ?? 0.0;
       final rate = (data?['ratePerKm'] as num?)?.toDouble() ?? 0.0;
@@ -846,22 +813,15 @@ class FirestoreService {
   }
 
   Future<void> setDeliveryFeeConfig({required double baseFee, required double ratePerKm}) async {
-    await _db.collection('settings').doc('delivery_fee').set({
+    await _db.collection(_colSettings).doc(_docDeliveryFee).set({
       'baseFee': baseFee,
       'ratePerKm': ratePerKm,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
-  // The GCash account customers/cashiers are told to pay — editable by the
-  // owner so a maxed-out or compromised GCash number can be swapped without
-  // a code change. Defaults keep the previously-hardcoded values until an
-  // owner explicitly sets this. qrImageUrl, when set, is a photo of the
-  // owner's own GCash app's personal "My QR" code — the only kind of GCash
-  // QR the real GCash app will actually recognize as valid when scanned;
-  // null until an owner uploads one.
   Stream<({String accountName, String accountNumber, String? qrImageUrl})> getGcashAccountStream() {
-    return _db.collection('settings').doc('gcash_account').snapshots().map((doc) {
+    return _db.collection(_colSettings).doc(_docGcashAccount).snapshots().map((doc) {
       final data = doc.data();
       final name = (data?['accountName'] as String?) ?? 'Station Owner (Aquaflow)';
       final number = (data?['accountNumber'] as String?) ?? '09171234567';
@@ -871,7 +831,7 @@ class FirestoreService {
   }
 
   Future<void> setGcashAccount({required String accountName, required String accountNumber, String? qrImageUrl}) async {
-    await _db.collection('settings').doc('gcash_account').set({
+    await _db.collection(_colSettings).doc(_docGcashAccount).set({
       'accountName': accountName,
       'accountNumber': accountNumber,
       'qrImageUrl': qrImageUrl,
@@ -879,16 +839,14 @@ class FirestoreService {
     });
   }
 
-  // Station branches — groundwork for future multi-branch support. Not yet
-  // consumed by orders/inventory/staff, which still assume a single station.
   Stream<List<BranchModel>> getBranchesStream() {
-    return _db.collection('branches').orderBy('createdAt').snapshots().map(
+    return _db.collection(_colBranches).orderBy('createdAt').snapshots().map(
           (snapshot) => snapshot.docs.map((doc) => BranchModel.fromMap(doc.data(), doc.id)).toList(),
-        );
+    );
   }
 
   Future<void> addBranch({required String name, required String address, String? phone}) async {
-    await _db.collection('branches').add(
+    await _db.collection(_colBranches).add(
       BranchModel(id: '', name: name, address: address, phone: phone).toMap(),
     );
   }
@@ -899,7 +857,7 @@ class FirestoreService {
     required String address,
     String? phone,
   }) async {
-    await _db.collection('branches').doc(branchId).update({
+    await _db.collection(_colBranches).doc(branchId).update({
       'name': name,
       'address': address,
       'phone': phone,
@@ -907,28 +865,23 @@ class FirestoreService {
   }
 
   Future<void> deleteBranch(String branchId) async {
-    await _db.collection('branches').doc(branchId).delete();
+    await _db.collection(_colBranches).doc(branchId).delete();
   }
 
-  // Live view of a single order — used by the map screen to watch
-  // riderLat/riderLng update in real time while a delivery is in progress.
   Stream<OrderModel?> watchOrder(String orderId) {
-    return _db.collection('orders').doc(orderId).snapshots().map((doc) {
+    return _db.collection(_colOrders).doc(orderId).snapshots().map((doc) {
       final data = doc.data();
       if (data == null) return null;
       return _orderFromData(data, doc.id);
     });
   }
 
-  // Called by RiderLocationService on each GPS update while a delivery is
-  // out for the door — a plain field write, covered by the existing
-  // "rider can update their own assigned order, any field" rule.
   Future<void> updateRiderLocation({
     required String orderId,
     required double lat,
     required double lng,
   }) async {
-    await _db.collection('orders').doc(orderId).update({
+    await _db.collection(_colOrders).doc(orderId).update({
       'riderLat': lat,
       'riderLng': lng,
     });

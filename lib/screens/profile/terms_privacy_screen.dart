@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../core/constants/app_colors.dart';
 import '../../services/firestore_service.dart';
+import '../../widgets/sub_screen_header.dart'; // TASK 2.1: Reusable SubScreenHeader widget import
 
 class TermsPrivacyScreen extends StatefulWidget {
   const TermsPrivacyScreen({super.key});
@@ -44,21 +46,10 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
   final FirestoreService _firestoreService = FirestoreService();
 
   static const String _font = 'Plus Jakarta Sans';
-  static const Color _background = Color(0xFFF6FAFC);
-  static const Color _sky600 = Color(0xFF0284C7);
-  static const Color _sky700 = Color(0xFF0369A1);
-  static const Color _sky50 = Color(0xFFF0F9FF);
   static const Color _teal600 = Color(0xFF0D9488);
   static const Color _teal800 = Color(0xFF115E59);
   static const Color _teal50 = Color(0xFFF0FDFA);
   static const Color _teal200 = Color(0xFF99F6E4);
-  static const Color _slate900 = Color(0xFF0F172A);
-  static const Color _slate800 = Color(0xFF1E293B);
-  static const Color _slate600 = Color(0xFF475569);
-  static const Color _slate500 = Color(0xFF64748B);
-  static const Color _slate400 = Color(0xFF94A3B8);
-  static const Color _slate200 = Color(0xFFE2E8F0);
-  static const Color _slate100 = Color(0xFFF1F5F9);
 
   List<BoxShadow> get _shadowSm => [
     BoxShadow(
@@ -77,7 +68,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
     messenger.showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: _slate900.withValues(alpha: 0.95),
+        backgroundColor: AppColors.backgroundDark.withValues(alpha: 0.95),
         elevation: 6,
         margin: EdgeInsets.fromLTRB(20, 0, 20, 24 + bottomInset),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
@@ -113,41 +104,8 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
     }
   }
 
-  Widget _buildHeader() {
-    return SizedBox(
-      height: 64,
-      width: double.infinity,
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => Navigator.maybePop(context),
-            child: const Padding(
-              padding: EdgeInsets.all(8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.arrow_back, color: Color(0xFF475569), size: 22),
-                  SizedBox(width: 6),
-                  Text(
-                    'Back to Profile',
-                    style: TextStyle(
-                      fontFamily: _font,
-                      color: Color(0xFF475569),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // NOTE (Task 2.1 Refactor): The private local '_buildHeader()' block was removed
+  // in favor of the shared 'SubScreenHeader' widget.
 
   Widget _buildTitleBlock() {
     return const Column(
@@ -161,7 +119,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
             fontWeight: FontWeight.w800,
             height: 32 / 24,
             letterSpacing: -0.6,
-            color: _slate900,
+            color: AppColors.backgroundDark,
           ),
         ),
         SizedBox(height: 6),
@@ -170,7 +128,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
           children: [
             Padding(
               padding: EdgeInsets.only(top: 1),
-              child: Icon(Icons.water_drop_outlined, size: 15, color: _sky600),
+              child: Icon(Icons.water_drop_outlined, size: 15, color: AppColors.primarySky),
             ),
             SizedBox(width: 6),
             Expanded(
@@ -181,7 +139,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   height: 1.625,
-                  color: _slate500,
+                  color: AppColors.slate500,
                 ),
               ),
             ),
@@ -211,7 +169,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
               fontSize: 14,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.7,
-              color: _slate800,
+              color: AppColors.surfaceDark,
             ),
           ),
         ),
@@ -226,10 +184,10 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: _sky50,
+            color: AppColors.surfaceIce,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, size: 17, color: _sky700),
+          child: Icon(icon, size: 17, color: AppColors.primarySkyDark),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -243,7 +201,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   height: 16 / 10,
-                  color: _slate400,
+                  color: AppColors.slate400,
                 ),
               ),
               Text(
@@ -253,7 +211,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   height: 16 / 12,
-                  color: _slate800,
+                  color: AppColors.surfaceDark,
                 ),
               ),
             ],
@@ -270,7 +228,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _slate200.withValues(alpha: 0.7)),
+        border: Border.all(color: AppColors.slate200.withValues(alpha: 0.7)),
         boxShadow: _shadowSm,
       ),
       child: Row(
@@ -286,7 +244,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
             width: 1,
             height: 28,
             margin: const EdgeInsets.symmetric(horizontal: 10),
-            color: _slate200,
+            color: AppColors.slate200,
           ),
           Expanded(
             child: _buildInfoBlock(
@@ -316,7 +274,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
             fontSize: 12,
             fontWeight: FontWeight.w700,
             height: 16 / 12,
-            color: _slate900,
+            color: AppColors.backgroundDark,
           ),
         ),
         const SizedBox(height: 6),
@@ -327,7 +285,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
             fontSize: 12,
             fontWeight: FontWeight.w400,
             height: 1.625,
-            color: _slate600,
+            color: AppColors.slate600,
           ),
         ),
       ],
@@ -340,7 +298,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
       children.add(clauses[i]);
       if (i != clauses.length - 1) {
         children.add(const SizedBox(height: 16));
-        children.add(Container(height: 1, color: _slate100));
+        children.add(Container(height: 1, color: AppColors.slate100));
         children.add(const SizedBox(height: 16));
       }
     }
@@ -350,7 +308,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _slate200.withValues(alpha: 0.7)),
+        border: Border.all(color: AppColors.slate200.withValues(alpha: 0.7)),
         boxShadow: _shadowSm,
       ),
       child: Column(
@@ -364,13 +322,13 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Part 1: Terms of Service', _sky600),
+        _buildSectionTitle('Part 1: Terms of Service', AppColors.primarySky),
         const SizedBox(height: 24),
         _buildInfoCard(effectiveDate, jurisdiction),
         const SizedBox(height: 24),
         _buildClauseCard([
           for (int i = 0; i < clauses.length; i++)
-            _buildClause('${i + 1}.', clauses[i]['title'] ?? '', clauses[i]['body'] ?? '', _sky600),
+            _buildClause('${i + 1}.', clauses[i]['title'] ?? '', clauses[i]['body'] ?? '', AppColors.primarySky),
         ]),
       ],
     );
@@ -379,11 +337,11 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
   Widget _buildDivider() {
     return const Row(
       children: [
-        Expanded(child: Divider(height: 1, thickness: 1, color: _slate200)),
+        Expanded(child: Divider(height: 1, thickness: 1, color: AppColors.slate200)),
         SizedBox(width: 12),
-        Icon(Icons.shield_outlined, size: 14, color: _slate400),
+        Icon(Icons.shield_outlined, size: 14, color: AppColors.slate400),
         SizedBox(width: 12),
-        Expanded(child: Divider(height: 1, thickness: 1, color: _slate200)),
+        Expanded(child: Divider(height: 1, thickness: 1, color: AppColors.slate200)),
       ],
     );
   }
@@ -445,7 +403,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
                     text: contactEmail,
                     style: const TextStyle(
                       fontWeight: FontWeight.w500,
-                      color: _sky700,
+                      color: AppColors.primarySkyDark,
                     ),
                   ),
                   const TextSpan(text: '.'),
@@ -457,7 +415,7 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
                 fontSize: 11,
                 fontWeight: FontWeight.w400,
                 height: 1.625,
-                color: _slate400,
+                color: AppColors.slate400,
               ),
             ),
           ),
@@ -474,11 +432,11 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
         height: 50,
         width: double.infinity,
         decoration: BoxDecoration(
-          color: _sky600,
+          color: AppColors.primarySky,
           borderRadius: BorderRadius.circular(9999),
           boxShadow: [
             BoxShadow(
-              color: _sky600.withValues(alpha: 0.38),
+              color: AppColors.primarySky.withValues(alpha: 0.38),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -521,12 +479,13 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: AppColors.surfaceBackground,
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            _buildHeader(),
+            // TASK 2.1: Replaced private '_buildHeader()' call with shared SubScreenHeader widget
+            const SubScreenHeader(),
             Expanded(
               child: StreamBuilder<Map<String, dynamic>?>(
                 stream: _firestoreService.getTermsPrivacyStream(),

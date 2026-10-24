@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/layout_constants.dart';
+import '../../widgets/sub_screen_header.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -25,15 +27,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   bool _showConfirm = false;
 
   static const String _font = 'Plus Jakarta Sans';
-  static const Color _background = Color(0xFFF6FAFC);
-  static const Color _blue = Color(0xFF0284C7);
-  static const Color _slate900 = Color(0xFF0F172A);
-  static const Color _slate800 = Color(0xFF1E293B);
-  static const Color _slate600 = Color(0xFF475569);
-  static const Color _slate500 = Color(0xFF64748B);
-  static const Color _slate400 = Color(0xFF94A3B8);
-  static const Color _slate200 = Color(0xFFE2E8F0);
-  static const double _maxWidth = 450;
   static const double _sidePadding = 20;
 
   @override
@@ -111,42 +104,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     });
   }
 
-  Widget _buildHeader() {
-    return SizedBox(
-      height: 64,
-      width: double.infinity,
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => Navigator.maybePop(context),
-            child: const Padding(
-              padding: EdgeInsets.all(8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.arrow_back, color: Color(0xFF475569), size: 22),
-                  SizedBox(width: 6),
-                  Text(
-                    'Back to Profile',
-                    style: TextStyle(
-                      fontFamily: _font,
-                      color: Color(0xFF475569),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildTitleBlock() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -155,9 +112,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           width: 64,
           height: 64,
           decoration: BoxDecoration(
-            color: const Color(0xFFE0F2FE),
+            color: AppColors.surfaceFrost,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFBAE6FD).withValues(alpha: 0.8), width: 1),
+            border: Border.all(color: AppColors.sky200.withValues(alpha: 0.8), width: 1),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
@@ -166,7 +123,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               ),
             ],
           ),
-          child: const Icon(Icons.verified_user_outlined, size: 32, color: _blue),
+          child: const Icon(Icons.verified_user_outlined, size: 32, color: AppColors.primarySky),
         ),
         const SizedBox(height: 16),
         const Text(
@@ -178,7 +135,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             fontWeight: FontWeight.w700,
             height: 32 / 24,
             letterSpacing: -0.6,
-            color: _slate900,
+            color: AppColors.backgroundDark,
           ),
         ),
         const SizedBox(height: 4),
@@ -190,7 +147,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             fontSize: 12,
             fontWeight: FontWeight.w500,
             height: 16 / 12,
-            color: _slate500,
+            color: AppColors.slate500,
           ),
         ),
       ],
@@ -225,7 +182,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   height: 16 / 12,
-                  color: _slate600,
+                  color: AppColors.slate600,
                 ),
               ),
               if (showForgot)
@@ -236,7 +193,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     height: 16 / 12,
-                    color: _blue,
+                    color: AppColors.primarySky,
                   ),
                 ),
             ],
@@ -249,13 +206,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: hasError ? AppColors.error : (focused ? _blue : _slate200),
+              color: hasError ? AppColors.error : (focused ? AppColors.primarySky : AppColors.slate200),
               width: hasError ? 1.5 : 1,
             ),
             boxShadow: focused
                 ? [
               BoxShadow(
-                color: _blue.withValues(alpha: 0.2),
+                color: AppColors.primarySky.withValues(alpha: 0.2),
                 blurRadius: 0,
                 spreadRadius: 2,
               ),
@@ -272,7 +229,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             children: [
               Padding(
                 padding: const EdgeInsets.only(left: 16, right: 8),
-                child: Icon(icon, size: 20, color: _blue),
+                child: Icon(icon, size: 20, color: AppColors.primarySky),
               ),
               Expanded(
                 child: TextField(
@@ -282,7 +239,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   style: const TextStyle(
                     fontFamily: _font,
                     fontSize: 14,
-                    color: _slate800,
+                    color: AppColors.surfaceDark,
                   ),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
@@ -295,7 +252,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     hintStyle: const TextStyle(
                       fontFamily: _font,
                       fontSize: 14,
-                      color: _slate400,
+                      color: AppColors.slate400,
                     ),
                   ),
                 ),
@@ -308,7 +265,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   child: Icon(
                     visible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                     size: 20,
-                    color: _slate400,
+                    color: AppColors.slate400,
                   ),
                 ),
               ),
@@ -338,7 +295,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         child: Container(
           height: 6,
           decoration: BoxDecoration(
-            color: _strength > index ? _blue : _slate200,
+            color: _strength > index ? AppColors.primarySky : AppColors.slate200,
             borderRadius: BorderRadius.circular(9999),
           ),
         ),
@@ -366,11 +323,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
     final Color background = _isMatch
         ? AppColors.secondaryContainer.withValues(alpha: 0.3)
-        : (hasConfirm ? AppColors.errorContainer.withValues(alpha: 0.4) : const Color(0xFFF0F9FF));
+        : (hasConfirm ? AppColors.errorContainer.withValues(alpha: 0.4) : AppColors.surfaceIce);
     final Color borderColor = _isMatch
         ? AppColors.secondary.withValues(alpha: 0.2)
-        : (hasConfirm ? AppColors.error.withValues(alpha: 0.2) : const Color(0xFFE0F2FE));
-    final Color iconColor = _isMatch ? AppColors.secondary : (hasConfirm ? AppColors.error : _blue);
+        : (hasConfirm ? AppColors.error.withValues(alpha: 0.2) : AppColors.surfaceFrost);
+    final Color iconColor = _isMatch ? AppColors.secondary : (hasConfirm ? AppColors.error : AppColors.primarySky);
     final Color textColor = _isMatch ? AppColors.secondary : (hasConfirm ? AppColors.error : const Color(0xFF075985));
 
     return Container(
@@ -468,7 +425,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              color: canSubmit || _isSubmitting ? _blue : _blue.withValues(alpha: 0.5),
+              color: canSubmit || _isSubmitting ? AppColors.primarySky : AppColors.primarySky.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(9999),
               boxShadow: canSubmit
                   ? [
@@ -535,7 +492,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     height: 20 / 14,
-                    color: _slate500,
+                    color: AppColors.slate500,
                   ),
                 ),
               ),
@@ -552,17 +509,17 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: AppColors.surfaceBackground,
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            _buildHeader(),
+            const SubScreenHeader(),
             Expanded(
               child: Align(
                 alignment: Alignment.topCenter,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: _maxWidth),
+                  constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
                   child: CustomScrollView(
                     physics: const BouncingScrollPhysics(),
                     keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,

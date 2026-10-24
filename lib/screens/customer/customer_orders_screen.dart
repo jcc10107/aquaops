@@ -1,13 +1,14 @@
-import 'dart:math' as math;
-
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/layout_constants.dart'; // Added centralized layout constants
+import '../../core/theme/app_typography.dart';
 import '../../models/order_model.dart';
 import '../../models/refund_model.dart';
+import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/custom_header.dart';
+import '../../widgets/proof_of_delivery_dialog.dart';
+import '../../widgets/screen_title_block.dart';
 import 'customer_map_screen.dart';
 import 'customer_refund_request_screen.dart';
 
@@ -37,40 +38,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
   final TextEditingController _historySearchCtrl = TextEditingController();
   final FirestoreService _firestoreService = FirestoreService();
 
-  static const Color _surfaceCanvas = Color(0xFFF8FAFC);
-  static const Color _surfaceContainerLowest = Color(0xFFFFFFFF);
-  static const Color _surfaceContainer = Color(0xFFEAEDFF);
-  static const Color _surfaceContainerLow = Color(0xFFF2F3FF);
-  static const Color _surfaceFrost = Color(0xFFE0F2FE);
-  static const Color _surfaceIce = Color(0xFFF0F9FF);
   static const Color _surfaceDim = Color(0xFFD2D9F4);
-  static const Color _onSurface = Color(0xFF131B2E);
-  static const Color _onSurfaceVariant = Color(0xFF3F4850);
-  static const Color _outline = Color(0xFF707881);
-
-  static const Color _primary = Color(0xFF0284C7);
-  static const Color _cyanElectric = Color(0xFF06B6D4);
-
-  static const Color _secondary = Color(0xFF006C49);
-  static const Color _secondaryContainer = Color(0xFF6CF8BB);
-  static const Color _onSecondaryContainer = Color(0xFF00714D);
-
-  static const Color _errorContainer = Color(0xFFFFDAD6);
-  static const Color _errorText = Color(0xFF93000A);
-
-  static const Color _amber50 = Color(0xFFFFFBEB);
-  static const Color _amber200 = Color(0xFFFDE68A);
-  static const Color _amber500 = Color(0xFFF59E0B);
-  static const Color _amber800 = Color(0xFF92400E);
-
-  static const Color _slate50 = Color(0xFFF8FAFC);
-  static const Color _slate100 = Color(0xFFF1F5F9);
-  static const Color _slate200 = Color(0xFFE2E8F0);
-  static const Color _slate400 = Color(0xFF94A3B8);
-  static const Color _slate500 = Color(0xFF64748B);
-  static const Color _slate600 = Color(0xFF475569);
-  static const Color _slate800 = Color(0xFF1E293B);
-  static const Color _slate900 = Color(0xFF0F172A);
 
   TextStyle _ts({
     required double size,
@@ -80,22 +48,23 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     double? letterSpacing,
     TextDecoration? decoration,
   }) {
-    return GoogleFonts.plusJakartaSans(
-      fontSize: size,
-      fontWeight: weight,
+    return AppTypography.ts(
+      size: size,
+      weight: weight,
       color: color,
       height: height,
       letterSpacing: letterSpacing,
+    ).copyWith(
       decoration: decoration,
       decorationColor: decoration != null ? color : null,
     );
   }
 
-  TextStyle get _labelSm => _ts(size: 10, weight: FontWeight.w800, color: _outline, height: 1.2, letterSpacing: 0.6);
-  TextStyle get _labelMd => _ts(size: 11, weight: FontWeight.w700, color: _onSurfaceVariant, height: 1.27, letterSpacing: 0.22);
-  TextStyle get _labelLg => _ts(size: 13, weight: FontWeight.w700, color: _onSurface, height: 1.23, letterSpacing: 0.13);
-  TextStyle get _bodyMd => _ts(size: 13, weight: FontWeight.w500, color: _onSurface, height: 1.38);
-  TextStyle get _headlineSm => _ts(size: 17, weight: FontWeight.w700, color: _onSurface, height: 1.41, letterSpacing: -0.17);
+  TextStyle get _labelSm => _ts(size: 10, weight: FontWeight.w800, color: AppColors.outline, height: 1.2, letterSpacing: 0.6);
+  TextStyle get _labelMd => _ts(size: 11, weight: FontWeight.w700, color: AppColors.textSecondary, height: 1.27, letterSpacing: 0.22);
+  TextStyle get _labelLg => _ts(size: 13, weight: FontWeight.w700, color: AppColors.textLight, height: 1.23, letterSpacing: 0.13);
+  TextStyle get _bodyMd => _ts(size: 13, weight: FontWeight.w500, color: AppColors.textLight, height: 1.38);
+  TextStyle get _headlineSm => _ts(size: 17, weight: FontWeight.w700, color: AppColors.textLight, height: 1.41, letterSpacing: -0.17);
 
   @override
   void dispose() {
@@ -141,7 +110,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     final hour12 = d.hour % 12 == 0 ? 12 : d.hour % 12;
     final minute = d.minute.toString().padLeft(2, '0');
     final ampm = d.hour < 12 ? 'AM' : 'PM';
-    return '${_formatDate(d)} • $hour12:$minute $ampm';
+    return '${_formatDate(d)} at $hour12:$minute $ampm';
   }
 
   void _openProofOfDelivery(OrderModel order) {
@@ -156,245 +125,49 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     showDialog(
       context: context,
       barrierColor: const Color(0xCC020617),
-      builder: (ctx) {
-        final MediaQueryData mq = MediaQuery.of(ctx);
-        const double inset = 16;
-        const double chromeHeight = 250;
-        final double maxDialogWidth = math.min(mq.size.width - inset * 2, 450.0);
-        final double availableHeight = mq.size.height - mq.padding.top - mq.padding.bottom - inset * 2 - chromeHeight;
-        final double widthFromHeight = math.max(availableHeight, 0.0) * 3 / 4;
-        final double imageWidth = math.max(math.min(maxDialogWidth, widthFromHeight), 120.0);
-        final double imageHeight = imageWidth * 4 / 3;
-        final double dialogWidth = math.min(maxDialogWidth, math.max(imageWidth, 300.0));
-
-        Widget placeholder(IconData icon, String message) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 44, color: _slate400),
-                  const SizedBox(height: 10),
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: _ts(size: 12, weight: FontWeight.w600, color: const Color(0xFFCBD5E1), height: 1.4),
-                  ),
-                ],
+      builder: (ctx) => ProofOfDeliveryDialog(
+        title: 'PROOF OF DELIVERY',
+        subtitle: 'Order ${order.orderNumber}',
+        imageUrl: url,
+        chromeHeight: 250,
+        badgeIcon: Icons.verified,
+        badgeIconColor: const Color(0xFF34D399),
+        badgeText: 'Rider Verified Drop-off',
+        detailsChild: RichText(
+          text: TextSpan(
+            style: _ts(size: 11, weight: FontWeight.w500, color: AppColors.slate600, height: 1.5),
+            children: [
+              const TextSpan(text: 'Delivered: '),
+              TextSpan(
+                text: deliveredAt != null ? _formatDateTime(deliveredAt) : 'Time not recorded',
+                style: _ts(size: 11, weight: FontWeight.w700, color: AppColors.surfaceDark),
               ),
-            ),
-          );
-        }
-
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(inset),
-          child: SingleChildScrollView(
-            child: Center(
-              child: SizedBox(
-                width: dialogWidth,
-                child: Container(
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: _slate200),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: const BoxDecoration(color: _slate50, border: Border(bottom: BorderSide(color: _slate100))),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'PROOF OF DELIVERY',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: _ts(size: 12, weight: FontWeight.w700, color: _slate900, letterSpacing: 0.5),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Order ${order.orderNumber}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: _ts(size: 11, weight: FontWeight.w500, color: _slate500),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            InkWell(
-                              onTap: () => Navigator.pop(ctx),
-                              borderRadius: BorderRadius.circular(999),
-                              child: Container(
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: _slate200)),
-                                child: const Icon(Icons.close, size: 16, color: _slate500),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        width: double.infinity,
-                        color: _slate900,
-                        alignment: Alignment.center,
-                        child: SizedBox(
-                          width: imageWidth,
-                          height: imageHeight,
-                          child: Stack(
-                            children: [
-                              Positioned.fill(
-                                child: ClipRect(
-                                  child: url != null
-                                      ? InteractiveViewer(
-                                    minScale: 1.0,
-                                    maxScale: 4.0,
-                                    child: SizedBox(
-                                      width: imageWidth,
-                                      height: imageHeight,
-                                      child: Image.network(
-                                        url,
-                                        fit: BoxFit.contain,
-                                        alignment: Alignment.center,
-                                        loadingBuilder: (context, child, loadingProgress) {
-                                          if (loadingProgress == null) return child;
-                                          return const Center(
-                                            child: SizedBox(
-                                              width: 28,
-                                              height: 28,
-                                              child: CircularProgressIndicator(strokeWidth: 2.5, color: _primary),
-                                            ),
-                                          );
-                                        },
-                                        errorBuilder: (context, error, stackTrace) =>
-                                            placeholder(Icons.broken_image, 'Unable to load the proof of delivery photo.'),
-                                      ),
-                                    ),
-                                  )
-                                      : placeholder(Icons.image_not_supported, 'No proof of delivery was submitted for this order.'),
-                                ),
-                              ),
-                              if (url != null)
-                                Positioned(
-                                  left: 8,
-                                  bottom: 8,
-                                  child: IgnorePointer(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4)),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.verified, size: 12, color: Color(0xFF34D399)),
-                                          const SizedBox(width: 4),
-                                          Text('Rider Verified Drop-off', style: _ts(size: 10, weight: FontWeight.w600, color: Colors.white)),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(color: _slate50, borderRadius: BorderRadius.circular(12), border: Border.all(color: _slate100)),
-                              child: RichText(
-                                text: TextSpan(
-                                  style: _ts(size: 11, weight: FontWeight.w500, color: _slate600, height: 1.5),
-                                  children: [
-                                    const TextSpan(text: 'Delivered: '),
-                                    TextSpan(
-                                      text: deliveredAt != null ? _formatDateTime(deliveredAt) : 'Time not recorded',
-                                      style: _ts(size: 11, weight: FontWeight.w700, color: _slate800),
-                                    ),
-                                    if (order.assignedRiderName != null && order.assignedRiderName!.trim().isNotEmpty) ...[
-                                      const TextSpan(text: '\nRider: '),
-                                      TextSpan(
-                                        text: order.assignedRiderName!.trim(),
-                                        style: _ts(size: 11, weight: FontWeight.w700, color: _slate800),
-                                      ),
-                                    ],
-                                    if (recipient != null) ...[
-                                      const TextSpan(text: '\nReceived by: '),
-                                      TextSpan(
-                                        text: recipient,
-                                        style: _ts(size: 11, weight: FontWeight.w700, color: _slate800),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            ElevatedButton(
-                              onPressed: () => Navigator.pop(ctx),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _slate100,
-                                foregroundColor: _slate800,
-                                elevation: 0,
-                                minimumSize: const Size(double.infinity, 36),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                              ),
-                              child: Text('Close Preview', style: _ts(size: 12, weight: FontWeight.w700, color: _slate800)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+              if (order.assignedRiderName != null && order.assignedRiderName!.trim().isNotEmpty) ...[
+                const TextSpan(text: '\nRider: '),
+                TextSpan(
+                  text: order.assignedRiderName!.trim(),
+                  style: _ts(size: 11, weight: FontWeight.w700, color: AppColors.surfaceDark),
                 ),
-              ),
-            ),
+              ],
+              if (recipient != null) ...[
+                const TextSpan(text: '\nReceived by: '),
+                TextSpan(
+                  text: recipient,
+                  style: _ts(size: 11, weight: FontWeight.w700, color: AppColors.surfaceDark),
+                ),
+              ],
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
   Widget _buildTitleBlock() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
-              child: const Center(child: Icon(Icons.shopping_bag, color: Color(0xFF0284C7), size: 22)),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F9FF),
-                borderRadius: BorderRadius.circular(100),
-                border: Border.all(color: const Color(0xFFBAE6FD)),
-              ),
-              child: const Text('CUSTOMER HUB', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), letterSpacing: 0.5)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        const Text('My Orders', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A), height: 1.2)),
-      ],
+    return const ScreenTitleBlock(
+      badgeText: 'CUSTOMER HUB',
+      title: 'My Orders',
+      icon: Icons.shopping_bag,
     );
   }
 
@@ -403,18 +176,18 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     final activeOrders = widget.myOrders.where((o) => o.status != OrderStatus.delivered && o.status != OrderStatus.cancelled).toList();
     final historyOrders = widget.myOrders.where((o) => o.status == OrderStatus.delivered || o.status == OrderStatus.cancelled).toList();
 
-    final String? uid = FirebaseAuth.instance.currentUser?.uid;
+    final String? uid = AuthService().currentUserId;
     final double topInset = MediaQuery.of(context).padding.top;
     final double bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: _surfaceCanvas,
+      backgroundColor: AppColors.surfaceCanvas,
       body: Container(
         padding: EdgeInsets.only(top: topInset + CustomHeader.contentHeight),
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 450),
+            constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
             child: StreamBuilder<List<RefundModel>>(
               stream: uid == null ? Stream<List<RefundModel>>.empty() : _firestoreService.getRefundRequestsForCustomerStream(uid),
               builder: (context, snapshot) {
@@ -467,7 +240,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: selected
               ? BoxDecoration(
-            color: _primary,
+            color: AppColors.primarySky,
             borderRadius: BorderRadius.circular(999),
             boxShadow: const [BoxShadow(color: Color(0x590284C7), blurRadius: 16, offset: Offset(0, 4))],
           )
@@ -481,14 +254,14 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                   height: 8,
                   margin: const EdgeInsets.only(right: 4),
                   decoration: const BoxDecoration(
-                    color: _cyanElectric,
+                    color: AppColors.cyanElectric,
                     shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: _cyanElectric, blurRadius: 6)],
+                    boxShadow: [BoxShadow(color: AppColors.cyanElectric, blurRadius: 6)],
                   ),
                 ),
               Text(
                 label,
-                style: _labelMd.copyWith(color: selected ? Colors.white : _onSurfaceVariant),
+                style: _labelMd.copyWith(color: selected ? Colors.white : AppColors.textSecondary),
               ),
               const SizedBox(width: 4),
               Container(
@@ -500,7 +273,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                 child: Text(
                   '$count',
                   style: _labelSm.copyWith(
-                    color: selected ? Colors.white : _onSurfaceVariant,
+                    color: selected ? Colors.white : AppColors.textSecondary,
                     letterSpacing: 0,
                   ),
                 ),
@@ -516,7 +289,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: _surfaceContainer,
+        color: AppColors.surfaceContainer,
         borderRadius: BorderRadius.circular(999),
         boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 2, offset: Offset(0, 1))],
       ),
@@ -534,7 +307,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 40),
       child: Center(
-        child: Text(text, style: _bodyMd.copyWith(color: _outline)),
+        child: Text(text, style: _bodyMd.copyWith(color: AppColors.outline)),
       ),
     );
   }
@@ -556,7 +329,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _surfaceContainerLowest,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [BoxShadow(color: Color(0x0D000000), blurRadius: 4, offset: Offset(0, 1))],
       ),
@@ -569,7 +342,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('CURRENT SHIPMENT', style: _labelSm.copyWith(color: _primary)),
+                  Text('CURRENT SHIPMENT', style: _labelSm.copyWith(color: AppColors.primarySky)),
                   const SizedBox(height: 2),
                   Text(order.orderNumber, style: _headlineSm),
                 ],
@@ -577,7 +350,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _surfaceFrost,
+                  color: AppColors.surfaceFrost,
                   borderRadius: BorderRadius.circular(999),
                   boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 2)],
                 ),
@@ -588,15 +361,15 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                       width: 8,
                       height: 8,
                       decoration: const BoxDecoration(
-                        color: _cyanElectric,
+                        color: AppColors.cyanElectric,
                         shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: _cyanElectric, blurRadius: 6)],
+                        boxShadow: [BoxShadow(color: AppColors.cyanElectric, blurRadius: 6)],
                       ),
                     ),
                     const SizedBox(width: 6),
                     Text(
                       order.status == OrderStatus.outForDelivery ? 'Out for delivery' : 'Placed',
-                      style: _labelMd.copyWith(color: _primary),
+                      style: _labelMd.copyWith(color: AppColors.primarySky),
                     ),
                   ],
                 ),
@@ -612,15 +385,15 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
               Container(
                 width: 28,
                 height: 28,
-                decoration: const BoxDecoration(color: _surfaceFrost, shape: BoxShape.circle),
-                child: const Icon(Icons.location_on, size: 16, color: _primary),
+                decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle),
+                child: const Icon(Icons.location_on, size: 16, color: AppColors.primarySky),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Delivery Address', style: _labelSm.copyWith(color: _onSurfaceVariant, letterSpacing: 0)),
+                    Text('Delivery Address', style: _labelSm.copyWith(color: AppColors.textSecondary, letterSpacing: 0)),
                     const SizedBox(height: 2),
                     Text(
                       order.deliveryAddress ?? 'No Address Provided',
@@ -637,13 +410,13 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _surfaceIce,
+              color: AppColors.surfaceIce,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('HYDRATION MANIFEST', style: _labelSm.copyWith(color: _onSurfaceVariant)),
+                Text('HYDRATION MANIFEST', style: _labelSm.copyWith(color: AppColors.textSecondary)),
                 const SizedBox(height: 8),
                 for (int i = 0; i < order.items.length; i++) ...[
                   Row(
@@ -651,8 +424,8 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                       Container(
                         width: 28,
                         height: 28,
-                        decoration: const BoxDecoration(color: _surfaceContainerLowest, shape: BoxShape.circle),
-                        child: const Icon(Icons.local_drink, size: 16, color: _primary),
+                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                        child: const Icon(Icons.local_drink, size: 16, color: AppColors.primarySky),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -672,7 +445,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: _surfaceContainerLowest,
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 4)],
                   ),
@@ -681,11 +454,11 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.verified, size: 18, color: _secondary),
+                          const Icon(Icons.verified, size: 18, color: AppColors.secondary),
                           const SizedBox(width: 6),
                           Text(
                             order.isPaid ? 'Paid via ${order.paymentMethod.name}' : 'Cash on Delivery',
-                            style: _labelSm.copyWith(color: _secondary, letterSpacing: 0),
+                            style: _labelSm.copyWith(color: AppColors.secondary, letterSpacing: 0),
                           ),
                         ],
                       ),
@@ -693,9 +466,9 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                         crossAxisAlignment: CrossAxisAlignment.baseline,
                         textBaseline: TextBaseline.alphabetic,
                         children: [
-                          Text('Total', style: _labelSm.copyWith(color: _onSurfaceVariant, letterSpacing: 0)),
+                          Text('Total', style: _labelSm.copyWith(color: AppColors.textSecondary, letterSpacing: 0)),
                           const SizedBox(width: 4),
-                          Text('₱${order.totalAmount.toStringAsFixed(2)}', style: _headlineSm.copyWith(color: _primary)),
+                          Text('₱${order.totalAmount.toStringAsFixed(2)}', style: _headlineSm.copyWith(color: AppColors.primarySky)),
                         ],
                       ),
                     ],
@@ -715,7 +488,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                   icon: const Icon(Icons.near_me, size: 20, color: Colors.white),
                   label: Text('Live Map Route', style: _labelLg.copyWith(color: Colors.white)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _primary,
+                    backgroundColor: AppColors.primarySky,
                     foregroundColor: Colors.white,
                     elevation: 4,
                     shadowColor: const Color(0x590284C7),
@@ -727,11 +500,11 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
               const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: () => _cancelOrder(order.id),
-                icon: const Icon(Icons.close, size: 18, color: _errorText),
-                label: Text('Cancel', style: _labelMd.copyWith(color: _errorText)),
+                icon: const Icon(Icons.close, size: 18, color: AppColors.errorText),
+                label: Text('Cancel', style: _labelMd.copyWith(color: AppColors.errorText)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _errorContainer,
-                  foregroundColor: _errorText,
+                  backgroundColor: AppColors.errorContainer,
+                  foregroundColor: AppColors.errorText,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
@@ -757,12 +530,12 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
         width: 32,
         height: 32,
         decoration: BoxDecoration(
-          color: isActive ? _primary : _surfaceContainer,
+          color: isActive ? AppColors.primarySky : AppColors.surfaceContainer,
           shape: BoxShape.circle,
-          border: isCurrent ? Border.all(color: _surfaceFrost, width: 4) : null,
+          border: isCurrent ? Border.all(color: AppColors.surfaceFrost, width: 4) : null,
           boxShadow: isCurrent ? const [BoxShadow(color: Color(0x660284C7), blurRadius: 12)] : null,
         ),
-        child: Icon(icon, size: 16, color: isActive ? Colors.white : _outline),
+        child: Icon(icon, size: 16, color: isActive ? Colors.white : AppColors.outline),
       );
     }
 
@@ -778,11 +551,11 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                 right: 16,
                 child: Container(
                   height: 4,
-                  decoration: BoxDecoration(color: _surfaceContainer, borderRadius: BorderRadius.circular(999)),
+                  decoration: BoxDecoration(color: AppColors.surfaceContainer, borderRadius: BorderRadius.circular(999)),
                   alignment: Alignment.centerLeft,
                   child: FractionallySizedBox(
                     widthFactor: progress,
-                    child: Container(decoration: BoxDecoration(color: _primary, borderRadius: BorderRadius.circular(999))),
+                    child: Container(decoration: BoxDecoration(color: AppColors.primarySky, borderRadius: BorderRadius.circular(999))),
                   ),
                 ),
               ),
@@ -801,10 +574,10 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Placed', style: _labelSm.copyWith(color: currentStep >= 0 ? _primary : _outline, letterSpacing: 0)),
-            Text('Filling', style: _labelSm.copyWith(color: currentStep >= 1 ? _primary : _outline, letterSpacing: 0)),
-            Text('Delivery', style: _labelSm.copyWith(color: currentStep >= 2 ? _primary : _outline, letterSpacing: 0)),
-            Text('Done', style: _labelSm.copyWith(color: currentStep >= 3 ? _primary : _outline, letterSpacing: 0)),
+            Text('Placed', style: _labelSm.copyWith(color: currentStep >= 0 ? AppColors.primarySky : AppColors.outline, letterSpacing: 0)),
+            Text('Filling', style: _labelSm.copyWith(color: currentStep >= 1 ? AppColors.primarySky : AppColors.outline, letterSpacing: 0)),
+            Text('Delivery', style: _labelSm.copyWith(color: currentStep >= 2 ? AppColors.primarySky : AppColors.outline, letterSpacing: 0)),
+            Text('Done', style: _labelSm.copyWith(color: currentStep >= 3 ? AppColors.primarySky : AppColors.outline, letterSpacing: 0)),
           ],
         ),
       ],
@@ -838,7 +611,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
         Container(
           height: 44,
           decoration: BoxDecoration(
-            color: _surfaceContainerLowest,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(999),
             boxShadow: const [BoxShadow(color: Color(0x0D000000), blurRadius: 4)],
           ),
@@ -848,8 +621,8 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
             style: _bodyMd,
             decoration: InputDecoration(
               hintText: 'Search Order ID or product...',
-              hintStyle: _bodyMd.copyWith(color: _outline),
-              prefixIcon: const Icon(Icons.search, size: 20, color: _outline),
+              hintStyle: _bodyMd.copyWith(color: AppColors.outline),
+              prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.outline),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
@@ -890,7 +663,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
         duration: const Duration(milliseconds: 200),
         padding: EdgeInsets.symmetric(horizontal: active ? 16 : 14, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? _primary : _surfaceContainerLowest,
+          color: active ? AppColors.primarySky : Colors.white,
           borderRadius: BorderRadius.circular(999),
           boxShadow: active
               ? const [BoxShadow(color: Color(0x590284C7), blurRadius: 8, offset: Offset(0, 2))]
@@ -899,7 +672,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
         child: Text(
           label,
           style: _labelMd.copyWith(
-            color: active ? Colors.white : _onSurfaceVariant,
+            color: active ? Colors.white : AppColors.textSecondary,
             fontWeight: active ? FontWeight.bold : FontWeight.w600,
           ),
         ),
@@ -919,8 +692,8 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     final statusIcon = isDelivered ? Icons.check_circle : (isCancelled ? Icons.cancel : Icons.schedule);
     final statusLabel = isDelivered ? 'Delivered' : (isCancelled ? 'Cancelled' : 'Pending');
 
-    final Color chipBg = isDelivered ? _secondaryContainer : (isCancelled ? _errorContainer : _surfaceContainer);
-    final Color chipText = isDelivered ? _onSecondaryContainer : (isCancelled ? _errorText : _outline);
+    final Color chipBg = isDelivered ? AppColors.secondaryContainer : (isCancelled ? AppColors.errorContainer : AppColors.surfaceContainer);
+    final Color chipText = isDelivered ? AppColors.onSecondaryContainer : (isCancelled ? AppColors.errorText : AppColors.outline);
 
     final String itemsStr = order.items.map((i) => '${i.quantity}× ${i.name}').join(', ');
 
@@ -928,7 +701,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _surfaceContainerLowest,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [BoxShadow(color: Color(0x0D000000), blurRadius: 4, offset: Offset(0, 1))],
       ),
@@ -960,23 +733,23 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Icon(Icons.water_drop, size: 18, color: isCancelled ? _outline : _primary),
+              Icon(Icons.water_drop, size: 18, color: isCancelled ? AppColors.outline : AppColors.primarySky),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(itemsStr, style: _bodyMd.copyWith(color: _onSurfaceVariant), maxLines: 1, overflow: TextOverflow.ellipsis),
+                child: Text(itemsStr, style: _bodyMd.copyWith(color: AppColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
               const SizedBox(width: 8),
               Text(
                 '₱${order.totalAmount.toStringAsFixed(2)}',
                 style: _headlineSm.copyWith(
-                  color: isCancelled ? _outline : _primary,
+                  color: isCancelled ? AppColors.outline : AppColors.primarySky,
                   decoration: isCancelled ? TextDecoration.lineThrough : null,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Container(height: 1, color: _surfaceContainerLow),
+          Container(height: 1, color: AppColors.surfaceContainerLow),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -986,7 +759,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                   isCancelled
                       ? 'Refunded to ${order.paymentMethod.name}'
                       : 'Paid with ${order.paymentMethod.name} • Standard Drop',
-                  style: _labelSm.copyWith(color: isCancelled ? _secondary : _onSurfaceVariant, letterSpacing: 0),
+                  style: _labelSm.copyWith(color: isCancelled ? AppColors.secondary : AppColors.textSecondary, letterSpacing: 0),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1022,15 +795,15 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: _surfaceContainer,
+                          color: AppColors.surfaceContainer,
                           borderRadius: BorderRadius.circular(999),
                           boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 2)],
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.currency_exchange, size: 16, color: _onSurfaceVariant),
+                            const Icon(Icons.currency_exchange, size: 16, color: AppColors.textSecondary),
                             const SizedBox(width: 4),
-                            Text('Refund', style: _labelMd.copyWith(color: _onSurfaceVariant)),
+                            Text('Refund', style: _labelMd.copyWith(color: AppColors.textSecondary)),
                           ],
                         ),
                       ),
@@ -1043,7 +816,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
-                        color: _primary,
+                        color: AppColors.primarySky,
                         borderRadius: BorderRadius.circular(999),
                         boxShadow: const [BoxShadow(color: Color(0x290284C7), blurRadius: 4, offset: Offset(0, 1))],
                       ),
@@ -1070,16 +843,16 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _surfaceContainer,
+                    color: AppColors.surfaceContainer,
                     borderRadius: BorderRadius.circular(999),
                     boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 2)],
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.photo_camera_outlined, size: 16, color: _onSurfaceVariant),
+                      const Icon(Icons.photo_camera_outlined, size: 16, color: AppColors.textSecondary),
                       const SizedBox(width: 4),
-                      Text('View Proof of Delivery', style: _labelMd.copyWith(color: _onSurfaceVariant)),
+                      Text('View Proof of Delivery', style: _labelMd.copyWith(color: AppColors.textSecondary)),
                     ],
                   ),
                 ),
@@ -1110,31 +883,31 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     final String badgeLabel;
     switch (r.status) {
       case RefundStatus.pending:
-        statusColor = _amber500;
-        badgeBg = _amber50;
-        badgeBorder = _amber200;
+        statusColor = AppColors.amber500;
+        badgeBg = AppColors.amber50;
+        badgeBorder = AppColors.amber200;
         badgeLabel = 'Under Review';
         break;
       case RefundStatus.approved:
-        statusColor = _secondary;
-        badgeBg = _secondaryContainer.withValues(alpha: 0.25);
-        badgeBorder = _secondaryContainer;
+        statusColor = AppColors.secondary;
+        badgeBg = AppColors.secondaryContainer.withValues(alpha: 0.25);
+        badgeBorder = AppColors.secondaryContainer;
         badgeLabel = 'Approved';
         break;
       case RefundStatus.processed:
-        statusColor = _secondary;
-        badgeBg = _secondaryContainer.withValues(alpha: 0.25);
-        badgeBorder = _secondaryContainer;
+        statusColor = AppColors.secondary;
+        badgeBg = AppColors.secondaryContainer.withValues(alpha: 0.25);
+        badgeBorder = AppColors.secondaryContainer;
         badgeLabel = 'Completed';
         break;
       case RefundStatus.rejected:
-        statusColor = _errorText;
-        badgeBg = _errorContainer;
-        badgeBorder = _errorContainer;
+        statusColor = AppColors.errorText;
+        badgeBg = AppColors.errorContainer;
+        badgeBorder = AppColors.errorContainer;
         badgeLabel = 'Declined';
         break;
     }
-    final Color badgeTextColor = r.status == RefundStatus.pending ? _amber800 : statusColor;
+    final Color badgeTextColor = r.status == RefundStatus.pending ? AppColors.amber800 : statusColor;
 
     final bool isRejected = r.status == RefundStatus.rejected;
     final bool isProcessed = r.status == RefundStatus.processed;
@@ -1142,13 +915,13 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     final double widthFactor = isProcessed ? 1.0 : (isApprovedOrLater ? 0.75 : 0.5);
     final IconData step2Icon = isRejected ? Icons.close : (isApprovedOrLater ? Icons.check : Icons.sync);
     final IconData step3Icon = isProcessed ? Icons.check : Icons.lock;
-    final Color step3Bg = isProcessed ? statusColor : _surfaceContainer;
-    final Color step3IconColor = isProcessed ? Colors.white : _outline;
+    final Color step3Bg = isProcessed ? statusColor : AppColors.surfaceContainer;
+    final Color step3IconColor = isProcessed ? Colors.white : AppColors.outline;
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _surfaceContainerLowest,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: badgeBorder.withValues(alpha: 0.6)),
         boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 4, offset: Offset(0, 1))],
@@ -1206,13 +979,13 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                   ],
                 ),
               ),
-              Text('₱${r.amount.toStringAsFixed(2)}', style: _headlineSm.copyWith(color: _primary)),
+              Text('₱${r.amount.toStringAsFixed(2)}', style: _headlineSm.copyWith(color: AppColors.primarySky)),
             ],
           ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: _surfaceIce, borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(color: AppColors.surfaceIce, borderRadius: BorderRadius.circular(16)),
             child: Column(
               children: [
                 Padding(
@@ -1225,7 +998,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                         right: 12,
                         child: Container(
                           height: 4,
-                          decoration: BoxDecoration(color: _surfaceContainer, borderRadius: BorderRadius.circular(999)),
+                          decoration: BoxDecoration(color: AppColors.surfaceContainer, borderRadius: BorderRadius.circular(999)),
                           alignment: Alignment.centerLeft,
                           child: FractionallySizedBox(
                             widthFactor: widthFactor,
@@ -1266,7 +1039,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                   children: [
                     Text('Ticket Lodged', style: _labelSm.copyWith(color: badgeTextColor, letterSpacing: 0)),
                     Text('QA Audit', style: _labelSm.copyWith(color: badgeTextColor, letterSpacing: 0)),
-                    Text('Refund Release', style: _labelSm.copyWith(color: isProcessed ? badgeTextColor : _outline, letterSpacing: 0)),
+                    Text('Refund Release', style: _labelSm.copyWith(color: isProcessed ? badgeTextColor : AppColors.outline, letterSpacing: 0)),
                   ],
                 ),
               ],
@@ -1278,18 +1051,18 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: _secondaryContainer.withValues(alpha: 0.2),
+                color: AppColors.secondaryContainer.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _secondaryContainer),
+                border: Border.all(color: AppColors.secondaryContainer),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.local_shipping, size: 16, color: _secondary),
+                  const Icon(Icons.local_shipping, size: 16, color: AppColors.secondary),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       _redeliveryNoticeText(r.redeliveryScheduledAt),
-                      style: _labelSm.copyWith(color: _secondary, fontWeight: FontWeight.w600, letterSpacing: 0),
+                      style: _labelSm.copyWith(color: AppColors.secondary, fontWeight: FontWeight.w600, letterSpacing: 0),
                     ),
                   ),
                 ],
@@ -1309,6 +1082,6 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     final minute = scheduledAt.minute.toString().padLeft(2, '0');
     final ampm = hour24 < 12 ? 'AM' : 'PM';
     final dateStr = '${months[scheduledAt.month - 1]} ${scheduledAt.day}, ${scheduledAt.year}';
-    return 'Redelivery scheduled for $dateStr • $hour12:$minute $ampm';
+    return 'Redelivery scheduled for $dateStr at $hour12:$minute $ampm';
   }
 }

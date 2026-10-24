@@ -31,34 +31,31 @@ class _MainShellState extends State<MainShell> {
         final bool isStaff = role == 'staff';
         final bool isRider = role == 'rider';
 
-        List<Widget> pages;
-        if (isOwner) {
-          pages = const [
+        // Cleaned up with Dart 3 switch expression
+        final List<Widget> pages = switch (role) {
+          'owner' => const [
             OwnerDashboardScreen(),
             PosScreen(),
             DeliveryQueueScreen(),
             InventoryScreen(),
             OwnerRequestScreen(),
             ProfileScreen(),
-          ];
-        } else if (isStaff) {
-          pages = const [
+          ],
+          'staff' => const [
             PosScreen(),
             InventoryScreen(),
             ProfileScreen(),
-          ];
-        } else if (isRider) {
-          pages = const [
+          ],
+          'rider' => const [
             DeliveryQueueScreen(),
             ProfileScreen(),
-          ];
-        } else {
-          pages = const [
+          ],
+          _ => const [
             Center(child: Text('Order')),
             Center(child: Text('Orders')),
             ProfileScreen(),
-          ];
-        }
+          ],
+        };
 
         final int safeIndex = _index.clamp(0, pages.length - 1);
 

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
-import '../../models/inventory_model.dart';
-import '../../services/firestore_service.dart';
+import '../../core/constants/layout_constants.dart';
 import '../../main.dart';
+import '../../models/inventory_model.dart';
+import '../../models/user_model.dart';
+import '../../services/firestore_service.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -32,9 +33,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
       case 'critical':
         return AppColors.coralAlert;
       case 'warning':
-        return const Color(0xFFD97706);
+        return AppColors.amber600;
       default:
-        return const Color(0xFF059669);
+        return AppColors.emerald600;
     }
   }
 
@@ -77,51 +78,51 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 2, top: 4),
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 2, top: 4),
                         child: Text(
                           'Schedule Maintenance',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A), letterSpacing: -0.5),
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.backgroundDark, letterSpacing: -0.5),
                         ),
                       ),
                       const SizedBox(height: 20),
                       TextFormField(
                         controller: equipmentController,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF1E293B)),
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.surfaceDark),
                         decoration: InputDecoration(
                           hintText: 'Equipment name',
-                          hintStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF94A3B8), fontSize: 14, fontWeight: FontWeight.w500),
+                          hintStyle: const TextStyle(color: AppColors.slate400, fontSize: 14, fontWeight: FontWeight.w500),
                           filled: true,
                           fillColor: const Color(0xFFF8F9FE),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFF1F5F9))),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFF1F5F9))),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5)),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.slate100)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.slate100)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primarySky, width: 1.5)),
                         ),
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: taskController,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF1E293B)),
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.surfaceDark),
                         decoration: InputDecoration(
                           hintText: 'Task (e.g. Filter replacement)',
-                          hintStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF94A3B8), fontSize: 14, fontWeight: FontWeight.w500),
+                          hintStyle: const TextStyle(color: AppColors.slate400, fontSize: 14, fontWeight: FontWeight.w500),
                           filled: true,
                           fillColor: const Color(0xFFF8F9FE),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFF1F5F9))),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFF1F5F9))),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5)),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.slate100)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.slate100)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primarySky, width: 1.5)),
                         ),
                       ),
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          Expanded(child: _buildUrgencyButton('Routine', urgency == 'Routine', const Color(0xFF059669), () => setDialogState(() => urgency = 'Routine'))),
+                          Expanded(child: _buildUrgencyButton('Routine', urgency == 'Routine', AppColors.emerald600, () => setDialogState(() => urgency = 'Routine'))),
                           const SizedBox(width: 8),
-                          Expanded(child: _buildUrgencyButton('Warning', urgency == 'Warning', const Color(0xFFD97706), () => setDialogState(() => urgency = 'Warning'))),
+                          Expanded(child: _buildUrgencyButton('Warning', urgency == 'Warning', AppColors.amber600, () => setDialogState(() => urgency = 'Warning'))),
                           const SizedBox(width: 8),
-                          Expanded(child: _buildUrgencyButton('Critical', urgency == 'Critical', const Color(0xFFE11D48), () => setDialogState(() => urgency = 'Critical'))),
+                          Expanded(child: _buildUrgencyButton('Critical', urgency == 'Critical', AppColors.rose600, () => setDialogState(() => urgency = 'Critical'))),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -135,16 +136,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF8F9FE),
-                            border: Border.all(color: const Color(0xFFF1F5F9)),
+                            border: Border.all(color: AppColors.slate100),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.calendar_today_outlined, size: 20, color: Color(0xFF0284C7)),
+                              const Icon(Icons.calendar_today_outlined, size: 20, color: AppColors.primarySky),
                               const SizedBox(width: 12),
                               Text(
                                 'Due ${dueDate.month.toString().padLeft(2, '0')}/${dueDate.day.toString().padLeft(2, '0')}/${dueDate.year}',
-                                style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF1E293B)),
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.surfaceDark),
                               ),
                             ],
                           ),
@@ -158,11 +159,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               onPressed: () => Navigator.pop(dialogContext),
                               style: TextButton.styleFrom(
                                 backgroundColor: const Color(0xFFF3F4FA),
-                                foregroundColor: const Color(0xFF334155),
+                                foregroundColor: AppColors.borderDark,
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                               ),
-                              child: Text("Cancel", style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600)),
+                              child: const Text("Cancel", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -180,20 +181,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                     urgency: urgency,
                                     dueDate: dueDate,
                                   ));
-                                  messenger.showSnackBar(SnackBar(content: Text('Maintenance scheduled.', style: GoogleFonts.plusJakartaSans())));
+                                  messenger.showSnackBar(const SnackBar(content: Text('Maintenance scheduled.')));
                                 } catch (e) {
-                                  messenger.showSnackBar(SnackBar(content: Text('Failed: $e', style: GoogleFonts.plusJakartaSans()), backgroundColor: AppColors.error));
+                                  messenger.showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: AppColors.error));
                                 }
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0284C7),
+                                backgroundColor: AppColors.primarySky,
                                 foregroundColor: Colors.white,
                                 elevation: 0,
-                                shadowColor: const Color(0xFF0284C7).withValues(alpha: 0.35),
+                                shadowColor: AppColors.primarySky.withValues(alpha: 0.35),
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                               ).copyWith(elevation: WidgetStateProperty.resolveWith((states) => 4)),
-                              child: Text("Schedule", style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold)),
+                              child: const Text("Schedule", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ],
@@ -222,8 +223,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
         ),
         child: Text(
           label,
-          style: GoogleFonts.plusJakartaSans(
-            color: isSelected ? Colors.white : const Color(0xFF475569),
+          style: TextStyle(
+            color: isSelected ? Colors.white : AppColors.slate600,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
             fontSize: 12,
           ),
@@ -251,7 +252,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: const Color(0xFFF1F5F9)),
+                border: Border.all(color: AppColors.slate100),
                 boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 24, offset: Offset(0, 10))],
               ),
               child: Column(
@@ -260,29 +261,29 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 children: [
                   Text(
                     "Restock ${item.name}",
-                    style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A), height: 1.2, letterSpacing: -0.5),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.backgroundDark, height: 1.2, letterSpacing: -0.5),
                   ),
                   const SizedBox(height: 6),
                   Text.rich(
                     TextSpan(
                       children: [
                         const TextSpan(text: 'Current stock: '),
-                        TextSpan(text: '${item.currentStock} ${item.unit}', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
+                        TextSpan(text: '${item.currentStock} ${item.unit}', style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.borderDark)),
                       ],
                     ),
-                    style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF64748B)),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.slate500),
                   ),
                   const SizedBox(height: 24),
                   Text(
                     "Quantity to Add (${item.unit}):",
-                    style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF334155), letterSpacing: 0.2),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.borderDark, letterSpacing: 0.2),
                   ),
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      border: Border.all(color: const Color(0xFFE2E8F0).withValues(alpha: 0.8)),
+                      color: AppColors.surfaceCanvas,
+                      border: Border.all(color: AppColors.slate200.withValues(alpha: 0.8)),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
@@ -291,7 +292,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           child: TextFormField(
                             controller: restockController,
                             keyboardType: TextInputType.number,
-                            style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.backgroundDark),
                             decoration: const InputDecoration(
                               hintText: 'Enter quantity',
                               border: InputBorder.none,
@@ -300,7 +301,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             ),
                           ),
                         ),
-                        Text(item.unit, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xFF94A3B8))),
+                        Text(item.unit, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.slate400)),
                       ],
                     ),
                   ),
@@ -311,12 +312,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         child: TextButton(
                           onPressed: () => Navigator.pop(context),
                           style: TextButton.styleFrom(
-                            backgroundColor: const Color(0xFFF1F5F9),
-                            foregroundColor: const Color(0xFF475569),
+                            backgroundColor: AppColors.slate100,
+                            foregroundColor: AppColors.slate600,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                           ),
-                          child: Text("Cancel", style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600)),
+                          child: const Text("Cancel", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -330,21 +331,21 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             try {
                               await _firestoreService.restockItem(item.id, add);
                               if (!mounted) return;
-                              messenger.showSnackBar(SnackBar(content: Text('Inventory Restocked successfully.', style: GoogleFonts.plusJakartaSans())));
+                              messenger.showSnackBar(const SnackBar(content: Text('Inventory Restocked successfully.')));
                             } catch (e) {
                               if (!mounted) return;
-                              messenger.showSnackBar(SnackBar(content: Text('Restock failed: $e', style: GoogleFonts.plusJakartaSans()), backgroundColor: AppColors.error));
+                              messenger.showSnackBar(SnackBar(content: Text('Restock failed: $e'), backgroundColor: AppColors.error));
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0284C7),
+                            backgroundColor: AppColors.primarySky,
                             foregroundColor: Colors.white,
                             elevation: 0,
-                            shadowColor: const Color(0xFF0284C7).withValues(alpha: 0.35),
+                            shadowColor: AppColors.primarySky.withValues(alpha: 0.35),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                           ).copyWith(elevation: WidgetStateProperty.resolveWith((states) => 4)),
-                          child: Text("Restock", style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold)),
+                          child: const Text("Restock", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ],
@@ -385,25 +386,26 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 Row(
                   children: [
                     Expanded(
-                        child: Text(
-                          alert.equipmentName,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: alert.isCompleted ? AppColors.textSecondary : AppColors.textLight,
-                            decoration: alert.isCompleted ? TextDecoration.lineThrough : null,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        )),
+                      child: Text(
+                        alert.equipmentName,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: alert.isCompleted ? AppColors.textSecondary : AppColors.textLight,
+                          decoration: alert.isCompleted ? TextDecoration.lineThrough : null,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(100)),
-                      child: Text(_capitalize(alert.urgency), style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: color)),
+                      child: Text(_capitalize(alert.urgency), style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(alert.taskType, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                Text(alert.taskType, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                 const SizedBox(height: 4),
                 Text(
                   alert.isCompleted
@@ -411,7 +413,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       : (alert.isOverdue
                       ? 'Overdue • Due ${alert.dueDate.month}/${alert.dueDate.day}/${alert.dueDate.year}'
                       : 'Due ${alert.dueDate.month}/${alert.dueDate.day}/${alert.dueDate.year}'),
-                  style: GoogleFonts.plusJakartaSans(
+                  style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: alert.isOverdue ? AppColors.coralAlert : AppColors.textSecondary,
@@ -427,15 +429,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
               try {
                 await _firestoreService.setMaintenanceAlertCompleted(alert.id, !alert.isCompleted);
               } catch (e) {
-                messenger.showSnackBar(SnackBar(content: Text('Failed: $e', style: GoogleFonts.plusJakartaSans()), backgroundColor: AppColors.error));
+                messenger.showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: AppColors.error));
               }
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(color: alert.isCompleted ? const Color(0xFFF0F9FF) : const Color(0xFF6CF8BB), borderRadius: BorderRadius.circular(100)),
+              decoration: BoxDecoration(color: alert.isCompleted ? AppColors.surfaceIce : AppColors.secondaryContainer, borderRadius: BorderRadius.circular(100)),
               child: Text(
                 alert.isCompleted ? 'Reopen' : 'Done',
-                style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: alert.isCompleted ? const Color(0xFF0284C7) : const Color(0xFF00714D)),
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: alert.isCompleted ? AppColors.primarySky : AppColors.onSecondaryContainer),
               ),
             ),
           ),
@@ -453,11 +455,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     return Theme(
       data: Theme.of(context).copyWith(
-        highlightColor: const Color(0xFFF0F9FF),
-        splashColor: const Color(0xFFE0F2FE),
-        hoverColor: const Color(0xFFF0F9FF),
+        highlightColor: AppColors.surfaceIce,
+        splashColor: AppColors.surfaceFrost,
+        hoverColor: AppColors.surfaceIce,
         focusColor: Colors.transparent,
-        shadowColor: const Color(0xFF131B2E).withValues(alpha: 0.12),
+        shadowColor: AppColors.textLight.withValues(alpha: 0.12),
       ),
       child: Container(
         height: 38,
@@ -465,7 +467,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(100),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(color: AppColors.slate200),
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
         ),
         child: DropdownButtonHideUnderline(
@@ -473,7 +475,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             value: _stockFilter,
             icon: const Padding(
               padding: EdgeInsets.only(left: 4),
-              child: Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF64748B)),
+              child: Icon(Icons.keyboard_arrow_down, size: 18, color: AppColors.slate500),
             ),
             dropdownColor: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -484,11 +486,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.filter_list, size: 14, color: Color(0xFF0284C7)),
+                  const Icon(Icons.filter_list, size: 14, color: AppColors.primarySky),
                   const SizedBox(width: 6),
                   Text(
                     o['name']! == 'All Categories' ? 'Filter' : o['name']!,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7)),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primarySky),
                   ),
                 ],
               ),
@@ -501,7 +503,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFFF0F9FF) : Colors.transparent,
+                    color: isSelected ? AppColors.surfaceIce : Colors.transparent,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
@@ -511,16 +513,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         child: Text(
                           o['name']!,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                            color: isSelected ? const Color(0xFF0284C7) : const Color(0xFF131B2E),
+                            color: isSelected ? AppColors.primarySky : AppColors.textLight,
                           ),
                         ),
                       ),
                       if (isSelected) ...[
                         const SizedBox(width: 8),
-                        const Icon(Icons.check, size: 16, color: Color(0xFF0284C7)),
+                        const Icon(Icons.check, size: 16, color: AppColors.primarySky),
                       ],
                     ],
                   ),
@@ -540,13 +542,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textMain = isDark ? Colors.white : AppColors.textLight;
-    final isOwner = currentUserRoleNotifier.value == 'owner';
+
+    final currentRole = UserRole.fromString(currentUserRoleNotifier.value);
+    final isOwner = currentRole == UserRole.owner;
+
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 450),
+        constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           padding: EdgeInsets.fromLTRB(16, 16, 16, 130 + bottomInset),
@@ -561,28 +566,28 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       Container(
                         width: 36,
                         height: 36,
-                        decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
-                        child: const Center(child: Icon(Icons.inventory_2, color: Color(0xFF0284C7), size: 22)),
+                        decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle),
+                        child: const Center(child: Icon(Icons.inventory_2, color: AppColors.primarySky, size: 22)),
                       ),
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF0F9FF),
+                          color: AppColors.surfaceIce,
                           borderRadius: BorderRadius.circular(100),
-                          border: Border.all(color: const Color(0xFFBAE6FD)),
+                          border: Border.all(color: AppColors.sky200),
                         ),
-                        child: Text(
+                        child: const Text(
                           'INVENTORY HUB',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7), letterSpacing: 0.5),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primarySky, letterSpacing: 0.5),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(
+                  const Text(
                     'Inventory Management',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A), height: 1.2),
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.backgroundDark, height: 1.2),
                   ),
                 ],
               ),
@@ -590,7 +595,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEAEDFF),
+                  color: AppColors.surfaceContainer,
                   borderRadius: BorderRadius.circular(100),
                 ),
                 child: Row(
@@ -602,9 +607,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                                 decoration: BoxDecoration(
-                                    color: _activeTab == 'inventory' ? const Color(0xFF0284C7) : Colors.transparent,
+                                    color: _activeTab == 'inventory' ? AppColors.primarySky : Colors.transparent,
                                     borderRadius: BorderRadius.circular(100),
-                                    boxShadow: _activeTab == 'inventory' ? [BoxShadow(color: const Color(0xFF0284C7).withValues(alpha: 0.3), blurRadius: 16)] : []
+                                    boxShadow: _activeTab == 'inventory' ? [BoxShadow(color: AppColors.primarySky.withValues(alpha: 0.3), blurRadius: 16)] : []
                                 ),
                                 child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -612,7 +617,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                       Icon(Icons.inventory_2, size: 18, color: _activeTab == 'inventory' ? Colors.white : AppColors.textSecondary),
                                       const SizedBox(width: 6),
                                       Text('Stock Inventory',
-                                          style: GoogleFonts.plusJakartaSans(
+                                          style: TextStyle(
                                               fontSize: 13, fontWeight: FontWeight.bold, color: _activeTab == 'inventory' ? Colors.white : AppColors.textSecondary))
                                     ]
                                 )
@@ -626,9 +631,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                                 decoration: BoxDecoration(
-                                    color: _activeTab == 'machinery' ? const Color(0xFF0284C7) : Colors.transparent,
+                                    color: _activeTab == 'machinery' ? AppColors.primarySky : Colors.transparent,
                                     borderRadius: BorderRadius.circular(100),
-                                    boxShadow: _activeTab == 'machinery' ? [BoxShadow(color: const Color(0xFF0284C7).withValues(alpha: 0.3), blurRadius: 16)] : []
+                                    boxShadow: _activeTab == 'machinery' ? [BoxShadow(color: AppColors.primarySky.withValues(alpha: 0.3), blurRadius: 16)] : []
                                 ),
                                 child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -636,7 +641,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                       Icon(Icons.precision_manufacturing, size: 18, color: _activeTab == 'machinery' ? Colors.white : AppColors.textSecondary),
                                       const SizedBox(width: 6),
                                       Text('Machinery Alerts',
-                                          style: GoogleFonts.plusJakartaSans(
+                                          style: TextStyle(
                                               fontSize: 13, fontWeight: FontWeight.bold, color: _activeTab == 'machinery' ? Colors.white : AppColors.textSecondary)),
                                       const SizedBox(width: 4),
                                       StreamBuilder<List<MaintenanceAlertModel>>(
@@ -663,7 +668,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     if (snapshot.hasError) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 24),
-                        child: Text('Failed to load inventory: ${snapshot.error}', style: GoogleFonts.plusJakartaSans(color: AppColors.error)),
+                        child: Text('Failed to load inventory: ${snapshot.error}', style: const TextStyle(color: AppColors.error)),
                       );
                     }
                     if (!snapshot.hasData) {
@@ -695,34 +700,34 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)]),
                                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                        Text('TOTAL VOLUME', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary, letterSpacing: 1)),
+                                        const Text('TOTAL VOLUME', style: TextStyle(fontSize: 11, color: AppColors.textSecondary, letterSpacing: 1)),
                                         Container(
                                             width: 28,
                                             height: 28,
-                                            decoration: const BoxDecoration(color: Color(0xFFF0F9FF), shape: BoxShape.circle),
-                                            child: const Icon(Icons.water_drop, size: 16, color: Color(0xFF0284C7)))
+                                            decoration: const BoxDecoration(color: AppColors.surfaceIce, shape: BoxShape.circle),
+                                            child: const Icon(Icons.water_drop, size: 16, color: AppColors.primarySky))
                                       ]),
                                       const SizedBox(height: 8),
                                       Text.rich(TextSpan(children: [
                                         TextSpan(
                                             text: '$totalWaterStock',
-                                            style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textLight)),
-                                        TextSpan(text: ' / $totalWaterCapacity Gal', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textSecondary))
+                                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textLight)),
+                                        TextSpan(text: ' / $totalWaterCapacity Gal', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))
                                       ])),
                                       const SizedBox(height: 8),
                                       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                                         Text('${(waterPct * 100).toStringAsFixed(0)}% Cap',
-                                            style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7))),
-                                        Text('Optimal', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary))
+                                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primarySky)),
+                                        const Text('Optimal', style: TextStyle(fontSize: 10, color: AppColors.textSecondary))
                                       ]),
                                       const SizedBox(height: 4),
                                       Container(
                                           height: 8,
-                                          decoration: BoxDecoration(color: const Color(0xFFEAEDFF), borderRadius: BorderRadius.circular(100)),
+                                          decoration: BoxDecoration(color: AppColors.surfaceContainer, borderRadius: BorderRadius.circular(100)),
                                           child: FractionallySizedBox(
                                               alignment: Alignment.centerLeft,
                                               widthFactor: waterPct.clamp(0.0, 1.0),
-                                              child: Container(decoration: BoxDecoration(color: const Color(0xFF0284C7), borderRadius: BorderRadius.circular(100))))),
+                                              child: Container(decoration: BoxDecoration(color: AppColors.primarySky, borderRadius: BorderRadius.circular(100))))),
                                     ]))),
                             const SizedBox(width: 12),
                             Expanded(
@@ -734,34 +739,34 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)]),
                                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                        Text('WARNING',
-                                            style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.coralAlert, letterSpacing: 1)),
+                                        const Text('WARNING',
+                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.coralAlert, letterSpacing: 1)),
                                         Container(
                                             width: 28,
                                             height: 28,
-                                            decoration: const BoxDecoration(color: Color(0xFFFFDAD6), shape: BoxShape.circle),
+                                            decoration: const BoxDecoration(color: AppColors.errorContainer, shape: BoxShape.circle),
                                             child: const Icon(Icons.warning, size: 16, color: AppColors.coralAlert))
                                       ]),
                                       const SizedBox(height: 8),
                                       Text.rich(TextSpan(children: [
                                         TextSpan(
                                             text: '${criticalItems.length}',
-                                            style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.coralAlert)),
-                                        TextSpan(text: ' Line Critical', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textSecondary))
+                                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.coralAlert)),
+                                        const TextSpan(text: ' Line Critical', style: TextStyle(fontSize: 13, color: AppColors.textSecondary))
                                       ])),
                                       const SizedBox(height: 8),
                                       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                                         Expanded(
                                             child: Text(criticalItems.isEmpty ? 'All clear' : criticalItems.first.name,
                                                 overflow: TextOverflow.ellipsis,
-                                                style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.coralAlert))),
+                                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.coralAlert))),
                                         Text(criticalItems.isEmpty ? '' : '< ${criticalItems.first.minimumThreshold} left',
-                                            style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
+                                            style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
                                       ]),
                                       const SizedBox(height: 4),
                                       Container(
                                           height: 8,
-                                          decoration: BoxDecoration(color: const Color(0xFFEAEDFF), borderRadius: BorderRadius.circular(100)),
+                                          decoration: BoxDecoration(color: AppColors.surfaceContainer, borderRadius: BorderRadius.circular(100)),
                                           child: FractionallySizedBox(
                                               alignment: Alignment.centerLeft,
                                               widthFactor: criticalItems.isEmpty
@@ -780,15 +785,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                 child: FittedBox(
                                   fit: BoxFit.scaleDown,
                                   alignment: Alignment.centerLeft,
-                                  child: Text('Tracked Supply Lines', maxLines: 1, style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.bold, color: textMain)),
+                                  child: Text('Tracked Supply Lines', maxLines: 1, style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: textMain)),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(color: const Color(0xFFF0F9FF), borderRadius: BorderRadius.circular(100)),
+                                  decoration: BoxDecoration(color: AppColors.surfaceIce, borderRadius: BorderRadius.circular(100)),
                                   child: Text('${filteredInvItems.length} Items',
-                                      style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7))))
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primarySky)))
                             ]),
                           ),
                           const SizedBox(width: 8),
@@ -798,7 +803,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         if (filteredInvItems.isEmpty)
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 24),
-                            child: Text('No items in this category.', style: GoogleFonts.plusJakartaSans(color: isDark ? Colors.white70 : AppColors.textSecondary)),
+                            child: Text('No items in this category.', style: TextStyle(color: isDark ? Colors.white70 : AppColors.textSecondary)),
                           ),
                         ...filteredInvItems.map((item) => _buildInvCard(item)),
                       ],
@@ -811,10 +816,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     alignment: Alignment.centerRight,
                     child: OutlinedButton.icon(
                       onPressed: _showAddMaintenanceAlertDialog,
-                      icon: const Icon(Icons.add, size: 16, color: Color(0xFF0284C7)),
-                      label: Text('Schedule Maintenance', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7))),
+                      icon: const Icon(Icons.add, size: 16, color: AppColors.primarySky),
+                      label: const Text('Schedule Maintenance', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primarySky)),
                       style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFF0284C7)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
+                          side: const BorderSide(color: AppColors.primarySky), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
                     ),
                   ),
                 const SizedBox(height: 16),
@@ -824,7 +829,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     if (snapshot.hasError) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 24),
-                        child: Text('Failed to load alerts: ${snapshot.error}', style: GoogleFonts.plusJakartaSans(color: AppColors.error)),
+                        child: Text('Failed to load alerts: ${snapshot.error}', style: const TextStyle(color: AppColors.error)),
                       );
                     }
                     if (!snapshot.hasData) {
@@ -837,7 +842,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     if (alerts.isEmpty) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 24),
-                        child: Text('No maintenance scheduled.', style: GoogleFonts.plusJakartaSans(color: isDark ? Colors.white70 : AppColors.textSecondary)),
+                        child: Text('No maintenance scheduled.', style: TextStyle(color: isDark ? Colors.white70 : AppColors.textSecondary)),
                       );
                     }
                     return Column(children: alerts.map((a) => _buildMaintenanceCard(a)).toList());
@@ -877,32 +882,32 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   Container(
                       width: 48,
                       height: 48,
-                      decoration: BoxDecoration(color: isCrit ? const Color(0xFFFFDAD6) : const Color(0xFFF0F9FF), shape: BoxShape.circle),
-                      child: Icon(icon, color: isCrit ? AppColors.coralAlert : const Color(0xFF0284C7), size: 26)),
+                      decoration: BoxDecoration(color: isCrit ? AppColors.errorContainer : AppColors.surfaceIce, shape: BoxShape.circle),
+                      child: Icon(icon, color: isCrit ? AppColors.coralAlert : AppColors.primarySky, size: 26)),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textLight)),
+                      Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textLight)),
                       if (isCrit)
                         Row(children: [
                           const Icon(Icons.emergency, size: 14, color: AppColors.coralAlert),
                           const SizedBox(width: 4),
                           Text('Threshold Breach (< ${item.minimumThreshold})',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.coralAlert))
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.coralAlert))
                         ])
                       else
                         Text(item.category == 'water' ? 'Station Filter Bank A • RO UV' : 'Packaging & Consumables',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                     ],
                   )
                 ],
               ),
               Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: isCrit ? const Color(0xFFFFDAD6) : const Color(0xFF6CF8BB), borderRadius: BorderRadius.circular(100)),
+                  decoration: BoxDecoration(color: isCrit ? AppColors.errorContainer : AppColors.secondaryContainer, borderRadius: BorderRadius.circular(100)),
                   child: Text(isCrit ? 'Critical' : 'In Stock',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: isCrit ? const Color(0xFF93000A) : const Color(0xFF00714D))))
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isCrit ? AppColors.errorText : AppColors.onSecondaryContainer)))
             ],
           ),
           const SizedBox(height: 12),
@@ -910,23 +915,23 @@ class _InventoryScreenState extends State<InventoryScreen> {
             Text.rich(TextSpan(children: [
               TextSpan(
                   text: '$val ',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.bold, color: isCrit ? AppColors.coralAlert : AppColors.textLight)),
-              TextSpan(text: isCrit ? 'pcs left' : '/ $max $unit', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textSecondary))
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: isCrit ? AppColors.coralAlert : AppColors.textLight)),
+              TextSpan(text: isCrit ? 'pcs left' : '/ $max $unit', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))
             ])),
             Expanded(
                 child: Text(isCrit ? 'Immediate Action' : '${(pct * 100).toStringAsFixed(1)}% Ready',
                     textAlign: TextAlign.right,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: isCrit ? AppColors.coralAlert : const Color(0xFF0284C7)),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isCrit ? AppColors.coralAlert : AppColors.primarySky),
                     overflow: TextOverflow.ellipsis))
           ]),
           const SizedBox(height: 6),
           Container(
               height: 8,
-              decoration: BoxDecoration(color: const Color(0xFFEAEDFF), borderRadius: BorderRadius.circular(100)),
+              decoration: BoxDecoration(color: AppColors.surfaceContainer, borderRadius: BorderRadius.circular(100)),
               child: FractionallySizedBox(
                   alignment: Alignment.centerLeft,
                   widthFactor: pct,
-                  child: Container(decoration: BoxDecoration(color: isCrit ? AppColors.coralAlert : const Color(0xFF0284C7), borderRadius: BorderRadius.circular(100))))),
+                  child: Container(decoration: BoxDecoration(color: isCrit ? AppColors.coralAlert : AppColors.primarySky, borderRadius: BorderRadius.circular(100))))),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -935,21 +940,21 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 Icon(isCrit ? Icons.timer : Icons.verified, size: 15, color: isCrit ? AppColors.textSecondary : AppColors.accentTeal),
                 const SizedBox(width: 4),
                 Text(isCrit ? 'Below minimum threshold' : (item.category == 'water' ? 'Purity: 0 ppm (Ultra)' : 'Stock healthy'),
-                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary))
+                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary))
               ]),
               InkWell(
                 onTap: () => _showRestockModal(item),
                 child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                        color: isCrit ? AppColors.coralAlert : const Color(0xFFF0F9FF),
+                        color: isCrit ? AppColors.coralAlert : AppColors.surfaceIce,
                         borderRadius: BorderRadius.circular(100),
                         boxShadow: isCrit ? [BoxShadow(color: AppColors.coralAlert.withValues(alpha: 0.35), blurRadius: 16, offset: const Offset(0, 4))] : []),
                     child: Row(children: [
-                      Icon(isCrit ? Icons.priority_high : Icons.add_circle, size: 16, color: isCrit ? Colors.white : const Color(0xFF0284C7)),
+                      Icon(isCrit ? Icons.priority_high : Icons.add_circle, size: 16, color: isCrit ? Colors.white : AppColors.primarySky),
                       const SizedBox(width: 4),
                       Text(isCrit ? 'Restock Now' : 'Restock',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: isCrit ? Colors.white : const Color(0xFF0284C7)))
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isCrit ? Colors.white : AppColors.primarySky))
                     ])),
               )
             ],
@@ -1001,7 +1006,7 @@ class _CustomDatePickerModalState extends State<_CustomDatePickerModal> {
         alignment: Alignment.center,
         child: Text(
           '${prevDaysInMonth - i}',
-          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFCBD5E1), fontSize: 14, fontWeight: FontWeight.w500),
+          style: const TextStyle(color: AppColors.slate300, fontSize: 14, fontWeight: FontWeight.w500),
         ),
       ));
     }
@@ -1018,9 +1023,9 @@ class _CustomDatePickerModalState extends State<_CustomDatePickerModal> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF0284C7) : (isToday ? const Color(0xFFF0F9FF) : Colors.transparent),
+              color: isSelected ? AppColors.primarySky : (isToday ? AppColors.surfaceIce : Colors.transparent),
               borderRadius: BorderRadius.circular(12),
-              border: isToday && !isSelected ? Border.all(color: const Color(0xFFE0F2FE)) : null,
+              border: isToday && !isSelected ? Border.all(color: AppColors.surfaceFrost) : null,
               boxShadow: isSelected ? const [BoxShadow(color: Color(0x4D0EA5E9), blurRadius: 8, offset: Offset(0, 3))] : null,
             ),
             alignment: Alignment.center,
@@ -1029,14 +1034,14 @@ class _CustomDatePickerModalState extends State<_CustomDatePickerModal> {
               children: [
                 Text(
                   '$i',
-                  style: GoogleFonts.plusJakartaSans(
+                  style: TextStyle(
                     fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected ? Colors.white : (isToday ? const Color(0xFF0284C7) : const Color(0xFF334155)),
+                    color: isSelected ? Colors.white : (isToday ? AppColors.primarySky : AppColors.borderDark),
                     fontSize: 14,
                   ),
                 ),
                 if (isToday && !isSelected)
-                  Positioned(bottom: 4, child: Container(width: 4, height: 4, decoration: const BoxDecoration(color: Color(0xFF0284C7), shape: BoxShape.circle))),
+                  Positioned(bottom: 4, child: Container(width: 4, height: 4, decoration: const BoxDecoration(color: AppColors.primarySky, shape: BoxShape.circle))),
               ],
             ),
           ),
@@ -1060,7 +1065,7 @@ class _CustomDatePickerModalState extends State<_CustomDatePickerModal> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFFF1F5F9)),
+            border: Border.all(color: AppColors.slate100),
             boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 24, offset: Offset(0, 10))],
           ),
           child: Column(
@@ -1072,39 +1077,39 @@ class _CustomDatePickerModalState extends State<_CustomDatePickerModal> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('SELECT DATE', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF64748B), letterSpacing: 1.2)),
+                      const Text('SELECT DATE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.slate500, letterSpacing: 1.2)),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(color: const Color(0xFFF0F9FF), border: Border.all(color: const Color(0xFFE0F2FE)), borderRadius: BorderRadius.circular(100)),
+                        decoration: BoxDecoration(color: AppColors.surfaceIce, border: Border.all(color: AppColors.surfaceFrost), borderRadius: BorderRadius.circular(100)),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF0284C7), shape: BoxShape.circle)),
+                            Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppColors.primarySky, shape: BoxShape.circle)),
                             const SizedBox(width: 6),
-                            Text('ACTIVE CYCLE', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7), letterSpacing: 0.8)),
+                            const Text('ACTIVE CYCLE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.primarySky, letterSpacing: 0.8)),
                           ],
                         ),
                       )
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(_formatSelectedDate(), style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A), letterSpacing: -0.5)),
+                  Text(_formatSelectedDate(), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.backgroundDark, letterSpacing: -0.5)),
                   const SizedBox(height: 16),
                 ],
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(color: const Color(0xFFF8FAFC), border: Border.all(color: const Color(0xFFF1F5F9)), borderRadius: BorderRadius.circular(16)),
+                decoration: BoxDecoration(color: AppColors.surfaceCanvas, border: Border.all(color: AppColors.slate100), borderRadius: BorderRadius.circular(16)),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
                       children: [
                         Text('${_monthNames[_displayMonth.month - 1]} ${_displayMonth.year}',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B))),
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.surfaceDark)),
                         const SizedBox(width: 4),
-                        const Icon(Icons.expand_more, size: 20, color: Color(0xFF64748B)),
+                        const Icon(Icons.expand_more, size: 20, color: AppColors.slate500),
                       ],
                     ),
                     Row(
@@ -1115,8 +1120,8 @@ class _CustomDatePickerModalState extends State<_CustomDatePickerModal> {
                           child: Container(
                             width: 32,
                             height: 32,
-                            decoration: BoxDecoration(color: Colors.white, border: Border.all(color: const Color(0xFFE2E8F0)), borderRadius: BorderRadius.circular(8)),
-                            child: const Icon(Icons.chevron_left, size: 18, color: Color(0xFF334155)),
+                            decoration: BoxDecoration(color: Colors.white, border: Border.all(color: AppColors.slate200), borderRadius: BorderRadius.circular(8)),
+                            child: const Icon(Icons.chevron_left, size: 18, color: AppColors.borderDark),
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -1126,8 +1131,8 @@ class _CustomDatePickerModalState extends State<_CustomDatePickerModal> {
                           child: Container(
                             width: 32,
                             height: 32,
-                            decoration: BoxDecoration(color: Colors.white, border: Border.all(color: const Color(0xFFE2E8F0)), borderRadius: BorderRadius.circular(8)),
-                            child: const Icon(Icons.chevron_right, size: 18, color: Color(0xFF334155)),
+                            decoration: BoxDecoration(color: Colors.white, border: Border.all(color: AppColors.slate200), borderRadius: BorderRadius.circular(8)),
+                            child: const Icon(Icons.chevron_right, size: 18, color: AppColors.borderDark),
                           ),
                         ),
                       ],
@@ -1140,7 +1145,7 @@ class _CustomDatePickerModalState extends State<_CustomDatePickerModal> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-                      .map((d) => SizedBox(width: 36, child: Center(child: Text(d, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8))))))
+                      .map((d) => SizedBox(width: 36, child: Center(child: Text(d, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.slate400)))))
                       .toList(),
                 ),
               ),
@@ -1155,32 +1160,32 @@ class _CustomDatePickerModalState extends State<_CustomDatePickerModal> {
               const SizedBox(height: 24),
               Container(
                 padding: const EdgeInsets.only(top: 16),
-                decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF1F5F9)))),
+                decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.slate100))),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
                       style: TextButton.styleFrom(
-                        backgroundColor: const Color(0xFFF1F5F9),
-                        foregroundColor: const Color(0xFF475569),
+                        backgroundColor: AppColors.slate100,
+                        foregroundColor: AppColors.slate600,
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: Text("Cancel", style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600)),
+                      child: const Text("Cancel", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton(
                       onPressed: () => Navigator.pop(context, _selectedDate),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0284C7),
+                        backgroundColor: AppColors.primarySky,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        shadowColor: const Color(0xFF0284C7).withValues(alpha: 0.3),
+                        shadowColor: AppColors.primarySky.withValues(alpha: 0.3),
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ).copyWith(elevation: WidgetStateProperty.resolveWith((states) => 4)),
-                      child: Text("Confirm", style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold)),
+                      child: const Text("Confirm", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),

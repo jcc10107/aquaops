@@ -1,18 +1,18 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/string_utils.dart';
 import '../../main.dart';
 import '../../models/user_model.dart';
-import '../owner/manage_team_screen.dart';
-import '../owner/terms_privacy_editor_screen.dart';
-import '../owner/gcash_account_editor_screen.dart';
-import '../owner/manage_branches_screen.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
-import 'manage_profile_screen.dart';
-import 'saved_addresses_screen.dart';
+import '../owner/gcash_account_editor_screen.dart';
+import '../owner/manage_branches_screen.dart';
+import '../owner/manage_team_screen.dart';
+import '../owner/terms_privacy_editor_screen.dart';
 import 'change_password_screen.dart';
 import 'help_center_screen.dart';
+import 'manage_profile_screen.dart';
+import 'saved_addresses_screen.dart';
 import 'terms_privacy_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -25,29 +25,8 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   final AuthService _authService = AuthService();
-  String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
   static const String _font = 'Plus Jakarta Sans';
-  static const Color _white = Color(0xFFFFFFFF);
-  static const Color _onSurface = Color(0xFF131B2E);
-  static const Color _onSurfaceVariant = Color(0xFF3F4850);
-  static const Color _outline = Color(0xFF707881);
-  static const Color _outlineVariant = Color(0xFFBFC7D2);
-  static const Color _primaryBlue = Color(0xFF0284C7);
-  static const Color _iconBg = Color(0xFFF0F9FF);
-  static const Color _secondary = Color(0xFF006C49);
-  static const Color _onSecondaryContainer = Color(0xFF00714D);
-  static const Color _secondaryFixed = Color(0xFF6FFBBE);
-  static const Color _containerHigh = Color(0xFFE2E7FF);
-  static const Color _errorColor = Color(0xFFBA1A1A);
-  static const Color _errorContainer = Color(0xFFFFDAD6);
-
-  String _getInitials(String fullName) {
-    if (fullName.trim().isEmpty) return 'U';
-    final parts = fullName.trim().split(RegExp(r'\s+'));
-    if (parts.length > 1) return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
-    return parts.first.substring(0, parts.first.length >= 2 ? 2 : 1).toUpperCase();
-  }
 
   String _badgeForRole(UserRole role) {
     switch (role) {
@@ -68,7 +47,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'email': user.email,
       'phone': user.phone,
       'badge': _badgeForRole(user.role),
-      'initials': _getInitials(user.name),
+      'initials': getInitials(user.name),
     };
   }
 
@@ -82,7 +61,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openSavedAddresses() {
-    final uid = _uid;
+    final uid = _authService.currentUserId;
     if (uid == null) return;
     Navigator.push(
       context,
@@ -251,8 +230,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final role = currentUserRoleNotifier.value;
-    final uid = _uid;
+
+    // TASK 5.3: Replaced string check with UserRole enum
+    final currentRole = UserRole.fromString(currentUserRoleNotifier.value);
+
+    final uid = _authService.currentUserId;
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return StreamBuilder<UserModel?>(
@@ -274,25 +256,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildProfileHero(userData, isDark),
                   const SizedBox(height: 20),
 
-                  _buildSectionHeader('Account Settings', 'Personal Details', _outlineVariant, false),
+                  _buildSectionHeader('Account Settings', 'Personal Details', AppColors.outlineVariant, false),
                   const SizedBox(height: 8),
                   _buildCardGroup([
-                    _buildListTile('Manage Profile', 'Name, email & contact number', Icons.person, _primaryBlue, isDark, onTap: user == null ? null : () => _openManageProfile(user, userData)),
-                    _buildDivider(isDark),
-                    _buildListTile('Saved Delivery Addresses', 'Delivery locations & notes', Icons.location_on, _primaryBlue, isDark, onTap: _openSavedAddresses),
+                    _buildListTile('Manage Profile', 'Name, email & contact number', Icons.person, AppColors.primarySky, isDark, onTap: user == null ? null : () => _openManageProfile(user, userData)),
+                    _buildDivider(),
+                    _buildListTile('Saved Delivery Addresses', 'Delivery locations & notes', Icons.location_on, AppColors.primarySky, isDark, onTap: _openSavedAddresses),
                   ], isDark),
                   const SizedBox(height: 20),
 
-                  if (role == 'owner') ...[
-                    _buildSectionHeader('Station Operations', 'Owner Only', _primaryBlue, true),
+                  if (currentRole == UserRole.owner) ...[
+                    _buildSectionHeader('Station Operations', 'Owner Only', AppColors.primarySky, true),
                     const SizedBox(height: 8),
                     _buildCardGroup([
-                      _buildListTile('Manage Staff & Riders', 'Staff accounts & rider routes', Icons.groups, _primaryBlue, isDark, badge: '4 Active', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageTeamScreen()))),
-                      _buildDivider(isDark),
-                      _buildListTile('Edit Terms & Privacy', 'Update station policies', Icons.edit_document, _primaryBlue, isDark, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsPrivacyEditorScreen()))),
-                      _buildDivider(isDark),
-                      _buildListTile('Edit GCash Account', 'Payment number shown to customers', Icons.qr_code_2, _primaryBlue, isDark, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GcashAccountEditorScreen()))),
-                      _buildDivider(isDark),
+                      _buildListTile('Manage Staff & Riders', 'Staff accounts & rider routes', Icons.groups, AppColors.primarySky, isDark, badge: '4 Active', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageTeamScreen()))),
+                      _buildDivider(),
+                      _buildListTile('Edit Terms & Privacy', 'Update station policies', Icons.edit_document, AppColors.primarySky, isDark, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsPrivacyEditorScreen()))),
+                      _buildDivider(),
+                      _buildListTile('Edit GCash Account', 'Payment number shown to customers', Icons.qr_code_2, AppColors.primarySky, isDark, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GcashAccountEditorScreen()))),
+                      _buildDivider(),
                       StreamBuilder<bool>(
                         stream: _firestoreService.getServiceAreaRestrictedStream(),
                         builder: (context, snapshot) {
@@ -301,18 +283,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             'Service Area',
                             restricted ? 'San Pablo City Only' : 'Any Address Accepted',
                             Icons.map,
-                            _primaryBlue,
+                            AppColors.primarySky,
                             isDark,
-                            trailing: _buildBoolSwitch(
+                            trailing: _buildSwitchTile(
                               value: restricted,
                               onTap: () => _firestoreService.setServiceAreaRestricted(!restricted),
                             ),
                           );
                         },
                       ),
-                      _buildDivider(isDark),
-                      _buildListTile('Manage Branches', 'Station locations', Icons.store, _primaryBlue, isDark, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageBranchesScreen()))),
-                      _buildDivider(isDark),
+                      _buildDivider(),
+                      _buildListTile('Manage Branches', 'Station locations', Icons.store, AppColors.primarySky, isDark, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageBranchesScreen()))),
+                      _buildDivider(),
                       StreamBuilder<({double baseFee, double ratePerKm})>(
                         stream: _firestoreService.getDeliveryFeeConfigStream(),
                         builder: (context, snapshot) {
@@ -324,7 +306,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             'Delivery Fee',
                             subtitle,
                             Icons.local_shipping,
-                            _primaryBlue,
+                            AppColors.primarySky,
                             isDark,
                             onTap: () => _showEditDeliveryFeeDialog(context, config.baseFee, config.ratePerKm),
                           );
@@ -334,33 +316,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 20),
                   ],
 
-                  _buildSectionHeader('Preferences', 'Customized', _outlineVariant, false),
+                  _buildSectionHeader('Preferences', 'Customized', AppColors.outlineVariant, false),
                   const SizedBox(height: 8),
                   _buildCardGroup([
-                    _buildListTile('Notification Settings', 'Delivery alerts & reminders', Icons.notifications_active, _primaryBlue, isDark, trailing: _buildCustomSwitch(user)),
+                    _buildListTile(
+                      'Notification Settings',
+                      'Delivery alerts & reminders',
+                      Icons.notifications_active,
+                      AppColors.primarySky,
+                      isDark,
+                      trailing: _buildSwitchTile(
+                        value: user?.notificationsEnabled ?? true,
+                        onTap: user == null
+                            ? null
+                            : () => _firestoreService.setNotificationsEnabled(user.id, !(user.notificationsEnabled)),
+                      ),
+                    ),
                   ], isDark),
                   const SizedBox(height: 20),
 
-                  _buildSectionHeader('Security & Access', 'Protected', _secondary, true),
+                  _buildSectionHeader('Security & Access', 'Protected', AppColors.secondary, true),
                   const SizedBox(height: 8),
                   _buildCardGroup([
-                    _buildListTile('Change Password', 'Login credentials & security', Icons.lock, _primaryBlue, isDark, onTap: _openChangePassword),
+                    _buildListTile('Change Password', 'Login credentials & security', Icons.lock, AppColors.primarySky, isDark, onTap: _openChangePassword),
                   ], isDark),
                   const SizedBox(height: 20),
 
-                  _buildSectionHeader('Support & Policies', '24/7 Available', _outlineVariant, false),
+                  _buildSectionHeader('Support & Policies', '24/7 Available', AppColors.outlineVariant, false),
                   const SizedBox(height: 8),
                   _buildCardGroup([
-                    _buildListTile('Help Center & FAQs', 'Guides & customer support', Icons.support_agent, _primaryBlue, isDark, onTap: _openHelpCenter),
-                    _buildDivider(isDark),
-                    _buildListTile('Terms & Privacy', 'Station policies & guidelines', Icons.shield, _primaryBlue, isDark, onTap: _openTerms),
+                    _buildListTile('Help Center & FAQs', 'Guides & customer support', Icons.support_agent, AppColors.primarySky, isDark, onTap: _openHelpCenter),
+                    _buildDivider(),
+                    _buildListTile('Terms & Privacy', 'Station policies & guidelines', Icons.shield, AppColors.primarySky, isDark, onTap: _openTerms),
                   ], isDark),
                   const SizedBox(height: 32),
 
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _errorContainer.withValues(alpha: 0.6),
-                      foregroundColor: _errorColor,
+                      backgroundColor: AppColors.errorContainer.withValues(alpha: 0.6),
+                      foregroundColor: AppColors.error,
                       elevation: 0,
                       shadowColor: Colors.transparent,
                       minimumSize: const Size(double.infinity, 52),
@@ -371,7 +365,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.logout, size: 20, color: _errorColor),
+                        Icon(Icons.logout, size: 20, color: AppColors.error),
                         SizedBox(width: 8),
                         Text(
                           'Log Out',
@@ -381,19 +375,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             fontWeight: FontWeight.w700,
                             height: 24 / 17,
                             letterSpacing: -0.17,
-                            color: _errorColor,
+                            color: AppColors.error,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  if (role == 'customer') ...[
+                  if (currentRole == UserRole.customer) ...[
                     const SizedBox(height: 16),
                     Center(
                       child: TextButton(
                         onPressed: () => _showDeleteAccountDialog(isDark),
                         style: TextButton.styleFrom(
-                          foregroundColor: _onSurfaceVariant,
+                          foregroundColor: AppColors.textSecondary,
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -402,7 +396,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.delete_forever, size: 18, color: _onSurfaceVariant),
+                            Icon(Icons.delete_forever, size: 18, color: AppColors.textSecondary),
                             SizedBox(width: 6),
                             Text(
                               'Delete Account',
@@ -412,7 +406,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 fontWeight: FontWeight.w700,
                                 height: 14 / 11,
                                 letterSpacing: 0.22,
-                                color: _onSurfaceVariant,
+                                color: AppColors.textSecondary,
                               ),
                             ),
                           ],
@@ -425,7 +419,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                       decoration: BoxDecoration(
-                        color: _containerHigh.withValues(alpha: 0.6),
+                        color: AppColors.surfaceContainerHigh.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(9999),
                       ),
                       child: const Row(
@@ -434,7 +428,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           SizedBox(
                             width: 6,
                             height: 6,
-                            child: DecoratedBox(decoration: BoxDecoration(color: _secondary, shape: BoxShape.circle)),
+                            child: DecoratedBox(decoration: BoxDecoration(color: AppColors.secondary, shape: BoxShape.circle)),
                           ),
                           SizedBox(width: 6),
                           Text(
@@ -445,7 +439,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               fontWeight: FontWeight.w800,
                               height: 12 / 10,
                               letterSpacing: 0.6,
-                              color: _outline,
+                              color: AppColors.outline,
                             ),
                           ),
                         ],
@@ -463,7 +457,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         fontWeight: FontWeight.w800,
                         height: 12 / 10,
                         letterSpacing: 1.0,
-                        color: _outlineVariant,
+                        color: AppColors.outlineVariant,
                       ),
                     ),
                   ),
@@ -481,17 +475,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0284C7).withValues(alpha: 0.08),
+            color: AppColors.primarySky.withValues(alpha: 0.08),
             blurRadius: 24,
             spreadRadius: -4,
             offset: const Offset(0, 4),
           ),
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+            color: AppColors.backgroundDark.withValues(alpha: 0.04),
             blurRadius: 8,
             spreadRadius: -1,
             offset: const Offset(0, 2),
@@ -510,11 +504,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF38BDF8), Color(0xFF0284C7)],
+                colors: [AppColors.primaryDark, AppColors.primarySky],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF0284C7).withValues(alpha: 0.35),
+                  color: AppColors.primarySky.withValues(alpha: 0.35),
                   blurRadius: 25,
                   spreadRadius: -3,
                   offset: const Offset(0, 10),
@@ -528,7 +522,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0xFF00B4D8), Color(0xFF0284C7), Color(0xFF0369A1)],
+                    colors: [Color(0xFF00B4D8), AppColors.primarySky, AppColors.primarySkyDark],
                     stops: [0.0, 0.6, 1.0],
                   ),
                 ),
@@ -563,7 +557,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               fontWeight: FontWeight.w700,
               height: 28 / 22,
               letterSpacing: -0.44,
-              color: _onSurface,
+              color: AppColors.textLight,
             ),
           ),
           const SizedBox(height: 2),
@@ -575,14 +569,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               fontSize: 13,
               fontWeight: FontWeight.w500,
               height: 18 / 13,
-              color: _onSurfaceVariant,
+              color: AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: _secondaryFixed.withValues(alpha: 0.2),
+              color: AppColors.mintBadge.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(9999),
               boxShadow: [
                 BoxShadow(
@@ -598,7 +592,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(
                   width: 8,
                   height: 8,
-                  child: DecoratedBox(decoration: BoxDecoration(color: _secondary, shape: BoxShape.circle)),
+                  child: DecoratedBox(decoration: BoxDecoration(color: AppColors.secondary, shape: BoxShape.circle)),
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -609,7 +603,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     fontWeight: FontWeight.w800,
                     height: 12 / 10,
                     letterSpacing: 0.5,
-                    color: _onSecondaryContainer,
+                    color: AppColors.onSecondaryContainer,
                   ),
                 ),
               ],
@@ -636,7 +630,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               fontWeight: FontWeight.w800,
               height: 12 / 10,
               letterSpacing: 0.6,
-              color: _outline,
+              color: AppColors.outline,
             ),
           ),
           Text(
@@ -661,14 +655,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0284C7).withValues(alpha: 0.04),
+            color: AppColors.primarySky.withValues(alpha: 0.04),
             blurRadius: 12,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Material(
-        color: _white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
         child: Column(children: children),
@@ -686,7 +680,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         fontSize: 15,
         fontWeight: FontWeight.w500,
         height: 22 / 15,
-        color: _onSurface,
+        color: AppColors.textLight,
       ),
     );
 
@@ -699,7 +693,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               width: 40,
               height: 40,
-              decoration: const BoxDecoration(color: _iconBg, shape: BoxShape.circle),
+              decoration: const BoxDecoration(color: AppColors.surfaceIce, shape: BoxShape.circle),
               child: Icon(icon, color: iconColor, size: 20),
             ),
             const SizedBox(width: 12),
@@ -715,7 +709,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: _secondaryFixed.withValues(alpha: 0.3),
+                            color: AppColors.mintBadge.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(9999),
                           ),
                           child: Text(
@@ -726,7 +720,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               fontWeight: FontWeight.w700,
                               height: 12 / 10,
                               letterSpacing: 0.6,
-                              color: _primaryBlue,
+                              color: AppColors.primarySky,
                             ),
                           ),
                         ),
@@ -743,71 +737,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       fontSize: 11,
                       fontWeight: FontWeight.w400,
                       height: 16 / 11,
-                      color: _onSurfaceVariant,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
               ),
             ),
             SizedBox(width: trailing != null ? 12 : 8),
-            trailing ?? const Icon(Icons.chevron_right, size: 20, color: _outlineVariant),
+            trailing ?? const Icon(Icons.chevron_right, size: 20, color: AppColors.outlineVariant),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDivider(bool isDark) => Container(
+  Widget _buildDivider() => Container(
     height: 1,
     margin: const EdgeInsets.symmetric(horizontal: 16),
-    color: _containerHigh,
+    color: AppColors.surfaceContainerHigh,
   );
 
-  Widget _buildCustomSwitch(UserModel? user) {
-    final enabled = user?.notificationsEnabled ?? true;
-    return GestureDetector(
-      onTap: user == null ? null : () => _firestoreService.setNotificationsEnabled(user.id, !enabled),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 48,
-        height: 28,
-        padding: const EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(100),
-          color: enabled ? _primaryBlue : _outlineVariant.withValues(alpha: 0.6),
-        ),
-        child: AnimatedAlign(
-          duration: const Duration(milliseconds: 200),
-          alignment: enabled ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 6,
-                  spreadRadius: -1,
-                  offset: const Offset(0, 4),
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 4,
-                  spreadRadius: -2,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: enabled ? const Icon(Icons.check, size: 13, color: _primaryBlue) : null,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBoolSwitch({required bool value, required VoidCallback onTap}) {
+  Widget _buildSwitchTile({required bool value, VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -817,7 +767,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.all(2),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(100),
-          color: value ? _primaryBlue : _outlineVariant.withValues(alpha: 0.6),
+          color: value ? AppColors.primarySky : AppColors.outlineVariant.withValues(alpha: 0.6),
         ),
         child: AnimatedAlign(
           duration: const Duration(milliseconds: 200),
@@ -843,7 +793,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ],
             ),
-            child: value ? const Icon(Icons.check, size: 13, color: _primaryBlue) : null,
+            child: value ? const Icon(Icons.check, size: 13, color: AppColors.primarySky) : null,
           ),
         ),
       ),

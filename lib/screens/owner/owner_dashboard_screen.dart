@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/constants/app_colors.dart';
 import '../../models/order_model.dart';
 import '../../models/inventory_model.dart';
 import '../../models/shift_model.dart';
@@ -12,24 +13,7 @@ class OwnerDashboardScreen extends StatefulWidget {
 }
 
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
-  static const Color skyBlue = Color(0xFF0284C7);
-  static const Color primary = Color(0xFF006194);
-  static const Color primaryContainer = Color(0xFF007BB9);
-  static const Color secondary = Color(0xFF006C49);
-  static const Color secondaryContainer = Color(0xFF6CF8BB);
-  static const Color onSecondaryContainer = Color(0xFF00714D);
-  static const Color cyanElectric = Color(0xFF06B6D4);
-  static const Color cyanHighlight = Color(0xFF22D3EE);
-  static const Color coralAlert = Color(0xFFF43F5E);
-  static const Color errorContainer = Color(0xFFFFDAD6);
-  static const Color onErrorContainer = Color(0xFF93000A);
-  static const Color surfaceContainerLowest = Color(0xFFFFFFFF);
-  static const Color surfaceContainer = Color(0xFFEAEDFF);
-  static const Color surfaceFrost = Color(0xFFE0F2FE);
-  static const Color onSurface = Color(0xFF131B2E);
-  static const Color onSurfaceVariant = Color(0xFF3F4850);
-  static const Color tealAccent = Color(0xFF14B8A6);
-  static const Color primaryFixed = Color(0xFFCCE5FF);
+  static const Color _primaryFixed = Color(0xFFCCE5FF);
 
   final String _hubName = 'Drink 8 Water Refilling Station';
   final String _statusLabel = 'STATION ONLINE';
@@ -125,7 +109,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             children: [
               Text(
                 _hubName,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: onSurface, letterSpacing: -0.4),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textLight, letterSpacing: -0.4),
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 4),
@@ -137,8 +121,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xBF6CF8BB), shape: BoxShape.circle)),
-                        Container(width: 6, height: 6, decoration: const BoxDecoration(color: secondary, shape: BoxShape.circle)),
+                        Container(width: 8, height: 8, decoration: BoxDecoration(color: AppColors.secondaryContainer.withValues(alpha: 0.75), shape: BoxShape.circle)),
+                        Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppColors.secondary, shape: BoxShape.circle)),
                       ],
                     ),
                   ),
@@ -146,7 +130,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   Flexible(
                     child: Text(
                       _statusLabel,
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: secondary, letterSpacing: 0.5),
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.secondary, letterSpacing: 0.5),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -158,7 +142,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         const SizedBox(width: 8),
         PopupMenuButton<String>(
           offset: const Offset(0, 40),
-          color: surfaceContainerLowest,
+          color: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           onSelected: (value) => setState(() => _period = value),
           itemBuilder: (context) => const [
@@ -168,14 +152,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           ],
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: surfaceContainer, borderRadius: BorderRadius.circular(100)),
+            decoration: BoxDecoration(color: AppColors.surfaceContainer, borderRadius: BorderRadius.circular(100)),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.calendar_today, size: 15, color: skyBlue),
+                const Icon(Icons.calendar_today, size: 15, color: AppColors.primarySky),
                 const SizedBox(width: 4),
-                Text(_dateLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: skyBlue)),
-                const Icon(Icons.arrow_drop_down, size: 16, color: skyBlue),
+                Text(_dateLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primarySky)),
+                const Icon(Icons.arrow_drop_down, size: 16, color: AppColors.primarySky),
               ],
             ),
           ),
@@ -228,10 +212,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [primary, primaryContainer, cyanElectric],
+          colors: [AppColors.primary, AppColors.primaryContainer, AppColors.cyanElectric],
         ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [BoxShadow(color: Color(0x59006194), blurRadius: 32, offset: Offset(0, 12))],
+        boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.35), blurRadius: 32, offset: const Offset(0, 12))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,20 +225,20 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.payments, size: 18, color: cyanHighlight),
+                  Icon(Icons.payments, size: 18, color: AppColors.cyanHighlight),
                   SizedBox(width: 6),
-                  Text('DAILY GROSS REVENUE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: primaryFixed, letterSpacing: 1.2)),
+                  Text('DAILY GROSS REVENUE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _primaryFixed, letterSpacing: 1.2)),
                 ],
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: secondaryContainer, borderRadius: BorderRadius.circular(100)),
+                decoration: BoxDecoration(color: AppColors.secondaryContainer, borderRadius: BorderRadius.circular(100)),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.trending_up, size: 12, color: onSecondaryContainer),
+                    const Icon(Icons.trending_up, size: 12, color: AppColors.onSecondaryContainer),
                     const SizedBox(width: 2),
-                    Text('+${growthPercent.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: onSecondaryContainer)),
+                    Text('+${growthPercent.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.onSecondaryContainer)),
                   ],
                 ),
               ),
@@ -267,7 +251,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             children: [
               Text('₱${dailyGrossRevenue.toStringAsFixed(2)}', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.6)),
               const SizedBox(width: 8),
-              Text('vs ₱${prevGrossRevenue.toStringAsFixed(0)} prior', style: const TextStyle(fontSize: 11, color: primaryFixed)),
+              const Text('vs ₱', style: TextStyle(fontSize: 11, color: _primaryFixed)),
+              Text('${prevGrossRevenue.toStringAsFixed(0)} prior', style: const TextStyle(fontSize: 11, color: _primaryFixed)),
             ],
           ),
           const SizedBox(height: 12),
@@ -283,14 +268,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                       const Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('CASH IN TILL', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: primaryFixed, letterSpacing: 0.6)),
-                          Icon(Icons.check_circle, size: 14, color: secondaryContainer),
+                          Text('CASH IN TILL', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: _primaryFixed, letterSpacing: 0.6)),
+                          Icon(Icons.check_circle, size: 14, color: AppColors.secondaryContainer),
                         ],
                       ),
                       const SizedBox(height: 4),
                       Text('₱${cashInTill.toStringAsFixed(2)}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
                       const SizedBox(height: 2),
-                      const Text('Reconciled ready', style: TextStyle(fontSize: 10, color: primaryFixed), overflow: TextOverflow.ellipsis),
+                      const Text('Reconciled ready', style: TextStyle(fontSize: 10, color: _primaryFixed), overflow: TextOverflow.ellipsis),
                     ],
                   ),
                 ),
@@ -306,14 +291,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                       const Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('GCASH / QR', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: primaryFixed, letterSpacing: 0.6)),
-                          Icon(Icons.verified, size: 14, color: cyanHighlight),
+                          Text('GCASH / QR', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: _primaryFixed, letterSpacing: 0.6)),
+                          Icon(Icons.verified, size: 14, color: AppColors.cyanHighlight),
                         ],
                       ),
                       const SizedBox(height: 4),
                       Text('₱${gcashQr.toStringAsFixed(2)}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
                       const SizedBox(height: 2),
-                      const Text('InstaPay verified', style: TextStyle(fontSize: 10, color: primaryFixed), overflow: TextOverflow.ellipsis),
+                      const Text('InstaPay verified', style: TextStyle(fontSize: 10, color: _primaryFixed), overflow: TextOverflow.ellipsis),
                     ],
                   ),
                 ),
@@ -339,7 +324,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('$gallonsPumped Gallons Pumped', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: primaryFixed)),
+                        Text('$gallonsPumped Gallons Pumped', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _primaryFixed)),
                         Text('$roundGallons Round • $slimGallons Slim', style: const TextStyle(fontSize: 10, color: Colors.white)),
                       ],
                     ),
@@ -348,8 +333,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text('Orders Completed', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: primaryFixed)),
-                    Text('$ordersCompleted orders', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: secondaryContainer)),
+                    const Text('Orders Completed', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _primaryFixed)),
+                    Text('$ordersCompleted orders', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.secondaryContainer)),
                   ],
                 ),
               ],
@@ -372,12 +357,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             const Flexible(
               child: Row(
                 children: [
-                  Icon(Icons.two_wheeler, color: skyBlue, size: 20),
+                  Icon(Icons.two_wheeler, color: AppColors.primarySky, size: 20),
                   SizedBox(width: 6),
                   Flexible(
                     child: Text(
                       'Active Dispatch Fleet',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: onSurface),
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textLight),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -387,13 +372,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(color: surfaceFrost, borderRadius: BorderRadius.circular(100)),
+              decoration: BoxDecoration(color: AppColors.surfaceFrost, borderRadius: BorderRadius.circular(100)),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(width: 6, height: 6, decoration: const BoxDecoration(color: tealAccent, shape: BoxShape.circle)),
+                  Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppColors.tealAccent, shape: BoxShape.circle)),
                   const SizedBox(width: 4),
-                  Text('${activeDeliveries.length} En Route', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: skyBlue)),
+                  Text('${activeDeliveries.length} En Route', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primarySky)),
                 ],
               ),
             ),
@@ -403,8 +388,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         if (activeDeliveries.isEmpty)
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: surfaceContainerLowest, borderRadius: BorderRadius.circular(16)),
-            child: const Text('No orders out for delivery right now.', style: TextStyle(fontSize: 12, color: onSurfaceVariant)),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+            child: const Text('No orders out for delivery right now.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           )
         else
           ...activeDeliveries.take(3).map((o) => Padding(
@@ -417,13 +402,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(color: surfaceFrost, borderRadius: BorderRadius.circular(100)),
+            decoration: BoxDecoration(color: AppColors.surfaceFrost, borderRadius: BorderRadius.circular(100)),
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('Open Live Dispatch Console', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: skyBlue)),
+                Text('Open Live Dispatch Console', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primarySky)),
                 SizedBox(width: 6),
-                Icon(Icons.arrow_forward, size: 18, color: skyBlue),
+                Icon(Icons.arrow_forward, size: 18, color: AppColors.primarySky),
               ],
             ),
           ),
@@ -443,9 +428,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: surfaceContainerLowest,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [BoxShadow(color: Color(0x0F007BB9), blurRadius: 16)],
+        boxShadow: [BoxShadow(color: AppColors.primaryContainer.withValues(alpha: 0.06), blurRadius: 16)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -460,9 +445,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     Container(
                       width: 40,
                       height: 40,
-                      decoration: const BoxDecoration(color: surfaceFrost, shape: BoxShape.circle),
+                      decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle),
                       child: const Center(
-                        child: Icon(Icons.person, color: skyBlue, size: 20),
+                        child: Icon(Icons.person, color: AppColors.primarySky, size: 20),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -475,16 +460,16 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                             runSpacing: 2,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              Text(order.customerName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: onSurface)),
+                              Text(order.customerName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textLight)),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                decoration: BoxDecoration(color: surfaceContainer, borderRadius: BorderRadius.circular(100)),
-                                child: Text(order.orderNumber, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: skyBlue)),
+                                decoration: BoxDecoration(color: AppColors.surfaceContainer, borderRadius: BorderRadius.circular(100)),
+                                child: Text(order.orderNumber, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.primarySky)),
                               ),
                             ],
                           ),
                           const SizedBox(height: 2),
-                          Text(order.deliveryAddress ?? '', style: const TextStyle(fontSize: 11, color: onSurfaceVariant)),
+                          Text(order.deliveryAddress ?? '', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                         ],
                       ),
                     ),
@@ -495,12 +480,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: secondaryContainer,
+                  color: AppColors.secondaryContainer,
                   borderRadius: BorderRadius.circular(100),
                 ),
                 child: const Text(
                   'Out for delivery',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: onSecondaryContainer),
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.onSecondaryContainer),
                 ),
               ),
             ],
@@ -512,10 +497,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               Expanded(
                 child: Row(
                   children: [
-                    const Icon(Icons.account_balance_wallet, size: 15, color: secondary),
+                    const Icon(Icons.account_balance_wallet, size: 15, color: AppColors.secondary),
                     const SizedBox(width: 4),
                     Expanded(
-                      child: Text('₱${order.totalAmount.toStringAsFixed(0)} • $itemSummary', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: onSurface), overflow: TextOverflow.ellipsis),
+                      child: Text('₱${order.totalAmount.toStringAsFixed(0)} • $itemSummary', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textLight), overflow: TextOverflow.ellipsis),
                     ),
                   ],
                 ),
@@ -524,7 +509,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               Flexible(
                 child: Text(
                   riderLabel,
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: skyBlue),
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primarySky),
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.end,
                 ),
@@ -547,14 +532,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           children: [
             const Row(
               children: [
-                Icon(Icons.inventory_2, color: skyBlue, size: 20),
+                Icon(Icons.inventory_2, color: AppColors.primarySky, size: 20),
                 SizedBox(width: 6),
-                Text('Supplies & Bottling Stock', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: onSurface)),
+                Text('Supplies & Bottling Stock', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textLight)),
               ],
             ),
             InkWell(
               onTap: _onManageSupplies,
-              child: const Text('Manage All', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: skyBlue)),
+              child: const Text('Manage All', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primarySky)),
             ),
           ],
         ),
@@ -562,8 +547,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         if (visibleSupplies.isEmpty)
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: surfaceContainerLowest, borderRadius: BorderRadius.circular(16)),
-            child: const Text('No inventory items yet.', style: TextStyle(fontSize: 12, color: onSurfaceVariant)),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+            child: const Text('No inventory items yet.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           )
         else
           Row(
@@ -584,13 +569,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   Widget _buildSupplyCard(InventoryModel supply) {
     final bool isLow = supply.isLowStock;
-    final Color accent = isLow ? coralAlert : secondary;
+    final Color accent = isLow ? AppColors.coralAlert : AppColors.secondary;
     final IconData icon = supply.category == 'water' ? Icons.water_drop : Icons.inventory_2;
     final int pctLeft = supply.maxCapacity == 0 ? 0 : ((supply.currentStock / supply.maxCapacity) * 100).round();
 
     return Container(
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: surfaceContainerLowest, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 8)]),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 8)]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -601,21 +586,21 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
-                  color: isLow ? errorContainer : secondaryContainer,
+                  color: isLow ? AppColors.errorContainer : AppColors.secondaryContainer,
                   borderRadius: BorderRadius.circular(100),
                 ),
                 child: Text(
                   isLow ? '$pctLeft% LEFT' : 'GOOD',
-                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: isLow ? onErrorContainer : onSecondaryContainer),
+                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: isLow ? AppColors.errorText : AppColors.onSecondaryContainer),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          Text('${supply.currentStock}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: isLow ? coralAlert : onSurface)),
-          Text(supply.name, style: const TextStyle(fontSize: 11, color: onSurfaceVariant), overflow: TextOverflow.ellipsis),
+          Text('${supply.currentStock}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: isLow ? AppColors.coralAlert : AppColors.textLight)),
+          Text(supply.name, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary), overflow: TextOverflow.ellipsis),
           const SizedBox(height: 4),
-          Text(isLow ? 'Restock ASAP' : 'Stock healthy', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isLow ? coralAlert : secondary)),
+          Text(isLow ? 'Restock ASAP' : 'Stock healthy', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isLow ? AppColors.coralAlert : AppColors.secondary)),
         ],
       ),
     );
@@ -627,9 +612,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       children: [
         const Row(
           children: [
-            Icon(Icons.assignment_turned_in, color: skyBlue, size: 20),
+            Icon(Icons.assignment_turned_in, color: AppColors.primarySky, size: 20),
             SizedBox(width: 6),
-            Text('Reconciliation Status', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: onSurface)),
+            Text('Reconciliation Status', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textLight)),
           ],
         ),
         const SizedBox(height: 12),
@@ -643,30 +628,30 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             if (shift == null || (shift.status == ShiftStatus.closed && !openedToday)) {
               return Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: surfaceContainerLowest, borderRadius: BorderRadius.circular(16)),
-                child: const Text('No shift opened today yet. Staff open a shift from the POS screen.', style: TextStyle(fontSize: 12, color: onSurfaceVariant)),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                child: const Text('No shift opened today yet. Staff open a shift from the POS screen.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
               );
             }
 
             if (shift.status == ShiftStatus.open) {
               return Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: surfaceContainerLowest, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Color(0x0F007BB9), blurRadius: 16)]),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: AppColors.primaryContainer.withValues(alpha: 0.06), blurRadius: 16)]),
                 child: Row(
                   children: [
                     Container(
                       width: 36,
                       height: 36,
-                      decoration: const BoxDecoration(color: Color(0xFFFFFBEB), shape: BoxShape.circle),
-                      child: const Icon(Icons.hourglass_top, size: 20, color: Color(0xFFD97706)),
+                      decoration: const BoxDecoration(color: AppColors.amber50, shape: BoxShape.circle),
+                      child: const Icon(Icons.hourglass_top, size: 20, color: AppColors.amber600),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Shift In Progress', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: onSurface)),
-                          Text('Opened by ${shift.openedByName} with ₱${shift.openingCash.toStringAsFixed(2)} float', style: const TextStyle(fontSize: 11, color: onSurfaceVariant)),
+                          const Text('Shift In Progress', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textLight)),
+                          Text('Opened by ${shift.openedByName} with ₱${shift.openingCash.toStringAsFixed(2)} float', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                         ],
                       ),
                     ),
@@ -679,14 +664,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             final isBalanced = discrepancy.abs() < 0.01;
             return Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: surfaceContainerLowest, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Color(0x0F007BB9), blurRadius: 16)]),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: AppColors.primaryContainer.withValues(alpha: 0.06), blurRadius: 16)]),
               child: Row(
                 children: [
                   Container(
                     width: 36,
                     height: 36,
-                    decoration: BoxDecoration(color: isBalanced ? secondaryContainer : errorContainer, shape: BoxShape.circle),
-                    child: Icon(isBalanced ? Icons.task_alt : Icons.warning_amber, size: 20, color: isBalanced ? onSecondaryContainer : onErrorContainer),
+                    decoration: BoxDecoration(color: isBalanced ? AppColors.secondaryContainer : AppColors.errorContainer, shape: BoxShape.circle),
+                    child: Icon(isBalanced ? Icons.task_alt : Icons.warning_amber, size: 20, color: isBalanced ? AppColors.onSecondaryContainer : AppColors.errorText),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -695,18 +680,18 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                       children: [
                         Row(
                           children: [
-                            Flexible(child: Text('Closed by ${shift.closedByName}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: onSurface), overflow: TextOverflow.ellipsis)),
+                            Flexible(child: Text('Closed by ${shift.closedByName}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textLight), overflow: TextOverflow.ellipsis)),
                             const SizedBox(width: 6),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                              decoration: BoxDecoration(color: isBalanced ? secondaryContainer : errorContainer, borderRadius: BorderRadius.circular(100)),
-                              child: Text(isBalanced ? 'Balanced' : 'Discrepancy', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isBalanced ? onSecondaryContainer : onErrorContainer)),
+                              decoration: BoxDecoration(color: isBalanced ? AppColors.secondaryContainer : AppColors.errorContainer, borderRadius: BorderRadius.circular(100)),
+                              child: Text(isBalanced ? 'Balanced' : 'Discrepancy', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isBalanced ? AppColors.onSecondaryContainer : AppColors.errorText)),
                             ),
                           ],
                         ),
                         Text(
                           'Counted ₱${shift.closingCash?.toStringAsFixed(2) ?? '—'} vs expected ₱${shift.expectedCash?.toStringAsFixed(2) ?? '—'}${isBalanced ? '' : ' (${discrepancy > 0 ? '+' : ''}₱${discrepancy.toStringAsFixed(2)})'}',
-                          style: const TextStyle(fontSize: 11, color: onSurfaceVariant),
+                          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                         ),
                       ],
                     ),

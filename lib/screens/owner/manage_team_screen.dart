@@ -1,23 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/layout_constants.dart';
+import '../../core/utils/validators.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 
 const String _font = 'Plus Jakarta Sans';
-const Color _background = Color(0xFFF6FAFC);
-const Color _canvas = Color(0xFFF8FAFC);
-const Color _onSurface = Color(0xFF131B2E);
-const Color _onSurfaceVariant = Color(0xFF3F4850);
-const Color _outline = Color(0xFF707881);
-const Color _frost = Color(0xFFE0F2FE);
-const Color _blue = Color(0xFF0284C7);
-const Color _fieldBg = Color(0xFFF2F3FF);
-const Color _container = Color(0xFFEAEDFF);
-const Color _errorRed = Color(0xFFBA1A1A);
-const Color _errorContainer = Color(0xFFFFDAD6);
-const Color _coral = Color(0xFFF43F5E);
-const double _maxWidth = 450;
 const double _sidePadding = 16;
 
 class ManageTeamScreen extends StatefulWidget {
@@ -52,7 +41,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: const Color(0x66283044),
-      constraints: const BoxConstraints(maxWidth: _maxWidth),
+      constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheetState) {
           Future<void> submit() async {
@@ -60,14 +49,23 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
             final email = emailCtrl.text.trim();
             final password = passwordCtrl.text;
             final phone = phoneCtrl.text.trim();
-            final emailValid = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
             setSheetState(() {
               nameError = name.isEmpty ? 'Full name is required.' : null;
-              emailError = email.isEmpty ? 'Email is required.' : (!emailValid ? 'Enter a valid email address.' : null);
-              passwordError = password.isEmpty
-                  ? 'Password is required.'
-                  : (password.length < 8 ? 'Password must be at least 8 characters.' : null);
-              phoneError = phone.isEmpty ? 'Phone number is required.' : null;
+              emailError = Validators.validateEmail(
+                email,
+                requiredMessage: 'Email is required.',
+                invalidMessage: 'Enter a valid email address.',
+              );
+              passwordError = Validators.validatePassword(
+                password,
+                minLength: 8,
+                requiredMessage: 'Password is required.',
+                minLengthMessage: 'Password must be at least 8 characters.',
+              );
+              phoneError = Validators.validateMobile(
+                phone,
+                requiredMessage: 'Phone number is required.',
+              );
             });
             if (nameError != null || emailError != null || passwordError != null || phoneError != null) {
               return;
@@ -118,8 +116,8 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                       Container(
                         width: 36,
                         height: 36,
-                        decoration: const BoxDecoration(color: _frost, shape: BoxShape.circle),
-                        child: const Icon(Icons.group_add, size: 20, color: _blue),
+                        decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle),
+                        child: const Icon(Icons.group_add, size: 20, color: AppColors.primarySky),
                       ),
                       const SizedBox(width: 8),
                       const Expanded(
@@ -131,7 +129,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                             fontWeight: FontWeight.w700,
                             height: 28 / 22,
                             letterSpacing: -0.44,
-                            color: _onSurface,
+                            color: AppColors.textLight,
                           ),
                         ),
                       ),
@@ -141,8 +139,8 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                         child: Container(
                           width: 32,
                           height: 32,
-                          decoration: const BoxDecoration(color: _container, shape: BoxShape.circle),
-                          child: const Icon(Icons.close, size: 18, color: _onSurfaceVariant),
+                          decoration: const BoxDecoration(color: AppColors.surfaceContainer, shape: BoxShape.circle),
+                          child: const Icon(Icons.close, size: 18, color: AppColors.textSecondary),
                         ),
                       ),
                     ],
@@ -156,13 +154,13 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                       fontWeight: FontWeight.w700,
                       height: 14 / 11,
                       letterSpacing: 0.22,
-                      color: _onSurfaceVariant,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(color: _fieldBg, borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(color: AppColors.surfaceContainerLow, borderRadius: BorderRadius.circular(12)),
                     child: Row(
                       children: [
                         Expanded(
@@ -170,7 +168,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                             label: 'Staff',
                             icon: Icons.point_of_sale,
                             selected: selectedRole == UserRole.staff,
-                            selectedColor: _blue,
+                            selectedColor: AppColors.primarySky,
                             onTap: () => setSheetState(() => selectedRole = UserRole.staff),
                           ),
                         ),
@@ -180,7 +178,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                             label: 'Rider',
                             icon: Icons.two_wheeler,
                             selected: selectedRole == UserRole.rider,
-                            selectedColor: _blue,
+                            selectedColor: AppColors.primarySky,
                             onTap: () => setSheetState(() => selectedRole = UserRole.rider),
                           ),
                         ),
@@ -199,7 +197,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                             _SheetField(
                               label: 'FULL NAME',
                               icon: Icons.badge_outlined,
-                              iconColor: _outline,
+                              iconColor: AppColors.outline,
                               controller: nameCtrl,
                               hint: 'e.g. Maria Santos',
                               keyboardType: TextInputType.name,
@@ -212,7 +210,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                             _SheetField(
                               label: 'EMAIL ADDRESS',
                               icon: Icons.mail_outline,
-                              iconColor: _outline,
+                              iconColor: AppColors.outline,
                               controller: emailCtrl,
                               hint: 'name@aquaops.com',
                               keyboardType: TextInputType.emailAddress,
@@ -225,7 +223,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                             _SheetField(
                               label: 'TEMPORARY PASSWORD',
                               icon: Icons.key_outlined,
-                              iconColor: _outline,
+                              iconColor: AppColors.outline,
                               controller: passwordCtrl,
                               hint: 'Min. 8 characters',
                               obscure: true,
@@ -238,9 +236,9 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                             _SheetField(
                               label: 'PHONE NUMBER',
                               icon: Icons.call_outlined,
-                              iconColor: _outline,
+                              iconColor: AppColors.outline,
                               controller: phoneCtrl,
-                              hint: '+63 900 000 0000',
+                              hint: '09000000000',
                               keyboardType: TextInputType.phone,
                               errorText: phoneError,
                               onChanged: () {
@@ -251,7 +249,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                             _SheetField(
                               label: 'ASSIGNED AREA (DELIVERY ZONE)',
                               icon: Icons.explore_outlined,
-                              iconColor: _blue,
+                              iconColor: AppColors.primarySky,
                               controller: areaCtrl,
                               hint: 'e.g. Barangay San Antonio (Zone A)',
                             ),
@@ -289,7 +287,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                               fontWeight: FontWeight.w700,
                               height: 16 / 13,
                               letterSpacing: 0.13,
-                              color: _onSurfaceVariant,
+                              color: AppColors.textSecondary,
                             ),
                           ),
                         ),
@@ -297,7 +295,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                       const SizedBox(width: 8),
                       Container(
                         decoration: BoxDecoration(
-                          color: isSaving ? _blue.withValues(alpha: 0.7) : _blue,
+                          color: isSaving ? AppColors.primarySky.withValues(alpha: 0.7) : AppColors.primarySky,
                           borderRadius: BorderRadius.circular(9999),
                           boxShadow: [
                             BoxShadow(
@@ -376,7 +374,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: selected ? selectedColor : _onSurfaceVariant),
+            Icon(icon, size: 18, color: selected ? selectedColor : AppColors.textSecondary),
             const SizedBox(width: 8),
             Text(
               label,
@@ -386,7 +384,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                 fontWeight: FontWeight.w700,
                 height: 16 / 13,
                 letterSpacing: 0.13,
-                color: selected ? selectedColor : _onSurfaceVariant,
+                color: selected ? selectedColor : AppColors.textSecondary,
               ),
             ),
           ],
@@ -430,7 +428,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                           width: 64,
                           height: 64,
                           decoration: BoxDecoration(
-                            color: _errorContainer,
+                            color: AppColors.errorContainer,
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
@@ -440,7 +438,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                               ),
                             ],
                           ),
-                          child: const Icon(Icons.warning_amber_rounded, size: 32, color: _errorRed),
+                          child: const Icon(Icons.warning_amber_rounded, size: 32, color: AppColors.error),
                         ),
                         const SizedBox(height: 12),
                         const Text(
@@ -452,7 +450,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                             fontWeight: FontWeight.w700,
                             height: 28 / 22,
                             letterSpacing: -0.44,
-                            color: _onSurface,
+                            color: AppColors.textLight,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -464,7 +462,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                                 const TextSpan(text: 'Are you sure you want to remove '),
                                 TextSpan(
                                   text: member.name,
-                                  style: const TextStyle(fontWeight: FontWeight.w700, color: _onSurface),
+                                  style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.textLight),
                                 ),
                                 const TextSpan(
                                   text: ' from the station workforce? This action will revoke their login access and unassign their active shifts.',
@@ -477,7 +475,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                               height: 1.625,
-                              color: _onSurfaceVariant,
+                              color: AppColors.textSecondary,
                             ),
                           ),
                         ),
@@ -485,11 +483,11 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: _fieldBg, borderRadius: BorderRadius.circular(16)),
+                          decoration: BoxDecoration(color: AppColors.surfaceContainerLow, borderRadius: BorderRadius.circular(16)),
                           child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.assignment_late_outlined, size: 18, color: _coral),
+                              Icon(Icons.assignment_late_outlined, size: 18, color: AppColors.coralAlert),
                               SizedBox(width: 4),
                               Flexible(
                                 child: Text(
@@ -501,7 +499,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                                     fontWeight: FontWeight.w800,
                                     height: 12 / 10,
                                     letterSpacing: 0.6,
-                                    color: _onSurfaceVariant,
+                                    color: AppColors.textSecondary,
                                   ),
                                 ),
                               ),
@@ -517,8 +515,8 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                                 child: TextButton(
                                   onPressed: isDeleting ? null : () => Navigator.pop(dialogContext),
                                   style: TextButton.styleFrom(
-                                    backgroundColor: _fieldBg,
-                                    foregroundColor: _onSurface,
+                                    backgroundColor: AppColors.surfaceContainerLow,
+                                    foregroundColor: AppColors.textLight,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
                                   ),
                                   child: const Text(
@@ -529,7 +527,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                                       fontWeight: FontWeight.w700,
                                       height: 16 / 13,
                                       letterSpacing: 0.13,
-                                      color: _onSurface,
+                                      color: AppColors.textLight,
                                     ),
                                   ),
                                 ),
@@ -540,7 +538,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                               child: Container(
                                 height: 48,
                                 decoration: BoxDecoration(
-                                  color: _errorRed,
+                                  color: AppColors.error,
                                   borderRadius: BorderRadius.circular(9999),
                                   boxShadow: [
                                     BoxShadow(
@@ -616,11 +614,11 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader({String title = 'Back to Profile', Color backIconColor = AppColors.primarySky}) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: _background.withValues(alpha: 0.85),
+        color: AppColors.surfaceBackground.withValues(alpha: 0.85),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -633,7 +631,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
         bottom: false,
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _maxWidth),
+            constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
             child: SizedBox(
               height: 64,
               child: Padding(
@@ -643,25 +641,25 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                     InkWell(
                       customBorder: const CircleBorder(),
                       onTap: () => Navigator.maybePop(context),
-                      child: const SizedBox(
+                      child: SizedBox(
                         width: 44,
                         height: 44,
-                        child: Icon(Icons.arrow_back, size: 24, color: _blue),
+                        child: Icon(Icons.arrow_back, size: 24, color: backIconColor),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Back to Profile',
+                        title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontFamily: _font,
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
                           height: 24 / 17,
                           letterSpacing: -0.17,
-                          color: _onSurface,
+                          color: AppColors.textLight,
                         ),
                       ),
                     ),
@@ -682,7 +680,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: _frost,
+            color: AppColors.surfaceFrost,
             borderRadius: BorderRadius.circular(9999),
             boxShadow: [
               BoxShadow(
@@ -695,7 +693,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.badge, size: 13, color: _blue),
+              Icon(Icons.badge, size: 13, color: AppColors.primarySky),
               SizedBox(width: 6),
               Text(
                 'AQUA LOGISTICS WORKFORCE',
@@ -704,7 +702,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.6,
-                  color: _blue,
+                  color: AppColors.primarySky,
                 ),
               ),
             ],
@@ -719,7 +717,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
             fontWeight: FontWeight.w800,
             height: 28 / 22,
             letterSpacing: -0.44,
-            color: _onSurface,
+            color: AppColors.textLight,
           ),
         ),
         const SizedBox(height: 2),
@@ -730,7 +728,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
             fontSize: 13,
             fontWeight: FontWeight.w500,
             height: 18 / 13,
-            color: _onSurfaceVariant,
+            color: AppColors.textSecondary,
           ),
         ),
       ],
@@ -783,7 +781,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                               width: 40,
                               height: 40,
                               decoration: BoxDecoration(
-                                color: _frost,
+                                color: AppColors.surfaceFrost,
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
@@ -796,7 +794,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                               child: Icon(
                                 isRider ? Icons.two_wheeler : Icons.point_of_sale,
                                 size: 20,
-                                color: _blue,
+                                color: AppColors.primarySky,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -816,7 +814,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                                             fontSize: 15,
                                             fontWeight: FontWeight.w700,
                                             height: 1.2,
-                                            color: _onSurface,
+                                            color: AppColors.textLight,
                                           ),
                                         ),
                                       ),
@@ -824,7 +822,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF6CF8BB),
+                                          color: AppColors.secondaryContainer,
                                           borderRadius: BorderRadius.circular(9999),
                                         ),
                                         child: Text(
@@ -834,7 +832,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                                             fontSize: 9,
                                             fontWeight: FontWeight.w800,
                                             letterSpacing: 0.5,
-                                            color: Color(0xFF00714D),
+                                            color: AppColors.onSecondaryContainer,
                                           ),
                                         ),
                                       ),
@@ -846,7 +844,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                                       Container(
                                         width: 6,
                                         height: 6,
-                                        decoration: const BoxDecoration(color: _blue, shape: BoxShape.circle),
+                                        decoration: const BoxDecoration(color: AppColors.primarySky, shape: BoxShape.circle),
                                       ),
                                       const SizedBox(width: 4),
                                       Flexible(
@@ -858,7 +856,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                                             fontFamily: _font,
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,
-                                            color: _blue,
+                                            color: AppColors.primarySky,
                                           ),
                                         ),
                                       ),
@@ -879,7 +877,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                         width: double.infinity,
                         margin: const EdgeInsets.only(left: 4),
                         padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: _canvas, borderRadius: BorderRadius.circular(16)),
+                        decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(16)),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -890,13 +888,13 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                                 height: 1.35,
-                                color: _onSurface,
+                                color: AppColors.textLight,
                               ),
                             ),
                             const SizedBox(height: 6),
                             Row(
                               children: [
-                                Icon(isRider ? Icons.explore_outlined : Icons.storefront_outlined, size: 15, color: _blue),
+                                Icon(isRider ? Icons.explore_outlined : Icons.storefront_outlined, size: 15, color: AppColors.primarySky),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
@@ -906,7 +904,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                                     style: const TextStyle(
                                       fontFamily: _font,
                                       fontSize: 11,
-                                      color: _onSurfaceVariant,
+                                      color: AppColors.textSecondary,
                                     ),
                                   ),
                                 ),
@@ -925,7 +923,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                   width: 6,
                   child: const DecoratedBox(
                     decoration: BoxDecoration(
-                      color: _blue,
+                      color: AppColors.primarySky,
                       borderRadius: BorderRadius.horizontal(right: Radius.circular(9999)),
                     ),
                   ),
@@ -938,16 +936,20 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
     );
   }
 
-  Widget _buildAddButton() {
+  Widget _buildPrimaryActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     return Container(
       height: 56,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: _blue,
+        color: AppColors.primarySky,
         borderRadius: BorderRadius.circular(9999),
         boxShadow: [
           BoxShadow(
-            color: _blue.withValues(alpha: 0.38),
+            color: AppColors.primarySky.withValues(alpha: 0.38),
             blurRadius: 24,
             spreadRadius: -2,
             offset: const Offset(0, 8),
@@ -958,15 +960,15 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(9999),
-          onTap: _showAddMemberDialog,
-          child: const Row(
+          onTap: onTap,
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.person_add_alt_1, color: Colors.white, size: 20),
-              SizedBox(width: 8),
+              Icon(icon, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
               Text(
-                'Add Team Member',
-                style: TextStyle(
+                label,
+                style: const TextStyle(
                   fontFamily: _font,
                   color: Colors.white,
                   fontSize: 14,
@@ -978,6 +980,14 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAddButton() {
+    return _buildPrimaryActionButton(
+      icon: Icons.person_add_alt_1,
+      label: 'Add Team Member',
+      onTap: _showAddMemberDialog,
     );
   }
 
@@ -1014,7 +1024,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
                 fontFamily: _font,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: _onSurfaceVariant,
+                color: AppColors.textSecondary,
               ),
             ),
           );
@@ -1036,7 +1046,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: AppColors.surfaceBackground,
       body: Column(
         children: [
           _buildHeader(),
@@ -1047,7 +1057,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
               child: Align(
                 alignment: Alignment.topCenter,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: _maxWidth),
+                  constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(_sidePadding, 4, _sidePadding, 32 + bottomInset),
                     child: Column(
@@ -1131,7 +1141,7 @@ class _SheetFieldState extends State<_SheetField> {
             fontWeight: FontWeight.w800,
             height: 12 / 10,
             letterSpacing: 0.6,
-            color: _onSurfaceVariant,
+            color: AppColors.textSecondary,
           ),
         ),
         const SizedBox(height: 4),
@@ -1140,13 +1150,13 @@ class _SheetFieldState extends State<_SheetField> {
           height: 42,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: _focused ? _frost : _fieldBg,
+            color: _focused ? AppColors.surfaceFrost : AppColors.surfaceContainerLow,
             borderRadius: BorderRadius.circular(12),
-            border: hasError ? Border.all(color: _errorRed, width: 1.5) : null,
+            border: hasError ? Border.all(color: AppColors.error, width: 1.5) : null,
           ),
           child: Row(
             children: [
-              Icon(widget.icon, size: 18, color: hasError ? _errorRed : widget.iconColor),
+              Icon(widget.icon, size: 18, color: hasError ? AppColors.error : widget.iconColor),
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
@@ -1159,7 +1169,7 @@ class _SheetFieldState extends State<_SheetField> {
                     fontFamily: _font,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: _onSurface,
+                    color: AppColors.textLight,
                   ),
                   decoration: InputDecoration(
                     hintText: widget.hint,
@@ -1167,7 +1177,7 @@ class _SheetFieldState extends State<_SheetField> {
                       fontFamily: _font,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: _outline,
+                      color: AppColors.outline,
                     ),
                     border: InputBorder.none,
                     isDense: true,
@@ -1183,7 +1193,7 @@ class _SheetFieldState extends State<_SheetField> {
             padding: const EdgeInsets.only(left: 4, top: 4),
             child: Text(
               widget.errorText!,
-              style: const TextStyle(fontFamily: _font, fontSize: 11, fontWeight: FontWeight.w500, color: _errorRed),
+              style: const TextStyle(fontFamily: _font, fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.error),
             ),
           ),
       ],
@@ -1218,12 +1228,12 @@ class _HoverDeleteButtonState extends State<_HoverDeleteButton> {
           height: 32,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: _hovered ? _errorContainer.withValues(alpha: 0.4) : Colors.transparent,
+            color: _hovered ? AppColors.errorContainer.withValues(alpha: 0.4) : Colors.transparent,
           ),
           child: Icon(
             Icons.delete_outline,
             size: 19,
-            color: _hovered ? _errorRed : const Color(0xFF94A3B8),
+            color: _hovered ? AppColors.error : AppColors.slate400,
           ),
         ),
       ),

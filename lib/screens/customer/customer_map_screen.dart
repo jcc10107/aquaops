@@ -1,10 +1,10 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import '../../core/constants/app_colors.dart';
+import '../../core/constants/layout_constants.dart';
 import '../../core/constants/zones.dart';
 import '../../models/order_model.dart';
 import '../../services/firestore_service.dart';
@@ -75,9 +75,9 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
 
       final uri = Uri.parse(
         'https://router.project-osrm.org/route/v1/driving/'
-        '${_station.longitude},${_station.latitude};'
-        '${destination.longitude},${destination.latitude}'
-        '?overview=full&geometries=geojson',
+            '${_station.longitude},${_station.latitude};'
+            '${destination.longitude},${destination.latitude}'
+            '?overview=full&geometries=geojson',
       );
       final response = await http.get(uri).timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) {
@@ -135,6 +135,24 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
     _mapController.move(_mapController.camera.center, _mapController.camera.zoom - 1);
   }
 
+  Widget _buildMapCardContainer({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D000000),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final int totalGallons = widget.order.items.fold(
@@ -143,13 +161,13 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6FAFC),
+      backgroundColor: AppColors.surfaceBackground,
       body: SafeArea(
         bottom: false,
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
+            constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
             child: Column(
               children: [
                 SizedBox(
@@ -157,7 +175,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                   width: double.infinity,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF6FAFC).withValues(alpha: 0.96),
+                      color: AppColors.surfaceBackground.withValues(alpha: 0.96),
                       boxShadow: const [
                         BoxShadow(
                           color: Color(0x0A000000),
@@ -172,30 +190,30 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                         IconButton(
                           icon: const Icon(
                             Icons.arrow_back,
-                            color: Color(0xFF131B2E),
+                            color: AppColors.textLight,
                           ),
                           onPressed: () => Navigator.pop(context),
                         ),
                         const SizedBox(width: 4),
-                        Column(
+                        const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               'Live Order Tracking',
-                              style: GoogleFonts.plusJakartaSans(
+                              style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFF131B2E),
+                                color: AppColors.textLight,
                                 letterSpacing: -0.5,
                               ),
                             ),
                             Text(
                               'REAL-TIME DELIVERY ROUTE',
-                              style: GoogleFonts.plusJakartaSans(
+                              style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFF0284C7),
+                                color: AppColors.primarySky,
                                 letterSpacing: 0.5,
                               ),
                             ),
@@ -215,19 +233,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                     ),
                     child: Column(
                       children: [
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x0D000000),
-                                blurRadius: 8,
-                              ),
-                            ],
-                          ),
+                        _buildMapCardContainer(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -238,12 +244,12 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                                   Flexible(
                                     child: Row(
                                       children: [
-                                        Text(
+                                        const Text(
                                           'ORDER',
-                                          style: GoogleFonts.plusJakartaSans(
+                                          style: TextStyle(
                                             fontSize: 10,
                                             fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF3F4850),
+                                            color: AppColors.textSecondary,
                                             letterSpacing: 0.5,
                                           ),
                                         ),
@@ -252,10 +258,10 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                                           child: Text(
                                             widget.order.orderNumber,
                                             overflow: TextOverflow.ellipsis,
-                                            style: GoogleFonts.plusJakartaSans(
+                                            style: const TextStyle(
                                               fontSize: 17,
                                               fontWeight: FontWeight.bold,
-                                              color: const Color(0xFF131B2E),
+                                              color: AppColors.textLight,
                                             ),
                                           ),
                                         ),
@@ -269,7 +275,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                                       vertical: 4,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFF0F9FF),
+                                      color: AppColors.surfaceIce,
                                       borderRadius:
                                       BorderRadius.circular(100),
                                     ),
@@ -284,12 +290,12 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                                               height: 8,
                                               decoration: BoxDecoration(
                                                 color:
-                                                const Color(0xFF0284C7),
+                                                AppColors.primarySky,
                                                 shape: BoxShape.circle,
                                                 boxShadow: [
                                                   BoxShadow(
                                                     color:
-                                                    const Color(0xFF06B6D4)
+                                                    AppColors.cyanElectric
                                                         .withValues(
                                                       alpha:
                                                       _pulseController.value,
@@ -307,10 +313,10 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                                         const SizedBox(width: 6),
                                         Text(
                                           _etaMinutes != null ? '~$_etaMinutes MINS ETA' : '— MINS ETA',
-                                          style: GoogleFonts.plusJakartaSans(
+                                          style: const TextStyle(
                                             fontSize: 10,
                                             fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF0284C7),
+                                            color: AppColors.primarySky,
                                             letterSpacing: 0.5,
                                           ),
                                         ),
@@ -326,7 +332,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                                   vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF8FAFC),
+                                  color: AppColors.surfaceCanvas,
                                   borderRadius: BorderRadius.circular(100),
                                 ),
                                 child: Row(
@@ -335,13 +341,13 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                                       width: 28,
                                       height: 28,
                                       decoration: const BoxDecoration(
-                                        color: Color(0xFFE0F2FE),
+                                        color: AppColors.surfaceFrost,
                                         shape: BoxShape.circle,
                                       ),
                                       child: const Icon(
                                         Icons.location_on,
                                         size: 16,
-                                        color: Color(0xFF0284C7),
+                                        color: AppColors.primarySky,
                                       ),
                                     ),
                                     const SizedBox(width: 8),
@@ -350,9 +356,9 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                                         widget.order.deliveryAddress ??
                                             'Unknown Address',
                                         overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.plusJakartaSans(
+                                        style: const TextStyle(
                                           fontSize: 11,
-                                          color: const Color(0xFF3F4850),
+                                          color: AppColors.textSecondary,
                                         ),
                                       ),
                                     ),
@@ -431,7 +437,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                           if (_routePoints.isNotEmpty)
                             PolylineLayer(
                               polylines: [
-                                Polyline(points: _routePoints, strokeWidth: 5, color: const Color(0xFF0284C7)),
+                                Polyline(points: _routePoints, strokeWidth: 5, color: AppColors.primarySky),
                               ],
                             ),
                           MarkerLayer(
@@ -443,7 +449,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                                 child: _buildLocationMarker(
                                   label: 'Water Station',
                                   icon: Icons.water_drop,
-                                  color: const Color(0xFF0284C7),
+                                  color: AppColors.primarySky,
                                 ),
                               ),
                               if (destination != null)
@@ -454,13 +460,9 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                                   child: _buildLocationMarker(
                                     label: 'Client Home',
                                     icon: Icons.home,
-                                    color: const Color(0xFF006C49),
+                                    color: AppColors.secondary,
                                   ),
                                 ),
-                              // Only shown once the rider's device has actually
-                              // broadcast a real GPS fix — never the old fake
-                              // midpoint placeholder, so a visible marker here
-                              // always means a genuinely live position.
                               if (riderPoint != null)
                                 Marker(
                                   point: riderPoint,
@@ -482,9 +484,9 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                     child: const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF0284C7)),
+                        CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.primarySky),
                         SizedBox(height: 10),
-                        Text('Calculating route…', style: TextStyle(fontSize: 12, color: Color(0xFF3F4850))),
+                        Text('Calculating route…', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       ],
                     ),
                   )
@@ -503,7 +505,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                       child: Text(
                         _routeError!,
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: const Color(0xFF3F4850)),
+                        style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                       ),
                     ),
                   ),
@@ -520,7 +522,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                         elevation: 4,
                         child: const Icon(
                           Icons.my_location,
-                          color: Color(0xFF0284C7),
+                          color: AppColors.primarySky,
                           size: 20,
                         ),
                       ),
@@ -542,7 +544,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                               onPressed: _zoomIn,
                               icon: const Icon(
                                 Icons.add,
-                                color: Color(0xFF131B2E),
+                                color: AppColors.textLight,
                                 size: 18,
                               ),
                               constraints: const BoxConstraints(
@@ -554,7 +556,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                               onPressed: _zoomOut,
                               icon: const Icon(
                                 Icons.remove,
-                                color: Color(0xFF131B2E),
+                                color: AppColors.textLight,
                                 size: 18,
                               ),
                               constraints: const BoxConstraints(
@@ -604,8 +606,8 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                           _distanceKm != null
                               ? '${_distanceKm!.toStringAsFixed(1)} km route • Order ${widget.order.orderNumber}'
                               : (_routeError ?? 'Calculating route…'),
-                          style: GoogleFonts.plusJakartaSans(
-                            color: const Color(0xFF131B2E),
+                          style: const TextStyle(
+                            color: AppColors.textLight,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.5,
@@ -637,8 +639,8 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
             vertical: 3,
           ),
           decoration: BoxDecoration(
-            color: color == const Color(0xFF006C49)
-                ? const Color(0xFF006C49)
+            color: color == AppColors.secondary
+                ? AppColors.secondary
                 : const Color(0xFF283044),
             borderRadius: BorderRadius.circular(100),
             boxShadow: const [
@@ -650,7 +652,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
           ),
           child: Text(
             label,
-            style: GoogleFonts.plusJakartaSans(
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 10,
               fontWeight: FontWeight.bold,
@@ -685,105 +687,93 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 4,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(100),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 8,
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.bolt,
-                  size: 14,
-                  color: Color(0xFF14B8A6),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'On Route',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: const Color(0xFF0284C7),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 4,
           ),
-          const SizedBox(height: 6),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              AnimatedBuilder(
-                animation: _pulseController,
-                builder: (context, child) {
-                  final double pulse = _pulseController.value;
-
-                  return Container(
-                    width: 48 + (16 * pulse),
-                    height: 48 + (16 * pulse),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0284C7).withValues(
-                        alpha: 0.3 * (1 - pulse),
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                  );
-                },
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(100),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 8,
               ),
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0284C7),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white,
-                    width: 4,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 12,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.two_wheeler,
-                  color: Colors.white,
-                  size: 24,
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.bolt,
+                size: 14,
+                color: AppColors.accentTeal,
+              ),
+              SizedBox(width: 4),
+              Text(
+                'On Route',
+                style: TextStyle(
+                  color: AppColors.primarySky,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-        ],
+        ),
+        const SizedBox(height: 6),
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            AnimatedBuilder(
+              animation: _pulseController,
+              builder: (context, child) {
+                final double pulse = _pulseController.value;
+
+                return Container(
+                  width: 48 + (16 * pulse),
+                  height: 48 + (16 * pulse),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySky.withValues(
+                      alpha: 0.3 * (1 - pulse),
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                );
+              },
+            ),
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.primarySky,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white,
+                  width: 4,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 12,
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.two_wheeler,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
   Widget _buildRiderCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            blurRadius: 8,
-          ),
-        ],
-      ),
+    return _buildMapCardContainer(
       child: Column(
         children: [
           Row(
@@ -796,13 +786,13 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                       width: 48,
                       height: 48,
                       decoration: const BoxDecoration(
-                        color: Color(0xFF0284C7),
+                        color: AppColors.primarySky,
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
-                      child: Text(
+                      child: const Text(
                         'AB',
-                        style: GoogleFonts.plusJakartaSans(
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
@@ -811,25 +801,25 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Flexible(
+                    const Flexible(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Arnel Bautista',
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.plusJakartaSans(
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: const Color(0xFF131B2E),
+                              color: AppColors.textLight,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          SizedBox(height: 2),
                           Text(
                             'Delivery Rider',
-                            style: GoogleFonts.plusJakartaSans(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: const Color(0xFF3F4850),
+                              color: AppColors.textSecondary,
                             ),
                           ),
                         ],
@@ -845,13 +835,13 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0F9FF),
+                  color: AppColors.surfaceIce,
                   borderRadius: BorderRadius.circular(100),
                 ),
-                child: Text(
+                child: const Text(
                   'ACTIVE RUN',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: const Color(0xFF0284C7),
+                  style: TextStyle(
+                    color: AppColors.primarySky,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
@@ -874,16 +864,16 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                 size: 20,
                 color: Colors.white,
               ),
-              label: Text(
+              label: const Text(
                 'Send Message',
-                style: GoogleFonts.plusJakartaSans(
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0284C7),
+                backgroundColor: AppColors.primarySky,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(100),
@@ -899,41 +889,29 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
   }
 
   Widget _buildOrderManifest(int totalGallons) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            blurRadius: 8,
-          ),
-        ],
-      ),
+    return _buildMapCardContainer(
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Flexible(
+              const Flexible(
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.inventory_2,
-                      color: Color(0xFF0284C7),
+                      color: AppColors.primarySky,
                       size: 20,
                     ),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6),
                     Flexible(
                       child: Text(
                         'Order Manifest',
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
+                        style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF131B2E),
+                          color: AppColors.textLight,
                         ),
                       ),
                     ),
@@ -954,10 +932,10 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                   widget.order.paymentMethod == PaymentMethod.gcash
                       ? 'Paid • GCash'
                       : 'Cash on Delivery',
-                  style: GoogleFonts.plusJakartaSans(
+                  style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF002113),
+                    color: Color(0xFF002113),
                   ),
                 ),
               ),
@@ -973,7 +951,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: AppColors.surfaceCanvas,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -986,14 +964,14 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                             width: 28,
                             height: 28,
                             decoration: const BoxDecoration(
-                              color: Color(0xFFE0F2FE),
+                              color: AppColors.surfaceFrost,
                               shape: BoxShape.circle,
                             ),
                             alignment: Alignment.center,
                             child: Text(
                               '${item.quantity}x',
-                              style: GoogleFonts.plusJakartaSans(
-                                color: const Color(0xFF0284C7),
+                              style: const TextStyle(
+                                color: AppColors.primarySky,
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -1004,8 +982,8 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                             child: Text(
                               item.name,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.plusJakartaSans(
-                                color: const Color(0xFF131B2E),
+                              style: const TextStyle(
+                                color: AppColors.textLight,
                                 fontSize: 13,
                               ),
                             ),
@@ -1016,8 +994,8 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                     const SizedBox(width: 8),
                     Text(
                       '₱${item.totalPrice.toStringAsFixed(2)}',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: const Color(0xFF131B2E),
+                      style: const TextStyle(
+                        color: AppColors.textLight,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -1031,7 +1009,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0F9FF),
+                color: AppColors.surfaceIce,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -1040,13 +1018,13 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                     width: 28,
                     height: 28,
                     decoration: const BoxDecoration(
-                      color: Color(0xFFE0F2FE),
+                      color: AppColors.surfaceFrost,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.swap_horizontal_circle,
                       size: 18,
-                      color: Color(0xFF0284C7),
+                      color: AppColors.primarySky,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -1054,10 +1032,10 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Container Exchange Ready',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: const Color(0xFF0284C7),
+                          style: TextStyle(
+                            color: AppColors.primarySky,
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1066,8 +1044,8 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                           '$totalGallons'
                               'x empty sanitized gallon bottles to surrender',
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            color: const Color(0xFF3F4850),
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
                             fontSize: 11,
                           ),
                         ),
@@ -1082,17 +1060,17 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
+              const Text(
                 'Total Amount Due',
-                style: GoogleFonts.plusJakartaSans(
-                  color: const Color(0xFF3F4850),
+                style: TextStyle(
+                  color: AppColors.textSecondary,
                   fontSize: 13,
                 ),
               ),
               Text(
                 '₱${widget.order.totalAmount.toStringAsFixed(2)}',
-                style: GoogleFonts.plusJakartaSans(
-                  color: const Color(0xFF0284C7),
+                style: const TextStyle(
+                  color: AppColors.primarySky,
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),

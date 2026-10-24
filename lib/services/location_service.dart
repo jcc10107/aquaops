@@ -13,18 +13,22 @@ class PreciseLocation {
 }
 
 class LocationService {
-  // Raw GPS fix only (permission-checked) — used to center the map picker
-  // on the device's real position before the person fine-tunes the pin.
+  static const Map<String, String> _headers = {
+    'User-Agent': 'AquaOps/1.0',
+  };
+
+  /// Raw GPS fix only (permission-checked).
   Future<Position> getCurrentPosition() async {
-    // Skipped on platforms (e.g. some web browsers) where this check isn't
-    // supported — getCurrentPosition() below still fails clearly on its own
-    // if location is genuinely unavailable, so this is a best-effort guard.
+    bool serviceEnabled = true;
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        throw Exception('Location services are disabled.');
-      }
-    } catch (_) {}
+      serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    } catch (_) {
+      serviceEnabled = true;
+    }
+
+    if (!serviceEnabled) {
+      throw Exception('Location services are disabled.');
+    }
 
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
@@ -42,39 +46,62 @@ class LocationService {
     ).timeout(const Duration(seconds: 20));
   }
 
-  // Turns coordinates into a readable address via OpenStreetMap's free
-  // Nominatim API (no key or billing needed — same reasoning as using
-  // Cloudinary instead of Firebase Storage elsewhere in this app).
+  /// Fetches polyline road route coordinates between two points via OSRM.
+  Future<List<LatLng>> fetchRouteCoordinates(LatLng start, LatLng end) async {
+    final uri = Uri.parse(
+      'https://router.project-osrm.org/route/v1/driving/'
+          '${start.longitude},${start.latitude};${end.longitude},${end.latitude}'
+          '?overview=full&geometries=geojson',
+    );
+    try {
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200) return const [];
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final routes = data['routes'] as List?;
+      if (routes == null || routes.isEmpty) return const [];
+
+      final route = routes.first as Map<String, dynamic>;
+      final geometry = route['geometry'] as Map<String, dynamic>?;
+      if (geometry == null) return const [];
+
+      final coordinates = geometry['coordinates'] as List?;
+      if (coordinates == null) return const [];
+
+      return coordinates.map((coord) {
+        final pair = coord as List;
+        return LatLng((pair[1] as num).toDouble(), (pair[0] as num).toDouble());
+      }).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Reverse geocodes coordinates to a human-readable address.
   Future<String> reverseGeocode(double lat, double lng) async {
     final uri = Uri.parse(
       'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=18&addressdetails=0',
     );
     try {
-      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) {
         return '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}';
       }
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       return (data['display_name'] as String?) ?? '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}';
     } catch (_) {
-      // Reverse geocoding is a convenience, not a requirement — the raw
-      // coordinates are still accurate even if we can't name the street.
       return '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}';
     }
   }
 
-  // The reverse of reverseGeocode(): turns a free-text address into
-  // coordinates, for orders that only have a typed/picked text address and
-  // no precise lat/lng on file. Same "best effort, never throws" philosophy
-  // as reverseGeocode — returns null on any failure so callers can fall
-  // back gracefully instead of crashing.
+  /// Forward geocodes an address string to coordinates.
   Future<LatLng?> forwardGeocode(String address) async {
     if (address.trim().isEmpty) return null;
     final uri = Uri.parse(
       'https://nominatim.openstreetmap.org/search?format=json&q=${Uri.encodeQueryComponent(address)}&limit=1',
     );
     try {
-      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) return null;
       final data = jsonDecode(response.body);
       if (data is! List || data.isEmpty) return null;
@@ -88,21 +115,16 @@ class LocationService {
     }
   }
 
-  // Real road-network distance (not straight-line) from the station to a
-  // destination, via OSRM's free routing API — same service already used by
-  // the Live Order Tracking map. Used for distance-based delivery fee
-  // calculation. Never throws — returns null on any failure (network,
-  // no route found) so callers can fall back to a base-fee-only charge
-  // instead of blocking checkout.
+  /// Calculates driving distance in kilometers between station and destination.
   Future<double?> getRoadDistanceKm({required double destLat, required double destLng}) async {
     final uri = Uri.parse(
       'https://router.project-osrm.org/route/v1/driving/'
-      '$stationLng,$stationLat;'
-      '$destLng,$destLat'
-      '?overview=false',
+          '$stationLng,$stationLat;'
+          '$destLng,$destLat'
+          '?overview=false',
     );
     try {
-      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) return null;
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final routes = data['routes'] as List?;
@@ -115,9 +137,7 @@ class LocationService {
     }
   }
 
-  // Resolves a destination LatLng the same way across every screen that
-  // needs one from an order/checkout's lat/lng-or-text-address shape:
-  // prefer precise coordinates if present, else forward-geocode the text.
+  /// Resolves destination coordinates from lat/lng or address fallback.
   Future<LatLng?> resolveDestination({double? lat, double? lng, String? address}) async {
     if (lat != null && lng != null) return LatLng(lat, lng);
     if (address != null && address.trim().isNotEmpty) {

@@ -12,6 +12,7 @@ import 'firestore_service.dart';
 /// orderId, so re-queuing the same order overwrites rather than duplicates.
 class OfflineQueueService {
   static const String _boxName = 'pending_deliveries';
+  static const String _deadLetterBoxName = 'dead_letter_deliveries';
 
   /// Must be called once at app startup (see main.dart), before any other
   /// OfflineQueueService instance is used. Hive manages the opened box
@@ -20,6 +21,7 @@ class OfflineQueueService {
   Future<void> init() async {
     await Hive.initFlutter();
     await Hive.openBox(_boxName);
+    await Hive.openBox(_deadLetterBoxName);
   }
 
   Box get _requireBox {
@@ -56,6 +58,7 @@ class OfflineQueueService {
       'customerName': customerName,
       'deliveryAddress': deliveryAddress,
       'queuedAt': DateTime.now().toIso8601String(),
+      'retryCount': 0, // Initialize retry counter
     });
   }
 
@@ -84,22 +87,35 @@ class OfflineQueueService {
     int synced = 0;
 
     for (final record in pending) {
+      final orderId = record['orderId'] as String;
+
       try {
-        String? proofOfDeliveryUrl;
-        final photoBytes = record['photoBytes'];
-        if (photoBytes is Uint8List && photoBytes.isNotEmpty) {
-          proofOfDeliveryUrl = await cloudinaryService.uploadImage(
-            photoBytes,
-            filename: 'proof_of_delivery.jpg',
-            folder: 'proof_of_delivery',
-          );
-        } else if (photoBytes is List && photoBytes.isNotEmpty) {
-          // Hive may hand back a plain List<int> rather than Uint8List.
-          proofOfDeliveryUrl = await cloudinaryService.uploadImage(
-            Uint8List.fromList(photoBytes.cast<int>()),
-            filename: 'proof_of_delivery.jpg',
-            folder: 'proof_of_delivery',
-          );
+        // Retrieve cached URL if we already successfully uploaded the image on a previous retry
+        String? proofOfDeliveryUrl = record['proofOfDeliveryUrl'] as String?;
+
+        if (proofOfDeliveryUrl == null) {
+          Uint8List? bytesToUpload;
+          final photoBytes = record['photoBytes'];
+
+          // Deduplicate the array conversions
+          if (photoBytes is Uint8List && photoBytes.isNotEmpty) {
+            bytesToUpload = photoBytes;
+          } else if (photoBytes is List && photoBytes.isNotEmpty) {
+            // Hive may hand back a plain List<int> rather than Uint8List.
+            bytesToUpload = Uint8List.fromList(photoBytes.cast<int>());
+          }
+
+          if (bytesToUpload != null) {
+            proofOfDeliveryUrl = await cloudinaryService.uploadImage(
+              bytesToUpload,
+              filename: 'proof_of_delivery.jpg',
+              folder: 'proof_of_delivery',
+            );
+
+            // Cache the URL locally so if Firestore fails, we don't re-upload the photo again
+            record['proofOfDeliveryUrl'] = proofOfDeliveryUrl;
+            await _requireBox.put(orderId, record);
+          }
         }
 
         // NOTE: if this sync happens after the rider's shift has already
@@ -107,7 +123,7 @@ class OfflineQueueService {
         // appear in that already-closed shift summary — a known limitation,
         // intentionally out of scope for this pass.
         await firestoreService.fulfillDelivery(
-          orderId: record['orderId'] as String,
+          orderId: orderId,
           customerId: record['customerId'] as String,
           gallonsDelivered: record['gallonsDelivered'] as int,
           emptyReturned: record['emptyReturned'] as int,
@@ -116,14 +132,37 @@ class OfflineQueueService {
           recipientName: record['recipientName'] as String?,
         );
 
-        await remove(record['orderId'] as String);
+        await remove(orderId);
         synced++;
-      } catch (_) {
-        // Still offline, or some other transient failure — leave it queued
-        // and move on to the next record.
+      } catch (e) {
+        final errorMsg = e.toString().toLowerCase();
+
+        // Handle Permanent Exceptions (Already processed or deleted order)
+        if (errorMsg.contains('already processed') || errorMsg.contains('not found')) {
+          await remove(orderId);
+          synced++; // Count as effectively 'resolved' so it clears gracefully
+          continue;
+        }
+
+        // Handle Transient Failures with Retry Limits
+        int retries = (record['retryCount'] as int?) ?? 0;
+        if (retries >= 3) {
+          // Max retries reached, move to dead-letter storage
+          record['finalError'] = e.toString();
+          record['deadLetteredAt'] = DateTime.now().toIso8601String();
+
+          if (Hive.isBoxOpen(_deadLetterBoxName)) {
+            await Hive.box(_deadLetterBoxName).put(orderId, record);
+          }
+          await remove(orderId);
+        } else {
+          // Increment and save back to queue
+          record['retryCount'] = retries + 1;
+          await _requireBox.put(orderId, record);
+        }
       }
     }
 
-    return (synced, pending.length - synced);
+    return (synced, _requireBox.length);
   }
 }

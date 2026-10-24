@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../widgets/custom_header.dart';
 
@@ -23,10 +24,6 @@ class CustomerStoreScreen extends StatelessWidget {
   });
 
   static const String _font = 'Plus Jakarta Sans';
-  static const Color _blue = Color(0xFF0284C7);
-  static const Color _onSurface = Color(0xFF131B2E);
-  static const Color _onSurfaceVariant = Color(0xFF3F4850);
-  static const Color _frost = Color(0xFFE0F2FE);
 
   IconData _iconFor(String id) {
     switch (id) {
@@ -59,7 +56,7 @@ class CustomerStoreScreen extends StatelessWidget {
                 height: 28 / 22,
                 letterSpacing: -0.44,
                 fontWeight: FontWeight.w800,
-                color: _onSurface,
+                color: AppColors.textLight,
               ),
             );
           },
@@ -72,7 +69,7 @@ class CustomerStoreScreen extends StatelessWidget {
             fontSize: 13,
             height: 18 / 13,
             fontWeight: FontWeight.w500,
-            color: _onSurfaceVariant,
+            color: AppColors.textSecondary,
           ),
         ),
         const SizedBox(height: 12),
@@ -103,10 +100,10 @@ class CustomerStoreScreen extends StatelessWidget {
                       width: 28,
                       height: 28,
                       decoration: const BoxDecoration(
-                        color: _frost,
+                        color: AppColors.surfaceFrost,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.location_on, size: 18, color: _blue),
+                      child: const Icon(Icons.location_on, size: 18, color: AppColors.primarySky),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -121,7 +118,7 @@ class CustomerStoreScreen extends StatelessWidget {
                               height: 12 / 10,
                               letterSpacing: 0.6,
                               fontWeight: FontWeight.w800,
-                              color: _onSurfaceVariant,
+                              color: AppColors.textSecondary,
                             ),
                           ),
                           Text(
@@ -134,13 +131,13 @@ class CustomerStoreScreen extends StatelessWidget {
                               height: 16 / 13,
                               letterSpacing: 0.13,
                               fontWeight: FontWeight.w700,
-                              color: _onSurface,
+                              color: AppColors.textLight,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const Icon(Icons.expand_more, size: 20, color: _onSurfaceVariant),
+                    const Icon(Icons.expand_more, size: 20, color: AppColors.textSecondary),
                   ],
                 ),
               ),
@@ -158,15 +155,15 @@ class CustomerStoreScreen extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF006194), Color(0xFF007BB9), Color(0xFF06B6D4)],
+          colors: [AppColors.primary, AppColors.primaryContainer, AppColors.cyanElectric],
         ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x4D007BB9),
+            color: AppColors.primaryContainer.withValues(alpha: 0.3),
             blurRadius: 20,
             spreadRadius: -4,
-            offset: Offset(0, 8),
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -201,8 +198,8 @@ class CustomerStoreScreen extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFF22D3EE).withValues(alpha: 0.2),
-                      const Color(0xFF22D3EE).withValues(alpha: 0.0),
+                      AppColors.cyanHighlight.withValues(alpha: 0.2),
+                      AppColors.cyanHighlight.withValues(alpha: 0.0),
                     ],
                   ),
                 ),
@@ -262,7 +259,7 @@ class CustomerStoreScreen extends StatelessWidget {
                             fontSize: 11,
                             height: 16 / 11,
                             fontWeight: FontWeight.w400,
-                            color: _frost.withValues(alpha: 0.95),
+                            color: AppColors.surfaceFrost.withValues(alpha: 0.95),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -307,11 +304,11 @@ class CustomerStoreScreen extends StatelessWidget {
                                             height: 16 / 13,
                                             letterSpacing: 0.13,
                                             fontWeight: FontWeight.w700,
-                                            color: _blue,
+                                            color: AppColors.primarySky,
                                           ),
                                         ),
                                         SizedBox(width: 6),
-                                        Icon(Icons.arrow_forward, size: 16, color: _blue),
+                                        Icon(Icons.arrow_forward, size: 16, color: AppColors.primarySky),
                                       ],
                                     ),
                                   ),
@@ -394,14 +391,14 @@ class CustomerStoreScreen extends StatelessWidget {
             height: 24 / 17,
             letterSpacing: -0.17,
             fontWeight: FontWeight.w700,
-            color: _onSurface,
+            color: AppColors.textLight,
           ),
         ),
         const SizedBox(width: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: const Color(0xFF6CF8BB).withValues(alpha: 0.5),
+            color: AppColors.secondaryContainer.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(100),
           ),
           child: Text(
@@ -412,7 +409,7 @@ class CustomerStoreScreen extends StatelessWidget {
               height: 12 / 10,
               letterSpacing: 0.6,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF00714D),
+              color: AppColors.onSecondaryContainer,
             ),
           ),
         ),
@@ -461,8 +458,8 @@ class CustomerStoreScreen extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      const Color(0xFFF0F9FF),
-                      _frost.withValues(alpha: 0.5),
+                      AppColors.surfaceIce,
+                      AppColors.surfaceFrost.withValues(alpha: 0.5),
                     ],
                   ),
                 ),
@@ -477,7 +474,7 @@ class CustomerStoreScreen extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: isRefill ? Colors.white : const Color(0xFF006C49),
+                            color: isRefill ? Colors.white : AppColors.secondary,
                             borderRadius: BorderRadius.circular(100),
                             boxShadow: const [
                               BoxShadow(
@@ -495,7 +492,7 @@ class CustomerStoreScreen extends StatelessWidget {
                               height: 12 / 9,
                               letterSpacing: 0.54,
                               fontWeight: FontWeight.w800,
-                              color: isRefill ? _blue : Colors.white,
+                              color: isRefill ? AppColors.primarySky : Colors.white,
                             ),
                           ),
                         ),
@@ -503,7 +500,7 @@ class CustomerStoreScreen extends StatelessWidget {
                       Icon(
                         _iconFor(id),
                         size: 42,
-                        color: _blue,
+                        color: AppColors.primarySky,
                         shadows: const [
                           Shadow(
                             color: Color(0x1A000000),
@@ -526,7 +523,7 @@ class CustomerStoreScreen extends StatelessWidget {
                   height: 22 / 15,
                   letterSpacing: -0.15,
                   fontWeight: FontWeight.w700,
-                  color: _onSurface,
+                  color: AppColors.textLight,
                 ),
               ),
               const SizedBox(height: 2),
@@ -539,7 +536,7 @@ class CustomerStoreScreen extends StatelessWidget {
                   fontSize: 10,
                   height: 14 / 10,
                   fontWeight: FontWeight.w400,
-                  color: _onSurfaceVariant,
+                  color: AppColors.textSecondary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -551,7 +548,7 @@ class CustomerStoreScreen extends StatelessWidget {
                   height: 24 / 17,
                   letterSpacing: -0.17,
                   fontWeight: FontWeight.w800,
-                  color: _onSurface,
+                  color: AppColors.textLight,
                 ),
               ),
             ],
@@ -561,7 +558,7 @@ class CustomerStoreScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: _frost.withValues(alpha: 0.7),
+                color: AppColors.surfaceFrost.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(100),
               ),
               child: Row(
@@ -578,7 +575,7 @@ class CustomerStoreScreen extends StatelessWidget {
                       child: const SizedBox(
                         width: 28,
                         height: 28,
-                        child: Icon(Icons.remove, size: 16, color: _blue),
+                        child: Icon(Icons.remove, size: 16, color: AppColors.primarySky),
                       ),
                     ),
                   ),
@@ -590,11 +587,11 @@ class CustomerStoreScreen extends StatelessWidget {
                       height: 16 / 13,
                       letterSpacing: 0.13,
                       fontWeight: FontWeight.w700,
-                      color: _blue,
+                      color: AppColors.primarySky,
                     ),
                   ),
                   Material(
-                    color: inStock ? _blue : const Color(0xFFBFC7D2),
+                    color: inStock ? AppColors.primarySky : AppColors.borderLight,
                     shape: const CircleBorder(),
                     elevation: 1,
                     shadowColor: Colors.black12,
@@ -618,16 +615,16 @@ class CustomerStoreScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(100),
                 boxShadow: inStock
                     ? const [
-                        BoxShadow(
-                          color: Color(0x1A000000),
-                          blurRadius: 4,
-                          offset: Offset(0, 2),
-                        ),
-                      ]
+                  BoxShadow(
+                    color: Color(0x1A000000),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ]
                     : null,
               ),
               child: Material(
-                color: inStock ? _blue : const Color(0xFFE2E8F0),
+                color: inStock ? AppColors.primarySky : AppColors.slate200,
                 borderRadius: BorderRadius.circular(100),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(100),
@@ -639,7 +636,7 @@ class CustomerStoreScreen extends StatelessWidget {
                       children: [
                         Icon(inStock ? Icons.add : Icons.block,
                             size: 16,
-                            color: inStock ? Colors.white : _onSurfaceVariant),
+                            color: inStock ? Colors.white : AppColors.textSecondary),
                         const SizedBox(width: 4),
                         Text(
                           inStock ? 'Add to Cart' : 'Out of Stock',
@@ -649,7 +646,7 @@ class CustomerStoreScreen extends StatelessWidget {
                             height: 14 / 11,
                             letterSpacing: 0.22,
                             fontWeight: FontWeight.w700,
-                            color: inStock ? Colors.white : _onSurfaceVariant,
+                            color: inStock ? Colors.white : AppColors.textSecondary,
                           ),
                         ),
                       ],

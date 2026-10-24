@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/constants/app_colors.dart';
+import '../../core/constants/layout_constants.dart';
+import '../../core/utils/app_toast.dart';
+import '../../widgets/sub_screen_header.dart';
+
 class _Faq {
   final String question;
   final String answer;
@@ -47,51 +52,39 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
   int? _openIndex;
 
   static const String _font = 'Plus Jakarta Sans';
-  static const Color _background = Color(0xFFF6FAFC);
-  static const Color _onSurface = Color(0xFF131B2E);
-  static const Color _onSurfaceVariant = Color(0xFF3F4850);
-  static const Color _outline = Color(0xFF707881);
-  static const Color _primary = Color(0xFF006194);
-  static const Color _primaryContainer = Color(0xFF007BB9);
-  static const Color _secondary = Color(0xFF006C49);
-  static const Color _frost = Color(0xFFE0F2FE);
-  static const Color _ice = Color(0xFFF0F9FF);
-  static const Color _cyan = Color(0xFF06B6D4);
-  static const Color _blue = Color(0xFF0284C7);
-  static const double _maxWidth = 450;
   static const double _sidePadding = 20;
 
-  static const List<_HelpCategory> _categories = [
-    _HelpCategory(
+  static final List<_HelpCategory> _categories = [
+    const _HelpCategory(
       title: 'Refills',
       subtitle: 'Orders & Timing',
       icon: Icons.water_drop,
       background: Color(0xFFCCE5FF),
-      foreground: Color(0xFF006194),
+      foreground: AppColors.primary,
       filter: 'refill',
     ),
-    _HelpCategory(
+    const _HelpCategory(
       title: 'Bottle Swap',
       subtitle: 'Deposit rules',
       icon: Icons.sync_alt,
-      background: Color(0xFF6FFBBE),
-      foreground: Color(0xFF006C49),
+      background: AppColors.mintBadge,
+      foreground: AppColors.secondary,
       filter: 'swap',
     ),
-    _HelpCategory(
+    const _HelpCategory(
       title: 'Delivery',
       subtitle: 'Routes & zones',
       icon: Icons.local_shipping,
-      background: Color(0xFFE0F2FE),
-      foreground: Color(0xFF007BB9),
+      background: AppColors.surfaceFrost,
+      foreground: AppColors.primaryContainer,
       filter: 'delivery',
     ),
     _HelpCategory(
       title: 'GCash / Pay',
       subtitle: 'Reference code',
       icon: Icons.account_balance_wallet,
-      background: Color(0x2606B6D4),
-      foreground: Color(0xFF006194),
+      background: AppColors.cyanElectric.withValues(alpha: 0.15),
+      foreground: AppColors.primary,
       filter: 'gcash',
     ),
   ];
@@ -101,31 +94,36 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
       question: 'How does the empty gallon container swap work?',
       answer:
       'Leave your clean, undamaged Drink 8 empty container at your doorstep or hand it to our dispatch rider upon delivery to avoid new bottle deposit fees.',
-      keywords: 'empty gallon container swap bottle deposit clean undamaged doorstep rider',
+      keywords:
+      'empty gallon container swap bottle deposit clean undamaged doorstep rider',
     ),
     _Faq(
       question: 'What are your delivery hours in San Pablo City?',
       answer:
       'Our riders operate Monday to Saturday from 7:00 AM to 5:30 PM across covered barangays including San Isidro and San Antonio.',
-      keywords: 'delivery hours san pablo city timing barangay monday saturday isidro antonio',
+      keywords:
+      'delivery hours san pablo city timing barangay monday saturday isidro antonio',
     ),
     _Faq(
       question: 'How do I verify GCash payments?',
       answer:
       'Input your GCash 13-digit reference number upon ordering or upload your transaction screenshot directly in Checkout or to the rider.',
-      keywords: 'verify gcash payments 13-digit reference number upload receipt screenshot checkout rider',
+      keywords:
+      'verify gcash payments 13-digit reference number upload receipt screenshot checkout rider',
     ),
     _Faq(
       question: 'What if my delivery is delayed due to weather?',
       answer:
       'In case of heavy rains or localized flooding, order status updates will be broadcast directly via push alerts and SMS.',
-      keywords: 'delivery delay delayed heavy rain weather flooding push alerts broadcast sms status',
+      keywords:
+      'delivery delay delayed heavy rain weather flooding push alerts broadcast sms status',
     ),
     _Faq(
       question: 'Can I request an emergency refill?',
       answer:
       "Yes! Contact the station dispatch hotline or select 'Priority Queue' during ordering if available.",
-      keywords: 'request emergency refill priority queue urgent fast hotline dispatch call',
+      keywords:
+      'request emergency refill priority queue urgent fast hotline dispatch call',
     ),
   ];
 
@@ -173,86 +171,14 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
     _setQuery(filter);
   }
 
-  void _showToast(IconData icon, String message) {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF283044),
-        elevation: 4,
-        margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
-        duration: const Duration(milliseconds: 2800),
-        content: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: const Color(0xFF22D3EE)),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                message,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: _font,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.22,
-                  color: Color(0xFFEEF0FF),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _copyHotline() async {
     await Clipboard.setData(const ClipboardData(text: '(049) 562-8000'));
     if (!mounted) return;
-    _showToast(Icons.call, 'Hotline number copied');
+    AppToast.showInfo(context, 'Hotline number copied');
   }
 
   void _openStationChat() {
-    _showToast(Icons.support_agent, 'Connecting to San Pablo dispatcher...');
-  }
-
-  Widget _buildHeader() {
-    return SizedBox(
-      height: 64,
-      width: double.infinity,
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => Navigator.maybePop(context),
-            child: const Padding(
-              padding: EdgeInsets.all(8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.arrow_back, color: Color(0xFF475569), size: 22),
-                  SizedBox(width: 6),
-                  Text(
-                    'Back to Profile',
-                    style: TextStyle(
-                      fontFamily: _font,
-                      color: Color(0xFF475569),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    AppToast.showInfo(context, 'Connecting to San Pablo dispatcher...');
   }
 
   Widget _buildTitleBlock() {
@@ -267,7 +193,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
             fontWeight: FontWeight.w700,
             height: 32 / 24,
             letterSpacing: -0.6,
-            color: Color(0xFF0F172A),
+            color: AppColors.backgroundDark,
           ),
         ),
         SizedBox(height: 4),
@@ -278,7 +204,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
             fontSize: 12,
             fontWeight: FontWeight.w500,
             height: 16 / 12,
-            color: Color(0xFF64748B),
+            color: AppColors.slate500,
           ),
         ),
       ],
@@ -294,7 +220,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
         borderRadius: BorderRadius.circular(9999),
         boxShadow: [
           BoxShadow(
-            color: _primary.withValues(alpha: 0.05),
+            color: AppColors.primary.withValues(alpha: 0.05),
             blurRadius: 2,
             offset: const Offset(0, 1),
           ),
@@ -302,7 +228,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
       ),
       child: Row(
         children: [
-          const Icon(Icons.search, size: 20, color: _primary),
+          const Icon(Icons.search, size: 20, color: AppColors.primary),
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
@@ -313,7 +239,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                 fontFamily: _font,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: _onSurface,
+                color: AppColors.textLight,
               ),
               decoration: InputDecoration(
                 hintText: 'Search topics, refill guides, deposits...',
@@ -321,7 +247,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                   fontFamily: _font,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: _onSurfaceVariant.withValues(alpha: 0.6),
+                  color: AppColors.textSecondary.withValues(alpha: 0.6),
                 ),
                 border: InputBorder.none,
                 isDense: true,
@@ -338,10 +264,11 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                 width: 24,
                 height: 24,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFE2E7FF),
+                  color: AppColors.surfaceContainerHigh,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.close, size: 14, color: _onSurfaceVariant),
+                child:
+                const Icon(Icons.close, size: 14, color: AppColors.textSecondary),
               ),
             ),
           ],
@@ -364,7 +291,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
               fontWeight: FontWeight.w800,
               height: 12 / 10,
               letterSpacing: 1.0,
-              color: _outline,
+              color: AppColors.outline,
             ),
           ),
           right,
@@ -397,7 +324,8 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                     color: category.background,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(category.icon, size: 20, color: category.foreground),
+                  child:
+                  Icon(category.icon, size: 20, color: category.foreground),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -414,7 +342,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                           fontWeight: FontWeight.w700,
                           height: 16 / 13,
                           letterSpacing: 0.13,
-                          color: _onSurface,
+                          color: AppColors.textLight,
                         ),
                       ),
                       Text(
@@ -426,7 +354,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                           fontSize: 11,
                           fontWeight: FontWeight.w400,
                           height: 16 / 11,
-                          color: _onSurfaceVariant,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ],
@@ -454,7 +382,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
               fontWeight: FontWeight.w700,
               height: 12 / 10,
               letterSpacing: 1.0,
-              color: _primary,
+              color: AppColors.primary,
             ),
           ),
         ),
@@ -507,7 +435,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                             height: 22 / 15,
-                            color: _onSurface,
+                            color: AppColors.textLight,
                           ),
                         ),
                       ),
@@ -516,14 +444,15 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                         width: 28,
                         height: 28,
                         decoration: const BoxDecoration(
-                          color: _ice,
+                          color: AppColors.surfaceIce,
                           shape: BoxShape.circle,
                         ),
                         child: AnimatedRotation(
                           turns: open ? 0.5 : 0,
                           duration: const Duration(milliseconds: 300),
                           curve: Curves.easeInOut,
-                          child: const Icon(Icons.keyboard_arrow_down, size: 18, color: _primary),
+                          child: const Icon(Icons.keyboard_arrow_down,
+                              size: 18, color: AppColors.primary),
                         ),
                       ),
                     ],
@@ -538,8 +467,9 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
               child: open
                   ? Container(
                 width: double.infinity,
-                color: _ice.withValues(alpha: 0.4),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                color: AppColors.surfaceIce.withValues(alpha: 0.4),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
                 child: Text(
                   faq.answer,
                   style: const TextStyle(
@@ -547,7 +477,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     height: 1.625,
-                    color: _onSurfaceVariant,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               )
@@ -573,10 +503,10 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
             width: 48,
             height: 48,
             decoration: const BoxDecoration(
-              color: Color(0xFFEAEDFF),
+              color: AppColors.surfaceContainer,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.troubleshoot, size: 24, color: _primary),
+            child: const Icon(Icons.troubleshoot, size: 24, color: AppColors.primary),
           ),
           const SizedBox(height: 12),
           const Text(
@@ -588,7 +518,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
               fontWeight: FontWeight.w700,
               height: 24 / 17,
               letterSpacing: -0.17,
-              color: _onSurface,
+              color: AppColors.textLight,
             ),
           ),
           const SizedBox(height: 4),
@@ -602,7 +532,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                 fontSize: 11,
                 fontWeight: FontWeight.w400,
                 height: 16 / 11,
-                color: _onSurfaceVariant,
+                color: AppColors.textSecondary,
               ),
             ),
           ),
@@ -635,7 +565,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
               fontWeight: FontWeight.w800,
               height: 12 / 10,
               letterSpacing: 0.6,
-              color: _onSurfaceVariant,
+              color: AppColors.textSecondary,
             ),
           ),
         ),
@@ -661,16 +591,16 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _frost.withValues(alpha: 0.6), width: 1),
+        border: Border.all(color: AppColors.surfaceFrost.withValues(alpha: 0.6), width: 1),
         boxShadow: [
           BoxShadow(
-            color: _primary.withValues(alpha: 0.05),
+            color: AppColors.primary.withValues(alpha: 0.05),
             blurRadius: 6,
             spreadRadius: -1,
             offset: const Offset(0, 4),
           ),
           BoxShadow(
-            color: _primary.withValues(alpha: 0.05),
+            color: AppColors.primary.withValues(alpha: 0.05),
             blurRadius: 4,
             spreadRadius: -2,
             offset: const Offset(0, 2),
@@ -688,7 +618,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                 width: 128,
                 height: 128,
                 decoration: BoxDecoration(
-                  color: _cyan.withValues(alpha: 0.05),
+                  color: AppColors.cyanElectric.withValues(alpha: 0.05),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -703,9 +633,10 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                         child: Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF6CF8BB).withValues(alpha: 0.3),
+                                color: AppColors.secondaryContainer.withValues(alpha: 0.3),
                                 borderRadius: BorderRadius.circular(9999),
                               ),
                               child: Row(
@@ -718,7 +649,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                                       height: 6,
                                       child: DecoratedBox(
                                         decoration: BoxDecoration(
-                                          color: _secondary,
+                                          color: AppColors.secondary,
                                           shape: BoxShape.circle,
                                         ),
                                       ),
@@ -751,7 +682,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                                   fontWeight: FontWeight.w700,
                                   height: 24 / 17,
                                   letterSpacing: -0.17,
-                                  color: _onSurface,
+                                  color: AppColors.textLight,
                                 ),
                               ),
                             ),
@@ -763,11 +694,12 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: _frost,
+                          color: AppColors.surfaceFrost,
                           shape: BoxShape.circle,
                           boxShadow: _shadowSm,
                         ),
-                        child: const Icon(Icons.headset_mic, size: 19, color: _primary),
+                        child: const Icon(Icons.headset_mic,
+                            size: 19, color: AppColors.primary),
                       ),
                     ],
                   ),
@@ -776,7 +708,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: _ice,
+                      color: AppColors.surfaceIce,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: _shadowSm,
                     ),
@@ -786,11 +718,12 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: _primaryContainer,
+                            color: AppColors.primaryContainer,
                             shape: BoxShape.circle,
                             boxShadow: _shadowSm,
                           ),
-                          child: const Icon(Icons.call, size: 18, color: Colors.white),
+                          child: const Icon(Icons.call,
+                              size: 18, color: Colors.white),
                         ),
                         const SizedBox(width: 12),
                         const Expanded(
@@ -807,7 +740,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                                   fontWeight: FontWeight.w700,
                                   height: 12 / 10,
                                   letterSpacing: 0.5,
-                                  color: _primary,
+                                  color: AppColors.primary,
                                 ),
                               ),
                               Text(
@@ -820,7 +753,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                                   fontWeight: FontWeight.w800,
                                   height: 16 / 13,
                                   letterSpacing: -0.325,
-                                  color: _primary,
+                                  color: AppColors.primary,
                                 ),
                               ),
                             ],
@@ -829,11 +762,11 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                         const SizedBox(width: 8),
                         Container(
                           decoration: BoxDecoration(
-                            color: _blue,
+                            color: AppColors.primarySky,
                             borderRadius: BorderRadius.circular(9999),
                             boxShadow: [
                               BoxShadow(
-                                color: _blue.withValues(alpha: 0.3),
+                                color: AppColors.primarySky.withValues(alpha: 0.3),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
@@ -845,7 +778,8 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                               borderRadius: BorderRadius.circular(9999),
                               onTap: _copyHotline,
                               child: const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 6),
                                 child: Text(
                                   'Call',
                                   style: TextStyle(
@@ -869,11 +803,11 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                     height: 48,
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: _blue,
+                      color: AppColors.primarySky,
                       borderRadius: BorderRadius.circular(9999),
                       boxShadow: [
                         BoxShadow(
-                          color: _blue.withValues(alpha: 0.35),
+                          color: AppColors.primarySky.withValues(alpha: 0.35),
                           blurRadius: 16,
                           offset: const Offset(0, 4),
                         ),
@@ -910,7 +844,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Icon(Icons.schedule, size: 14, color: _onSurfaceVariant),
+                      Icon(Icons.schedule, size: 14, color: AppColors.textSecondary),
                       SizedBox(width: 6),
                       Flexible(
                         child: Text(
@@ -922,7 +856,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
                             fontWeight: FontWeight.w800,
                             height: 12 / 10,
                             letterSpacing: 0.6,
-                            color: _onSurfaceVariant,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                       ),
@@ -942,22 +876,24 @@ class _HelpCenterScreenState extends State<HelpCenterScreen>
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: AppColors.surfaceBackground,
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            _buildHeader(),
+            const SubScreenHeader(),
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                keyboardDismissBehavior:
+                ScrollViewKeyboardDismissBehavior.onDrag,
                 child: Align(
                   alignment: Alignment.topCenter,
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: _maxWidth),
+                    constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
                     child: Padding(
-                      padding: EdgeInsets.fromLTRB(_sidePadding, 8, _sidePadding, 24 + bottomInset),
+                      padding: EdgeInsets.fromLTRB(
+                          _sidePadding, 8, _sidePadding, 24 + bottomInset),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

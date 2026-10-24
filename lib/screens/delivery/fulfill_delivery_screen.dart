@@ -18,18 +18,8 @@ class FulfillDeliveryScreen extends StatefulWidget {
 }
 
 class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
-  static const Color _blue = Color(0xFF0284C7);
+  // SPECIAL CASE (Task 7.3): Preserved 0xFF00B4D8 as distinct cyan from 0xFF06B6D4
   static const Color _cyan = Color(0xFF00B4D8);
-  static const Color _bg = Color(0xFFF6FAFC);
-  static const Color _slate800 = Color(0xFF1E293B);
-  static const Color _slate700 = Color(0xFF334155);
-  static const Color _slate500 = Color(0xFF64748B);
-  static const Color _slate400 = Color(0xFF94A3B8);
-  static const Color _slate100 = Color(0xFFF1F5F9);
-  static const Color _slate50 = Color(0xFFF8FAFC);
-  static const Color _border = Color(0xFFF1F5F9);
-  static const Color _emerald = Color(0xFF059669);
-  static const Color _emeraldBg = Color(0xFFECFDF5);
 
   final FirestoreService _firestoreService = FirestoreService();
   final CloudinaryService _cloudinary = CloudinaryService();
@@ -99,10 +89,6 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
       nav.pop();
       messenger.showSnackBar(const SnackBar(content: Text('Delivery Completed!')));
     } catch (e) {
-      // Likely offline (Cloudinary upload and/or the fulfillDelivery
-      // transaction both require a live connection to even start). Rather
-      // than leave the rider stuck at the door, save what they physically
-      // verified locally and sync it automatically once back online.
       try {
         await _offlineQueue.queue(
           orderId: widget.order.id,
@@ -121,7 +107,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
         messenger.showSnackBar(
           const SnackBar(
             content: Text('Saved offline — will sync automatically once you\'re back online.'),
-            backgroundColor: _blue,
+            backgroundColor: AppColors.primarySky,
           ),
         );
       } catch (queueError) {
@@ -144,7 +130,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
+        border: Border.all(color: AppColors.slate100),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 1))],
       ),
       child: Column(crossAxisAlignment: align, children: [child]),
@@ -153,10 +139,10 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
 
   Widget _sectionLabel(String text) => Text(
     text.toUpperCase(),
-    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: _slate400),
+    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AppColors.slate400),
   );
 
-  Widget _iconBubble(IconData icon, {Color color = _blue, Color? bg}) => Container(
+  Widget _iconBubble(IconData icon, {Color color = AppColors.primarySky, Color? bg}) => Container(
     width: 28,
     height: 28,
     decoration: BoxDecoration(color: bg ?? color.withValues(alpha: 0.1), shape: BoxShape.circle),
@@ -169,8 +155,8 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
     child: Container(
       width: 28,
       height: 28,
-      decoration: const BoxDecoration(color: _slate100, shape: BoxShape.circle),
-      child: Icon(icon, size: 14, color: _slate700),
+      decoration: const BoxDecoration(color: AppColors.slate100, shape: BoxShape.circle),
+      child: Icon(icon, size: 14, color: AppColors.borderDark),
     ),
   );
 
@@ -179,7 +165,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
     required IconData icon,
     required Widget value,
     required String caption,
-    Color iconColor = _blue,
+    Color iconColor = AppColors.primarySky,
     Color? iconBg,
   }) {
     return Container(
@@ -187,7 +173,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
+        border: Border.all(color: AppColors.slate100),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 1))],
       ),
       child: Column(
@@ -197,12 +183,12 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Flexible(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _slate500))),
+              Flexible(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.slate500))),
               _iconBubble(icon, color: iconColor, bg: iconBg),
             ],
           ),
           value,
-          Text(caption.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.4, color: _slate400)),
+          Text(caption.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.4, color: AppColors.slate400)),
         ],
       ),
     );
@@ -218,16 +204,16 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? _blue : Colors.white,
+            color: selected ? AppColors.primarySky : Colors.white,
             borderRadius: BorderRadius.circular(10),
-            boxShadow: selected ? [BoxShadow(color: _blue.withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 4))] : null,
+            boxShadow: selected ? [BoxShadow(color: AppColors.primarySky.withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 4))] : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 15, color: selected ? Colors.white : _blue),
+              Icon(icon, size: 15, color: selected ? Colors.white : AppColors.primarySky),
               const SizedBox(width: 6),
-              Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: selected ? Colors.white : _blue)),
+              Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: selected ? Colors.white : AppColors.primarySky)),
             ],
           ),
         ),
@@ -238,10 +224,10 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
   Widget _infoRow({required IconData icon, required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: _slate50, borderRadius: BorderRadius.circular(12), border: Border.all(color: _border)),
+      decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.slate100)),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: _blue),
+          Icon(icon, size: 18, color: AppColors.primarySky),
           const SizedBox(width: 8),
           Expanded(child: child),
         ],
@@ -254,9 +240,9 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [_blue, _cyan]),
+        gradient: const LinearGradient(colors: [AppColors.primarySky, _cyan]),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: _blue.withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 6))],
+        boxShadow: [BoxShadow(color: AppColors.primarySky.withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 6))],
       ),
       child: Row(
         children: [
@@ -297,8 +283,8 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
               _sectionLabel('Customer & Order Details'),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: _blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(100)),
-                child: Text(number, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _blue)),
+                decoration: BoxDecoration(color: AppColors.primarySky.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(100)),
+                child: Text(number, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primarySky)),
               ),
             ],
           ),
@@ -306,8 +292,8 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(child: Text(widget.order.customerName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _slate800))),
-              if (phone.isNotEmpty) Text(phone, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _slate500)),
+              Expanded(child: Text(widget.order.customerName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.surfaceDark))),
+              if (phone.isNotEmpty) Text(phone, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.slate500)),
             ],
           ),
           if (location.isNotEmpty) ...[
@@ -315,12 +301,12 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: _slate50, borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(12)),
               child: Row(
                 children: [
-                  const Icon(Icons.location_on, size: 16, color: _blue),
+                  const Icon(Icons.location_on, size: 16, color: AppColors.primarySky),
                   const SizedBox(width: 6),
-                  Expanded(child: Text(location, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _slate500))),
+                  Expanded(child: Text(location, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.slate500))),
                 ],
               ),
             ),
@@ -333,7 +319,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
   Widget _statsGrid() {
     final int unreturnedDiff = droppedOff - emptyCollected;
     final bool balanced = unreturnedDiff == 0;
-    final Color diffColor = balanced ? _emerald : (unreturnedDiff > 0 ? const Color(0xFFF43F5E) : _blue);
+    final Color diffColor = balanced ? AppColors.emerald600 : (unreturnedDiff > 0 ? AppColors.coralAlert : AppColors.primarySky);
     final String diffLabel = balanced ? 'Balanced (0)' : (unreturnedDiff > 0 ? 'Deficit (-$unreturnedDiff)' : 'Surplus (+${-unreturnedDiff})');
 
     return GridView.count(
@@ -347,7 +333,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
         _statTile(
           title: 'Delivered',
           icon: Icons.water_drop,
-          value: Text('$droppedOff units', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: _slate800)),
+          value: Text('$droppedOff units', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.surfaceDark)),
           caption: '5-Gal Full',
         ),
         _statTile(
@@ -357,7 +343,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _stepBtn(Icons.remove, () => setState(() => emptyCollected = emptyCollected > 0 ? emptyCollected - 1 : 0)),
-              Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text('$emptyCollected units', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _slate800)))),
+              Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text('$emptyCollected units', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.surfaceDark)))),
               _stepBtn(Icons.add, () => setState(() => emptyCollected++)),
             ],
           ),
@@ -374,7 +360,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
         _statTile(
           title: 'Payment Collected',
           icon: Icons.qr_code_2,
-          value: Text('₱${widget.order.totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _blue)),
+          value: Text('₱${widget.order.totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.primarySky)),
           caption: paymentMethod == 'gcash' ? 'GCash Collected' : 'Cash Collected',
         ),
       ],
@@ -388,9 +374,9 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
         children: [
           _sectionLabel('Payment Collection (COD / GCash)'),
           const SizedBox(height: 4),
-          Text('₱${widget.order.totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: _blue, height: 1.1)),
+          Text('₱${widget.order.totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: AppColors.primarySky, height: 1.1)),
           const SizedBox(height: 4),
-          Text('Total Payable for $droppedOff ${droppedOff == 1 ? 'Gallon' : 'Gallons'}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _slate500)),
+          Text('Total Payable for $droppedOff ${droppedOff == 1 ? 'Gallon' : 'Gallons'}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.slate500)),
         ],
       ),
     );
@@ -409,13 +395,13 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
               if (paymentConfirmed)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: _emeraldBg, borderRadius: BorderRadius.circular(100)),
+                  decoration: BoxDecoration(color: AppColors.emerald50, borderRadius: BorderRadius.circular(100)),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.check_circle, size: 12, color: _emerald),
+                      Icon(Icons.check_circle, size: 12, color: AppColors.emerald600),
                       SizedBox(width: 4),
-                      Text('Payment Confirmed', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _emerald)),
+                      Text('Payment Confirmed', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.emerald600)),
                     ],
                   ),
                 ),
@@ -424,7 +410,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(color: _slate100, borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: AppColors.slate100, borderRadius: BorderRadius.circular(12)),
             child: Row(
               children: [
                 _paymentTab('cash', 'Cash', Icons.local_atm),
@@ -441,8 +427,8 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 spacing: 4,
                 children: [
-                  const Text('Customer-provided ref:', style: TextStyle(fontSize: 12, color: _slate400)),
-                  Text(ref, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'monospace', color: _slate800)),
+                  const Text('Customer-provided ref:', style: TextStyle(fontSize: 12, color: AppColors.slate400)),
+                  Text(ref, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'monospace', color: AppColors.surfaceDark)),
                 ],
               ),
             ),
@@ -450,21 +436,21 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(color: _slate50, borderRadius: BorderRadius.circular(12), border: Border.all(color: _border)),
+            decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.slate100)),
             child: Row(
               children: [
-                const Icon(Icons.badge, size: 18, color: _blue),
+                const Icon(Icons.badge, size: 18, color: AppColors.primarySky),
                 const SizedBox(width: 8),
-                const Text('Recipient:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF475569))),
+                const Text('Recipient:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.slate600)),
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
                     controller: _recipientCtrl,
                     textCapitalization: TextCapitalization.words,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _slate800),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.surfaceDark),
                     decoration: const InputDecoration(
                       hintText: 'Name of person who received',
-                      hintStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: _slate400),
+                      hintStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.slate400),
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: EdgeInsets.symmetric(vertical: 12),
@@ -475,8 +461,8 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
                 if (_recipientCtrl.text.trim().isNotEmpty)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFFD1FAE5).withValues(alpha: 0.6), borderRadius: BorderRadius.circular(100)),
-                    child: const Text('Signed', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF047857))),
+                    decoration: BoxDecoration(color: AppColors.emerald100.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(100)),
+                    child: const Text('Signed', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.emerald700)),
                   ),
               ],
             ),
@@ -498,14 +484,14 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
               const Expanded(
                 child: Row(
                   children: [
-                    Icon(Icons.photo_camera, size: 20, color: _blue),
+                    Icon(Icons.photo_camera, size: 20, color: AppColors.primarySky),
                     SizedBox(width: 8),
                     Flexible(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('PROOF OF DELIVERY (POD)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: _slate400)),
-                          Text('Drop-off Photo Verification', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _slate800)),
+                          Text('PROOF OF DELIVERY (POD)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AppColors.slate400)),
+                          Text('Drop-off Photo Verification', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.surfaceDark)),
                         ],
                       ),
                     ),
@@ -515,20 +501,20 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                 decoration: BoxDecoration(
-                  color: hasPhoto ? _emeraldBg : const Color(0xFFFFFBEB),
+                  color: hasPhoto ? AppColors.emerald50 : AppColors.amber50,
                   borderRadius: BorderRadius.circular(100),
-                  border: Border.all(color: hasPhoto ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A)),
+                  border: Border.all(color: hasPhoto ? AppColors.emerald200 : AppColors.amber200),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (hasPhoto)
-                      const Icon(Icons.check_circle, size: 12, color: _emerald)
+                      const Icon(Icons.check_circle, size: 12, color: AppColors.emerald600)
                     else
-                      Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFFF59E0B), shape: BoxShape.circle)),
+                      Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppColors.amber500, shape: BoxShape.circle)),
                     const SizedBox(width: 4),
                     Text(hasPhoto ? 'Photo Verified' : 'Pending Photo',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: hasPhoto ? const Color(0xFF047857) : const Color(0xFFD97706))),
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: hasPhoto ? AppColors.emerald700 : AppColors.amber600)),
                   ],
                 ),
               ),
@@ -543,9 +529,9 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
                 width: double.infinity,
                 height: 208,
                 decoration: BoxDecoration(
-                  color: hasPhoto ? const Color(0xFF0F172A) : _slate50,
+                  color: hasPhoto ? AppColors.backgroundDark : AppColors.surfaceCanvas,
                   borderRadius: BorderRadius.circular(12),
-                  border: hasPhoto ? null : Border.all(color: const Color(0xFFE2E8F0), width: 2),
+                  border: hasPhoto ? null : Border.all(color: AppColors.slate200, width: 2),
                 ),
                 child: hasPhoto
                     ? Stack(
@@ -570,7 +556,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.verified, size: 14, color: Color(0xFF34D399)),
+                            Icon(Icons.verified, size: 14, color: AppColors.emerald400),
                             SizedBox(width: 4),
                             Text('VERIFIED POD', style: TextStyle(fontSize: 10, color: Colors.white, fontFamily: 'monospace', letterSpacing: 0.5)),
                           ],
@@ -582,7 +568,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
                       bottom: 10,
                       child: Text(
                         'TIMESTAMP: ${_fmtTime(_podTime ?? DateTime.now())}',
-                        style: const TextStyle(fontSize: 9, color: Color(0xFFCBD5E1), fontFamily: 'monospace'),
+                        style: const TextStyle(fontSize: 9, color: AppColors.slate300, fontFamily: 'monospace'),
                       ),
                     ),
                   ],
@@ -593,16 +579,16 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
                     Container(
                       width: 48,
                       height: 48,
-                      decoration: BoxDecoration(color: _blue.withValues(alpha: 0.1), shape: BoxShape.circle),
-                      child: const Icon(Icons.add_a_photo, size: 24, color: _blue),
+                      decoration: BoxDecoration(color: AppColors.primarySky.withValues(alpha: 0.1), shape: BoxShape.circle),
+                      child: const Icon(Icons.add_a_photo, size: 24, color: AppColors.primarySky),
                     ),
                     const SizedBox(height: 8),
-                    const Text('No photo captured yet', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _slate700)),
+                    const Text('No photo captured yet', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.borderDark)),
                     const SizedBox(height: 2),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 24),
                       child: Text('Take a live photo of jugs at doorstep to verify delivery',
-                          textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: _slate400)),
+                          textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.slate400)),
                     ),
                   ],
                 ),
@@ -615,7 +601,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
             child: ElevatedButton.icon(
               onPressed: _takePhoto,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _blue,
+                backgroundColor: AppColors.primarySky,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -628,7 +614,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: _emeraldBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFD1FAE5))),
+              decoration: BoxDecoration(color: AppColors.emerald50, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.emerald100)),
               child: Row(
                 children: [
                   ClipRRect(
@@ -640,8 +626,8 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Photo Proof Captured', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF065F46))),
-                        Text('Water jugs verified on doorstep', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: _emerald)),
+                        Text('Photo Proof Captured', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.emerald800)),
+                        Text('Water jugs verified on doorstep', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: AppColors.emerald600)),
                       ],
                     ),
                   ),
@@ -649,14 +635,14 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
                     onPressed: _takePhoto,
                     style: OutlinedButton.styleFrom(
                       backgroundColor: Colors.white,
-                      side: BorderSide(color: _blue.withValues(alpha: 0.3)),
+                      side: BorderSide(color: AppColors.primarySky.withValues(alpha: 0.3)),
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    icon: const Icon(Icons.refresh, size: 13, color: _blue),
-                    label: const Text('Retake', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _blue)),
+                    icon: const Icon(Icons.refresh, size: 13, color: AppColors.primarySky),
+                    label: const Text('Retake', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primarySky)),
                   ),
                 ],
               ),
@@ -674,9 +660,9 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: _blue.withValues(alpha: 0.05),
+          color: AppColors.primarySky.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _blue.withValues(alpha: 0.2)),
+          border: Border.all(color: AppColors.primarySky.withValues(alpha: 0.2)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -686,9 +672,9 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
               height: 20,
               margin: const EdgeInsets.only(top: 2),
               decoration: BoxDecoration(
-                color: paymentConfirmed ? _blue : Colors.white,
+                color: paymentConfirmed ? AppColors.primarySky : Colors.white,
                 borderRadius: BorderRadius.circular(6),
-                border: paymentConfirmed ? null : Border.all(color: _slate400),
+                border: paymentConfirmed ? null : Border.all(color: AppColors.slate400),
               ),
               child: paymentConfirmed ? const Icon(Icons.check, size: 15, color: Colors.white) : null,
             ),
@@ -696,7 +682,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
             Expanded(
               child: Text(
                 'I certify that $droppedOff delivered ${droppedOff == 1 ? 'unit' : 'units'} and $emptyCollected empty ${emptyCollected == 1 ? 'container has' : 'containers have'} been physically verified, handed over, and payment of ₱${widget.order.totalAmount.toStringAsFixed(2)} confirmed.',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _slate700, height: 1.35),
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.borderDark, height: 1.35),
               ),
             ),
           ],
@@ -714,10 +700,10 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
           child: ElevatedButton.icon(
             onPressed: enabled ? _submitFulfillment : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _blue,
-              disabledBackgroundColor: _blue.withValues(alpha: 0.4),
+              backgroundColor: AppColors.primarySky,
+              disabledBackgroundColor: AppColors.primarySky.withValues(alpha: 0.4),
               elevation: enabled ? 8 : 0,
-              shadowColor: _blue.withValues(alpha: 0.35),
+              shadowColor: AppColors.primarySky.withValues(alpha: 0.35),
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
             ),
@@ -731,7 +717,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
         const SizedBox(height: 4),
         TextButton(
           onPressed: isSubmitting ? null : () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _slate400)),
+          child: const Text('Cancel', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.slate400)),
         ),
       ],
     );
@@ -740,25 +726,25 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: AppColors.surfaceBackground,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFFAF8FF),
+        backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 1,
         toolbarHeight: 64,
-        iconTheme: const IconThemeData(color: Color(0xFF131B2E)),
+        iconTheme: const IconThemeData(color: AppColors.textLight),
         titleSpacing: 0,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Fulfill Drop-off', style: TextStyle(color: Color(0xFF131B2E), fontSize: 18, fontWeight: FontWeight.bold, height: 1.2)),
+            const Text('Fulfill Drop-off', style: TextStyle(color: AppColors.textLight, fontSize: 18, fontWeight: FontWeight.bold, height: 1.2)),
             const SizedBox(height: 2),
             Row(
               children: [
-                Container(width: 8, height: 8, decoration: const BoxDecoration(color: _blue, shape: BoxShape.circle)),
+                Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.primarySky, shape: BoxShape.circle)),
                 const SizedBox(width: 6),
-                const Text('ORDER FULFILLMENT PROTOCOL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.8, color: Color(0xFF707881))),
+                const Text('ORDER FULFILLMENT PROTOCOL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.8, color: AppColors.outline)),
               ],
             ),
           ],

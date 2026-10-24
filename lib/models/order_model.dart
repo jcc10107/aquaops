@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum OrderStatus { pending, refilling, outForDelivery, delivered, cancelled }
 enum PaymentMethod { cash, gcash }
 
@@ -19,6 +21,16 @@ class OrderItem {
     this.requiresPackaging = true,
     this.productKey,
   });
+
+  factory OrderItem.fromMap(Map<String, dynamic> map) {
+    return OrderItem(
+      name: map['name'] ?? '',
+      quantity: (map['quantity'] ?? 0).toInt(),
+      unitPrice: (map['unitPrice'] ?? 0).toDouble(),
+      requiresPackaging: map['requiresPackaging'] ?? true,
+      productKey: map['productKey'],
+    );
+  }
 
   double get totalPrice => quantity * unitPrice;
 
@@ -124,6 +136,58 @@ class OrderModel {
     required this.createdAt,
     this.deliveredAt,
   });
+
+  factory OrderModel.fromMap(Map<String, dynamic> data, String id) {
+    final itemsData = (data['items'] as List<dynamic>?) ?? [];
+    final createdAtRaw = data['createdAt'];
+    final deliveredAtRaw = data['deliveredAt'];
+
+    return OrderModel(
+      id: id,
+      orderNumber: data['orderNumber'] ?? '',
+      customerId: data['customerId'],
+      customerName: data['customerName'] ?? '',
+      customerPhone: data['customerPhone'] ?? '',
+      deliveryAddress: data['deliveryAddress'],
+      areaZone: data['areaZone'] ?? '',
+      barangayDisplayName: data['barangayDisplayName'],
+      items: itemsData
+          .map((i) => OrderItem.fromMap(i as Map<String, dynamic>))
+          .toList(),
+      totalAmount: (data['totalAmount'] ?? 0).toDouble(),
+      deliveryFee: (data['deliveryFee'] as num?)?.toDouble() ?? 0,
+      status: OrderStatus.values.firstWhere(
+            (s) => s.name == data['status'],
+        orElse: () => OrderStatus.pending,
+      ),
+      paymentMethod: PaymentMethod.values.firstWhere(
+            (p) => p.name == data['paymentMethod'],
+        orElse: () => PaymentMethod.cash,
+      ),
+      isPaid: data['isPaid'] ?? false,
+      gcashReference: data['gcashReference'],
+      assignedRiderId: data['assignedRiderId'],
+      assignedRiderName: data['assignedRiderName'],
+      gallonsDelivered: (data['gallonsDelivered'] ?? 0).toInt(),
+      emptyGallonsReturned: (data['emptyGallonsReturned'] ?? 0).toInt(),
+      unreturnedDiff: (data['unreturnedDiff'] ?? 0).toInt(),
+      proofOfDeliveryUrl: data['proofOfDeliveryUrl'],
+      recipientName: data['recipientName'],
+      gcashScreenshotUrl: data['gcashScreenshotUrl'],
+      deliveryLat: (data['deliveryLat'] as num?)?.toDouble(),
+      deliveryLng: (data['deliveryLng'] as num?)?.toDouble(),
+      riderLat: (data['riderLat'] as num?)?.toDouble(),
+      riderLng: (data['riderLng'] as num?)?.toDouble(),
+      lastTransferReason: data['lastTransferReason'],
+      paymentCollectedBy: data['paymentCollectedBy'],
+      paidAt: (data['paidAt'] as Timestamp?)?.toDate(),
+      orderSource: data['orderSource'],
+      stockDeductedAt: (data['stockDeductedAt'] as Timestamp?)?.toDate(),
+      stockShortfall: data['stockShortfall'] ?? false,
+      createdAt: createdAtRaw is Timestamp ? createdAtRaw.toDate() : DateTime.now(),
+      deliveredAt: deliveredAtRaw is Timestamp ? deliveredAtRaw.toDate() : null,
+    );
+  }
 
   // The moment this order's payment was actually realized: when it was
   // dropped off for deliveries, or immediately at creation for walk-in sales.

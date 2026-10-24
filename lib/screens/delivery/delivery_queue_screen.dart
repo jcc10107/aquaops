@@ -1,19 +1,21 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/layout_constants.dart';
 import '../../core/constants/zones.dart';
 import '../../main.dart';
 import '../../models/order_model.dart';
-import '../../models/user_model.dart';
+import '../../models/user_model.dart'; // TASK 5.3: Includes UserRole
+import '../../services/auth_service.dart';
 import '../../services/cloudinary_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/offline_queue_service.dart';
 import '../../services/rider_location_service.dart';
+import '../../widgets/bottom_sheet_chrome.dart';
 import '../customer/customer_map_screen.dart';
 import 'rider_cash_out_modal.dart';
 import 'emergency_transfer_modal.dart';
@@ -69,7 +71,6 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
   final OfflineQueueService _offlineQueue = OfflineQueueService();
   final RiderLocationService _riderLocationService = RiderLocationService();
   List<String> _lastBroadcastOrderIds = const [];
-  String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   bool _syncing = false;
@@ -80,9 +81,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
   @override
   void initState() {
     super.initState();
-    // Covers reopening the app after it was closed while offline.
     _attemptSync();
-    // Covers signal coming back while the rider is already on this screen.
     _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
       if (results.any((r) => r != ConnectivityResult.none)) {
         _attemptSync();
@@ -137,7 +136,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
           child: Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFFBEB).withValues(alpha: 0.8),
+              color: AppColors.amber50.withValues(alpha: 0.8),
               border: Border.all(color: const Color(0xFFFCD34D)),
               borderRadius: BorderRadius.circular(16),
             ),
@@ -151,20 +150,20 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                     child: Row(
                       children: [
                         _syncing
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFB45309)))
-                            : const Icon(Icons.cloud_off, size: 18, color: Color(0xFFB45309)),
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.amber700))
+                            : const Icon(Icons.cloud_off, size: 18, color: AppColors.amber700),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             '$pendingCount ${pendingCount == 1 ? 'delivery' : 'deliveries'} pending sync',
-                            style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB45309)),
+                            style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.amber700),
                           ),
                         ),
-                        Icon(_pendingListExpanded ? Icons.expand_less : Icons.expand_more, size: 18, color: const Color(0xFFB45309)),
+                        Icon(_pendingListExpanded ? Icons.expand_less : Icons.expand_more, size: 18, color: AppColors.amber700),
                         const SizedBox(width: 10),
                         InkWell(
                           onTap: _syncing ? null : () => _attemptSync(showResult: true),
-                          child: const Text('Sync Now', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB45309), decoration: TextDecoration.underline)),
+                          child: const Text('Sync Now', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.amber700, decoration: TextDecoration.underline)),
                         ),
                       ],
                     ),
@@ -207,18 +206,18 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(orderNumber, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF92400E))),
-              Text('$gallons gal', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF92400E))),
+              Text(orderNumber, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.amber800)),
+              Text('$gallons gal', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.amber800)),
             ],
           ),
           const SizedBox(height: 2),
-          Text(customerName, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF131B2E))),
+          Text(customerName, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textLight)),
           if (address.isNotEmpty)
-            Text(address, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: Color(0xFF3F4850))),
+            Text(address, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: AppColors.textSecondary)),
           if (recipient != null && recipient.isNotEmpty)
-            Text('Received by: $recipient', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: Color(0xFF3F4850))),
+            Text('Received by: $recipient', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: AppColors.textSecondary)),
           if (queuedAt != null)
-            Text('Queued ${_fmtQueuedTime(queuedAt)}', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: Color(0xFF94A3B8))),
+            Text('Queued ${_fmtQueuedTime(queuedAt)}', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: AppColors.slate400)),
         ],
       ),
     );
@@ -240,7 +239,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
           alignment: Alignment.bottomCenter,
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxWidth: 450,
+              maxWidth: kMaxContentWidth,
               maxHeight: MediaQuery.of(context).size.height * 0.9,
             ),
             child: Container(
@@ -261,58 +260,12 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
-                    child: Container(
-                      width: 48,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFBFC7D2),
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                    ),
-                  ),
+                  const BottomSheetDragHandle(),
                   const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Assign Rider',
-                            style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF131B2E),
-                            ),
-                          ),
-                          Text(
-                            'Select a rider to dispatch this order',
-                            style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w400,
-                              color: Color(0xFF3F4850),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Material(
-                        color: const Color(0xFFEAEDFF),
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () => Navigator.pop(sheetContext),
-                          child: const SizedBox(
-                            width: 32,
-                            height: 32,
-                            child: Icon(Icons.close,
-                                size: 20, color: Color(0xFF3F4850)),
-                          ),
-                        ),
-                      ),
-                    ],
+                  BottomSheetHeader(
+                    title: 'Assign Rider',
+                    subtitle: 'Select a rider to dispatch this order',
+                    onClose: () => Navigator.pop(sheetContext),
                   ),
                   const SizedBox(height: 16),
                   if (riders.isEmpty)
@@ -323,7 +276,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                         style: TextStyle(
                           fontFamily: 'Plus Jakarta Sans',
                           fontSize: 12,
-                          color: Color(0xFF3F4850),
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     )
@@ -338,8 +291,8 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                               padding: const EdgeInsets.only(bottom: 8),
                               child: Material(
                                 color: isSelected
-                                    ? const Color(0xFFE0F2FE)
-                                    : const Color(0xFFF2F3FF),
+                                    ? AppColors.surfaceFrost
+                                    : AppColors.surfaceContainerLow,
                                 borderRadius: BorderRadius.circular(16),
                                 child: InkWell(
                                   onTap: () async {
@@ -375,8 +328,8 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                                           height: 36,
                                           decoration: BoxDecoration(
                                             color: isSelected
-                                                ? const Color(0xFF0284C7)
-                                                : const Color(0xFFE0F2FE),
+                                                ? AppColors.primarySky
+                                                : AppColors.surfaceFrost,
                                             shape: BoxShape.circle,
                                           ),
                                           child: Icon(
@@ -384,7 +337,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                                             size: 20,
                                             color: isSelected
                                                 ? Colors.white
-                                                : const Color(0xFF0284C7),
+                                                : AppColors.primarySky,
                                           ),
                                         ),
                                         const SizedBox(width: 12),
@@ -400,7 +353,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                                                   'Plus Jakarta Sans',
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF131B2E),
+                                                  color: AppColors.textLight,
                                                 ),
                                               ),
                                               Text(
@@ -411,7 +364,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                                                   fontFamily:
                                                   'Plus Jakarta Sans',
                                                   fontSize: 11,
-                                                  color: Color(0xFF3F4850),
+                                                  color: AppColors.textSecondary,
                                                 ),
                                               ),
                                             ],
@@ -423,8 +376,8 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                                               : Icons.radio_button_unchecked,
                                           size: 22,
                                           color: isSelected
-                                              ? const Color(0xFF0284C7)
-                                              : const Color(0xFFBFC7D2),
+                                              ? AppColors.primarySky
+                                              : AppColors.borderLight,
                                         ),
                                       ],
                                     ),
@@ -453,15 +406,10 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
     showDialog(context: context, builder: (context) => const EmergencyTransferModal());
   }
 
-  static const List<String> _codedZones = ['si', 'dr', 'sr', 'sm'];
-
-  // 'other' groups every barangay that isn't one of the 4 legacy-coded
-  // ones — both the old literal 'other' value and any of the ~75 real
-  // barangay names now saved directly on the order.
   bool _matchesArea(OrderModel d, String area) {
     if (area == 'all') return true;
     final group = zoneGroupOf(d.areaZone);
-    if (area == 'other') return !_codedZones.contains(group);
+    if (area == 'other') return !sanPabloZoneCodes.containsKey(group);
     return group == area;
   }
 
@@ -491,7 +439,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+          color: isActive ? AppColors.backgroundDark : AppColors.slate100,
           borderRadius: BorderRadius.circular(100),
         ),
         child: Text(
@@ -500,7 +448,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
             fontFamily: 'Plus Jakarta Sans',
             fontSize: 11,
             fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-            color: isActive ? Colors.white : const Color(0xFF334155),
+            color: isActive ? Colors.white : AppColors.borderDark,
           ),
         ),
       ),
@@ -509,16 +457,17 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final role = currentUserRoleNotifier.value;
-    final isDispatcher = role == 'owner' || role == 'staff';
+    // TASK 5.3: Use strongly-typed UserRole
+    final currentRole = UserRole.fromString(currentUserRoleNotifier.value);
+    final isDispatcher = currentRole == UserRole.owner || currentRole == UserRole.staff;
     final canCashOut = isDispatcher;
 
     return Container(
-      color: const Color(0xFFF8FAFC),
+      color: AppColors.surfaceCanvas,
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 450),
+          constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 130),
@@ -532,23 +481,23 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                       children: [
                         Container(
                           width: 36, height: 36,
-                          decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
-                          child: const Center(child: Icon(Icons.local_shipping, color: Color(0xFF0284C7), size: 22)),
+                          decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle),
+                          child: const Center(child: Icon(Icons.local_shipping, color: AppColors.primarySky, size: 22)),
                         ),
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF0F9FF),
+                            color: AppColors.surfaceIce,
                             borderRadius: BorderRadius.circular(100),
-                            border: Border.all(color: const Color(0xFFBAE6FD)),
+                            border: Border.all(color: AppColors.sky200),
                           ),
-                          child: const Text('DISPATCH HUB', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), letterSpacing: 0.5)),
+                          child: const Text('DISPATCH HUB', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primarySky, letterSpacing: 0.5)),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    const Text('Area-Based Delivery Queue & Dispatch', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A), height: 1.2)),
+                    const Text('Area-Based Delivery Queue & Dispatch', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.backgroundDark, height: 1.2)),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -563,7 +512,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFFFBEB).withValues(alpha: 0.8),
+                              color: AppColors.amber50.withValues(alpha: 0.8),
                               border: Border.all(color: const Color(0xFFFCD34D)),
                               borderRadius: BorderRadius.circular(100),
                               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
@@ -571,9 +520,9 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.swap_horiz, size: 17, color: Color(0xFFB45309)),
+                                Icon(Icons.swap_horiz, size: 17, color: AppColors.amber700),
                                 SizedBox(width: 6),
-                                Text('Emergency Transfer', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
+                                Text('Emergency Transfer', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.amber700)),
                               ],
                             ),
                           ),
@@ -589,17 +538,17 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFECFDF5).withValues(alpha: 0.8),
-                              border: Border.all(color: const Color(0xFF6EE7B7)),
+                              color: AppColors.emerald50.withValues(alpha: 0.8),
+                              border: Border.all(color: AppColors.emerald300),
                               borderRadius: BorderRadius.circular(100),
                               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
                             ),
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.attach_money, size: 17, color: Color(0xFF047857)),
+                                Icon(Icons.attach_money, size: 17, color: AppColors.emerald700),
                                 SizedBox(width: 6),
-                                Text('Shift Cash-Out', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF047857))),
+                                Text('Shift Cash-Out', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.emerald700)),
                               ],
                             ),
                           ),
@@ -619,7 +568,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                         if (snapshot.hasError) {
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 24),
-                            child: Text('Failed to load deliveries: ${snapshot.error}', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', color: Color(0xFFF43F5E))),
+                            child: Text('Failed to load deliveries: ${snapshot.error}', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', color: AppColors.coralAlert)),
                           );
                         }
                         if (!snapshot.hasData) {
@@ -630,8 +579,8 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                         }
 
                         final allOrders = snapshot.data!;
-                        final isRider = currentUserRoleNotifier.value == 'rider';
-                        final orders = isRider ? allOrders.where((o) => o.assignedRiderId == _uid).toList() : allOrders;
+                        final isRider = currentRole == UserRole.rider;
+                        final orders = isRider ? allOrders.where((o) => o.assignedRiderId == AuthService().currentUserId).toList() : allOrders;
                         if (isRider) {
                           _syncRiderBroadcast(
                             orders.where((o) => o.status == OrderStatus.outForDelivery).map((o) => o.id).toList(),
@@ -649,7 +598,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: const Color(0xFFF1F5F9)),
+                                border: Border.all(color: AppColors.slate100),
                                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
                               ),
                               child: Column(
@@ -659,16 +608,16 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                                     children: [
                                       Row(
                                         children: [
-                                          Icon(Icons.near_me, size: 17, color: Color(0xFF0284C7)),
+                                          Icon(Icons.near_me, size: 17, color: AppColors.primarySky),
                                           SizedBox(width: 6),
-                                          Text('Dispatch Zone', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                                          Text('Dispatch Zone', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.borderDark)),
                                         ],
                                       ),
                                       Row(
                                         children: [
-                                          _BlinkingDot(color: Color(0xFF10B981)),
+                                          _BlinkingDot(color: AppColors.emerald500),
                                           SizedBox(width: 4),
-                                          Text('Live Dispatch', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                                          Text('Live Dispatch', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.emerald600)),
                                         ],
                                       ),
                                     ],
@@ -679,14 +628,10 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                                     child: Row(
                                       children: [
                                         _buildFilterTab('all', 'All Areas', _countForArea(orders, 'all')),
-                                        const SizedBox(width: 8),
-                                        _buildFilterTab('si', 'Barangay San Isidro', _countForArea(orders, 'si')),
-                                        const SizedBox(width: 8),
-                                        _buildFilterTab('dr', 'Barangay Del Remedio', _countForArea(orders, 'dr')),
-                                        const SizedBox(width: 8),
-                                        _buildFilterTab('sr', 'Barangay San Roque', _countForArea(orders, 'sr')),
-                                        const SizedBox(width: 8),
-                                        _buildFilterTab('sm', 'Barangay San Marcos', _countForArea(orders, 'sm')),
+                                        for (final entry in sanPabloZoneCodes.entries) ...[
+                                          const SizedBox(width: 8),
+                                          _buildFilterTab(entry.key, entry.value, _countForArea(orders, entry.key)),
+                                        ],
                                         const SizedBox(width: 8),
                                         _buildFilterTab('other', 'Other Barangays', _countForArea(orders, 'other')),
                                       ],
@@ -696,19 +641,19 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                                   TextField(
                                     controller: _searchCtrl,
                                     onChanged: (_) => setState(() {}),
-                                    style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: Color(0xFF0F172A)),
+                                    style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: AppColors.backgroundDark),
                                     decoration: InputDecoration(
                                       hintText: 'Search customer, order #, or address...',
-                                      hintStyle: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: Color(0xFF94A3B8)),
-                                      prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
+                                      hintStyle: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: AppColors.slate400),
+                                      prefixIcon: const Icon(Icons.search, size: 18, color: AppColors.slate400),
                                       suffixIcon: _searchCtrl.text.isEmpty
                                           ? null
                                           : IconButton(
-                                              icon: const Icon(Icons.close, size: 16, color: Color(0xFF94A3B8)),
-                                              onPressed: () => setState(() => _searchCtrl.clear()),
-                                            ),
+                                        icon: const Icon(Icons.close, size: 16, color: AppColors.slate400),
+                                        onPressed: () => setState(() => _searchCtrl.clear()),
+                                      ),
                                       filled: true,
-                                      fillColor: const Color(0xFFF8FAFC),
+                                      fillColor: AppColors.surfaceCanvas,
                                       isDense: true,
                                       contentPadding: const EdgeInsets.symmetric(vertical: 10),
                                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -733,17 +678,17 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                                     const SizedBox(height: 12),
                                     Container(
                                       padding: const EdgeInsets.only(top: 10),
-                                      decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF1F5F9)))),
+                                      decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.slate100))),
                                       child: Row(
                                         children: [
-                                          const Icon(Icons.two_wheeler, size: 17, color: Color(0xFF0284C7)),
+                                          const Icon(Icons.two_wheeler, size: 17, color: AppColors.primarySky),
                                           const SizedBox(width: 6),
                                           Expanded(
                                             child: RichText(
                                               text: TextSpan(
-                                                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontFamily: 'Plus Jakarta Sans'),
+                                                style: const TextStyle(fontSize: 11, color: AppColors.slate500, fontFamily: 'Plus Jakarta Sans'),
                                                 children: [
-                                                  TextSpan(text: '${riders.length} riders available', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                                                  TextSpan(text: '${riders.length} riders available', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.borderDark)),
                                                   const TextSpan(text: ' • tap "Assigned Rider" on an order to dispatch'),
                                                 ],
                                               ),
@@ -759,16 +704,16 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                             const SizedBox(height: 24),
                             Row(
                               children: [
-                                const Icon(Icons.schedule, size: 16, color: Color(0xFF0284C7)),
+                                const Icon(Icons.schedule, size: 16, color: AppColors.primarySky),
                                 const SizedBox(width: 8),
-                                Text('ACTIVE DELIVERY QUEUE (${filteredDeliveries.length} PENDING)', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), letterSpacing: 0.5)),
+                                Text('ACTIVE DELIVERY QUEUE (${filteredDeliveries.length} PENDING)', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primarySky, letterSpacing: 0.5)),
                               ],
                             ),
                             const SizedBox(height: 12),
                             if (filteredDeliveries.isEmpty)
                               const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 24),
-                                child: Text('No active deliveries in this area.', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: Color(0xFF64748B))),
+                                child: Text('No active deliveries in this area.', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: AppColors.slate500)),
                               ),
                             ...filteredDeliveries.map((d) => _buildQueueCard(d, riders)),
                           ],
@@ -793,19 +738,19 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF0284C7) : const Color(0xFFF1F5F9),
+          color: isActive ? AppColors.primarySky : AppColors.slate100,
           borderRadius: BorderRadius.circular(100),
-          boxShadow: isActive ? [BoxShadow(color: const Color(0xFF06B6D4).withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 2))] : [],
+          boxShadow: isActive ? [BoxShadow(color: AppColors.cyanElectric.withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 2))] : [],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: isActive ? FontWeight.bold : FontWeight.w500, color: isActive ? Colors.white : const Color(0xFF334155))),
+            Text(label, style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: isActive ? FontWeight.bold : FontWeight.w500, color: isActive ? Colors.white : AppColors.borderDark)),
             const SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(color: isActive ? Colors.white.withValues(alpha: 0.2) : const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(100)),
-              child: Text('$count', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, fontWeight: FontWeight.bold, color: isActive ? Colors.white : const Color(0xFF475569))),
+              decoration: BoxDecoration(color: isActive ? Colors.white.withValues(alpha: 0.2) : AppColors.slate200, borderRadius: BorderRadius.circular(100)),
+              child: Text('$count', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, fontWeight: FontWeight.bold, color: isActive ? Colors.white : AppColors.slate600)),
             ),
           ],
         ),
@@ -830,30 +775,30 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
 
   Color _statusBadgeBgColor(OrderStatus status) {
     switch (status) {
-      case OrderStatus.pending: return const Color(0xFFFFFBEB);
+      case OrderStatus.pending: return AppColors.amber50;
       case OrderStatus.refilling: return const Color(0xFFEFF6FF);
       case OrderStatus.outForDelivery: return const Color(0xFFECFEFF);
-      case OrderStatus.delivered: return const Color(0xFFECFDF5);
+      case OrderStatus.delivered: return AppColors.emerald50;
       case OrderStatus.cancelled: return const Color(0xFFFEF2F2);
     }
   }
 
   Color _statusBadgeTextColor(OrderStatus status) {
     switch (status) {
-      case OrderStatus.pending: return const Color(0xFFB45309);
+      case OrderStatus.pending: return AppColors.amber700;
       case OrderStatus.refilling: return const Color(0xFF1D4ED8);
       case OrderStatus.outForDelivery: return const Color(0xFF0E7490);
-      case OrderStatus.delivered: return const Color(0xFF047857);
+      case OrderStatus.delivered: return AppColors.emerald700;
       case OrderStatus.cancelled: return const Color(0xFFB91C1C);
     }
   }
 
   Color _statusBadgeBorderColor(OrderStatus status) {
     switch (status) {
-      case OrderStatus.pending: return const Color(0xFFFDE68A);
+      case OrderStatus.pending: return AppColors.amber200;
       case OrderStatus.refilling: return const Color(0xFFBFDBFE);
       case OrderStatus.outForDelivery: return const Color(0xFFA5F3FC);
-      case OrderStatus.delivered: return const Color(0xFFA7F3D0);
+      case OrderStatus.delivered: return AppColors.emerald200;
       case OrderStatus.cancelled: return const Color(0xFFFECACA);
     }
   }
@@ -863,7 +808,9 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
         ? '—'
         : order.items.map((i) => '${i.quantity}x ${i.name}').join(', ');
     final rider = order.assignedRiderName ?? 'Unassigned';
-    final canReassign = currentUserRoleNotifier.value != 'rider';
+
+    // TASK 5.3: Typed role check
+    final canReassign = UserRole.fromString(currentUserRoleNotifier.value) != UserRole.rider;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -871,7 +818,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE0F2FE)),
+        border: Border.all(color: AppColors.surfaceFrost),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2)],
       ),
       child: Column(
@@ -885,14 +832,14 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(order.customerName, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A), height: 1.3), overflow: TextOverflow.ellipsis),
+                    Text(order.customerName, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.backgroundDark, height: 1.3), overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 2),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const Icon(Icons.location_on, size: 13, color: Color(0xFFF43F5E)),
+                        const Icon(Icons.location_on, size: 13, color: AppColors.coralAlert),
                         const SizedBox(width: 2),
-                        Expanded(child: Text(order.deliveryAddress ?? '', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: Color(0xFF64748B)), overflow: TextOverflow.ellipsis)),
+                        Expanded(child: Text(order.deliveryAddress ?? '', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: AppColors.slate500), overflow: TextOverflow.ellipsis)),
                       ],
                     ),
                   ],
@@ -906,7 +853,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (order.status == OrderStatus.outForDelivery) ...[
-                      const _BlinkingDot(color: Color(0xFF06B6D4)),
+                      const _BlinkingDot(color: AppColors.cyanElectric),
                       const SizedBox(width: 4),
                     ],
                     Text(_statusBadgeLabel(order.status), style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: _statusBadgeTextColor(order.status), fontWeight: FontWeight.bold)),
@@ -919,24 +866,24 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: const Color(0xFFFFFBEB), border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.6)), borderRadius: BorderRadius.circular(100)),
+              decoration: BoxDecoration(color: AppColors.amber50, border: Border.all(color: AppColors.amber200.withValues(alpha: 0.6)), borderRadius: BorderRadius.circular(100)),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.swap_horiz, size: 14, color: Color(0xFFB45309)),
+                  const Icon(Icons.swap_horiz, size: 14, color: AppColors.amber700),
                   const SizedBox(width: 6),
-                  Text('Transferred: ${order.lastTransferReason}', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFFB45309))),
+                  Text('Transferred: ${order.lastTransferReason}', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.amber700)),
                 ],
               ),
             ),
           ],
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
-            child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+            child: Divider(height: 1, color: AppColors.slate100),
           ),
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: const Color(0xFFF8FAFC).withValues(alpha: 0.7), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFF1F5F9))),
+            decoration: BoxDecoration(color: AppColors.surfaceCanvas.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.slate100)),
             child: Column(
               children: [
                 Row(
@@ -945,9 +892,9 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('ORDER & QTY', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
+                          const Text('ORDER & QTY', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.slate400)),
                           const SizedBox(height: 2),
-                          Text(qtySummary, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)), overflow: TextOverflow.ellipsis),
+                          Text(qtySummary, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.surfaceDark), overflow: TextOverflow.ellipsis),
                         ],
                       ),
                     ),
@@ -955,9 +902,9 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('AMOUNT DUE', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
+                          const Text('AMOUNT DUE', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.slate400)),
                           const SizedBox(height: 2),
-                          Text('₱${order.totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
+                          Text('₱${order.totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primarySky)),
                         ],
                       ),
                     ),
@@ -970,7 +917,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('PAYMENT MODE', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
+                          const Text('PAYMENT MODE', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.slate400)),
                           const SizedBox(height: 2),
                           Row(
                             children: [
@@ -978,7 +925,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                                 Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF3B82F6), shape: BoxShape.circle)),
                                 const SizedBox(width: 4),
                               ],
-                              Text(order.paymentMethod == PaymentMethod.gcash ? 'GCASH' : 'CASH', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                              Text(order.paymentMethod == PaymentMethod.gcash ? 'GCASH' : 'CASH', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.surfaceDark)),
                             ],
                           ),
                         ],
@@ -988,14 +935,14 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('ASSIGNED RIDER', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
+                          const Text('ASSIGNED RIDER', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.slate400)),
                           const SizedBox(height: 2),
                           InkWell(
                             onTap: canReassign ? () => _showAssignRiderSheet(order, riders) : null,
                             child: Row(
                               children: [
-                                Expanded(child: Text(rider, style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: order.assignedRiderId == null ? const Color(0xFFF43F5E) : const Color(0xFF1E293B)), overflow: TextOverflow.ellipsis)),
-                                if (canReassign) const Text(' ✎', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: Color(0xFF94A3B8))),
+                                Expanded(child: Text(rider, style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: order.assignedRiderId == null ? AppColors.coralAlert : AppColors.surfaceDark), overflow: TextOverflow.ellipsis)),
+                                if (canReassign) const Text(' ✎', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: AppColors.slate400)),
                               ],
                             ),
                           ),
@@ -1024,10 +971,10 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                   icon: const Icon(Icons.check_circle, size: 17, color: Colors.white),
                   label: const Text('Complete Drop-off & Verify Payment', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0284C7),
+                    backgroundColor: AppColors.primarySky,
                     foregroundColor: Colors.white,
                     elevation: 4,
-                    shadowColor: const Color(0xFF0284C7).withValues(alpha: 0.2),
+                    shadowColor: AppColors.primarySky.withValues(alpha: 0.2),
                     padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                   ),
@@ -1043,11 +990,11 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                           const SnackBar(content: Text('In-app messaging is coming soon. Please call or text the customer directly for now.')),
                         );
                       },
-                      icon: const Icon(Icons.chat, size: 16, color: Color(0xFF0284C7)),
-                      label: const Text('Send Message', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0284C7))),
+                      icon: const Icon(Icons.chat, size: 16, color: AppColors.primarySky),
+                      label: const Text('Send Message', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primarySky)),
                       style: OutlinedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF0F9FF),
-                        side: const BorderSide(color: Color(0xFFBAE6FD)),
+                        backgroundColor: AppColors.surfaceIce,
+                        side: const BorderSide(color: AppColors.sky200),
                         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                       ),
@@ -1064,11 +1011,11 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                           ),
                         );
                       },
-                      icon: const Icon(Icons.map, size: 16, color: Color(0xFF0284C7)),
-                      label: const Text('View Route', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0284C7))),
+                      icon: const Icon(Icons.map, size: 16, color: AppColors.primarySky),
+                      label: const Text('View Route', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primarySky)),
                       style: OutlinedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF0F9FF),
-                        side: const BorderSide(color: Color(0xFFBAE6FD)),
+                        backgroundColor: AppColors.surfaceIce,
+                        side: const BorderSide(color: AppColors.sky200),
                         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                       ),

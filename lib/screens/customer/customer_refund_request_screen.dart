@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/constants/app_colors.dart';
+import '../../core/constants/layout_constants.dart';
+import '../../core/utils/app_toast.dart';
+import '../../core/utils/validators.dart';
 import '../../models/order_model.dart';
 import '../../services/cloudinary_service.dart';
 
@@ -34,7 +38,7 @@ class _GcashNumberFormatter extends TextInputFormatter {
       TextEditingValue oldValue,
       TextEditingValue newValue,
       ) {
-    var digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    var digits = Validators.sanitizePhone(newValue.text);
     if (digits.length > 11) digits = digits.substring(0, 11);
     final buffer = StringBuffer();
     for (int i = 0; i < digits.length; i++) {
@@ -51,24 +55,8 @@ class _GcashNumberFormatter extends TextInputFormatter {
 
 class _CustomerRefundRequestScreenState
     extends State<CustomerRefundRequestScreen> {
-  static const double _maxWidth = 450;
   static const double _headerHeight = 64;
   static const int _minChars = 20;
-
-  static const Color _surface = Color(0xFFFAF8FF);
-  static const Color _canvas = Color(0xFFF8FAFC);
-  static const Color _primary = Color(0xFF0284C7);
-  static const Color _ice = Color(0xFFF0F9FF);
-  static const Color _frost = Color(0xFFE0F2FE);
-  static const Color _containerLow = Color(0xFFF2F3FF);
-  static const Color _onSurface = Color(0xFF131B2E);
-  static const Color _onSurfaceVariant = Color(0xFF3F4850);
-  static const Color _outline = Color(0xFF707881);
-  static const Color _secondary = Color(0xFF006C49);
-  static const Color _secondaryContainer = Color(0xFF6CF8BB);
-  static const Color _onSecondaryContainer = Color(0xFF00714D);
-  static const Color _coral = Color(0xFFF43F5E);
-  static const Color _cyan = Color(0xFF06B6D4);
 
   static const List<String> _reasons = [
     'Damaged Product',
@@ -101,12 +89,6 @@ class _CustomerRefundRequestScreenState
   String? _nameError;
   String? _numberError;
 
-  bool _toastVisible = false;
-  String _toastTitle = '';
-  String _toastMessage = '';
-  String _toastType = 'info';
-  Timer? _toastTimer;
-
   @override
   void initState() {
     super.initState();
@@ -115,7 +97,6 @@ class _CustomerRefundRequestScreenState
 
   @override
   void dispose() {
-    _toastTimer?.cancel();
     _customCtrl.dispose();
     _descCtrl.dispose();
     _nameCtrl.dispose();
@@ -143,34 +124,29 @@ class _CustomerRefundRequestScreenState
     );
   }
 
-  void _showToast(String title, String message, String type) {
-    _toastTimer?.cancel();
-    setState(() {
-      _toastTitle = title;
-      _toastMessage = message;
-      _toastType = type;
-      _toastVisible = true;
-    });
-    _toastTimer = Timer(const Duration(milliseconds: 3500), () {
-      if (mounted) setState(() => _toastVisible = false);
-    });
-  }
-
   Future<void> _submit() async {
     if (_isSubmitting || _isSubmitted) return;
     final description = _descCtrl.text.trim();
     final name = _nameCtrl.text.trim();
-    final digits = _numberCtrl.text.replaceAll(RegExp(r'\D'), '');
+    final digits = Validators.sanitizePhone(_numberCtrl.text);
     final custom = _customCtrl.text.trim();
 
     setState(() {
       _customError = (_selectedReason == 'Other' && custom.isEmpty) ? 'Please enter your custom refund reason.' : null;
       _descError = description.length < _minChars ? 'Please enter at least $_minChars characters.' : null;
       _nameError = name.isEmpty ? 'Please enter your GCash Account Name.' : null;
-      _numberError = digits.length < 11 ? 'Please enter an 11-digit GCash mobile number.' : null;
+      _numberError = Validators.validateGCash(
+        _numberCtrl.text,
+        requiredMessage: 'Please enter an 11-digit GCash mobile number.',
+        invalidMessage: 'Please enter an 11-digit GCash mobile number.',
+      );
     });
     if (_customError != null || _descError != null || _nameError != null || _numberError != null) {
-      _showToast('Check the highlighted fields', 'Some required details are missing or invalid.', 'error');
+      AppToast.showError(
+        context,
+        'Some required details are missing or invalid.',
+        title: 'Check the highlighted fields',
+      );
       if (_customError != null) {
         _customFocus.requestFocus();
       } else if (_descError != null) {
@@ -201,10 +177,10 @@ class _CustomerRefundRequestScreenState
         _isSubmitting = false;
         _isSubmitted = true;
       });
-      _showToast(
-        'Refund Claim Lodged!',
+      AppToast.showSuccess(
+        context,
         'Order ${widget.order.orderNumber} is being audited. Reimbursement via GCash will follow.',
-        'success',
+        title: 'Refund Claim Lodged!',
       );
       Future<void>.delayed(const Duration(milliseconds: 1500), () {
         if (mounted) Navigator.pop(context);
@@ -212,7 +188,7 @@ class _CustomerRefundRequestScreenState
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      _showToast('Submission Failed', '$e', 'error');
+      AppToast.showError(context, '$e', title: 'Submission Failed');
     }
   }
 
@@ -238,7 +214,7 @@ class _CustomerRefundRequestScreenState
           width: double.infinity,
           padding: EdgeInsets.only(top: topInset),
           decoration: BoxDecoration(
-            color: _surface.withValues(alpha: 0.8),
+            color: AppColors.background.withValues(alpha: 0.8),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -249,7 +225,7 @@ class _CustomerRefundRequestScreenState
           ),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: _maxWidth),
+              constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
               child: SizedBox(
                 height: _headerHeight,
                 child: Padding(
@@ -257,7 +233,7 @@ class _CustomerRefundRequestScreenState
                   child: Row(
                     children: [
                       Material(
-                        color: _ice,
+                        color: AppColors.surfaceIce,
                         shape: const CircleBorder(),
                         child: InkWell(
                           customBorder: const CircleBorder(),
@@ -265,7 +241,7 @@ class _CustomerRefundRequestScreenState
                           child: const SizedBox(
                             width: 36,
                             height: 36,
-                            child: Icon(Icons.arrow_back, size: 20, color: _primary),
+                            child: Icon(Icons.arrow_back, size: 20, color: AppColors.primarySky),
                           ),
                         ),
                       ),
@@ -279,14 +255,14 @@ class _CustomerRefundRequestScreenState
                               'Customer Refund Form',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: _t(17, FontWeight.w700, _onSurface,
+                              style: _t(17, FontWeight.w700, AppColors.textLight,
                                   height: 1.3, letterSpacing: -0.17),
                             ),
                             Text(
                               'DISPUTE RESOLUTION & GCASH REIMBURSEMENT',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: _t(10, FontWeight.w800, _primary,
+                              style: _t(10, FontWeight.w800, AppColors.primarySky,
                                   height: 1.2, letterSpacing: 0.6),
                             ),
                           ],
@@ -339,8 +315,8 @@ class _CustomerRefundRequestScreenState
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    _frost.withValues(alpha: 0.6),
-                    _frost.withValues(alpha: 0),
+                    AppColors.surfaceFrost.withValues(alpha: 0.6),
+                    AppColors.surfaceFrost.withValues(alpha: 0),
                   ],
                 ),
               ),
@@ -359,15 +335,15 @@ class _CustomerRefundRequestScreenState
                           width: 24,
                           height: 24,
                           decoration: const BoxDecoration(
-                            color: _ice,
+                            color: AppColors.surfaceIce,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.receipt_long, size: 16, color: _primary),
+                          child: const Icon(Icons.receipt_long, size: 16, color: AppColors.primarySky),
                         ),
                         const SizedBox(width: 4),
                         Text(
                           'ORDER DETAILS',
-                          style: _t(11, FontWeight.w700, _primary,
+                          style: _t(11, FontWeight.w700, AppColors.primarySky,
                               height: 14 / 11, letterSpacing: 0.9),
                         ),
                       ],
@@ -377,14 +353,14 @@ class _CustomerRefundRequestScreenState
                       'Order ${order.orderNumber}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: _t(17, FontWeight.w700, _onSurface,
+                      style: _t(17, FontWeight.w700, AppColors.textLight,
                           height: 24 / 17, letterSpacing: -0.17),
                     ),
                     Text(
                       itemsSummary,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: _t(13, FontWeight.w500, _onSurfaceVariant, height: 18 / 13),
+                      style: _t(13, FontWeight.w500, AppColors.textSecondary, height: 18 / 13),
                     ),
                   ],
                 ),
@@ -395,24 +371,24 @@ class _CustomerRefundRequestScreenState
                 children: [
                   Text(
                     '₱${order.totalAmount.toStringAsFixed(2)}',
-                    style: _t(17, FontWeight.w700, _primary,
+                    style: _t(17, FontWeight.w700, AppColors.primarySky,
                         height: 24 / 17, letterSpacing: -0.17),
                   ),
                   const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: _secondaryContainer.withValues(alpha: 0.4),
+                      color: AppColors.secondaryContainer.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(100),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.check_circle, size: 12, color: _onSecondaryContainer),
+                        const Icon(Icons.check_circle, size: 12, color: AppColors.onSecondaryContainer),
                         const SizedBox(width: 4),
                         Text(
                           paymentLabel,
-                          style: _t(10, FontWeight.w800, _onSecondaryContainer,
+                          style: _t(10, FontWeight.w800, AppColors.onSecondaryContainer,
                               height: 1.2, letterSpacing: 0.6),
                         ),
                       ],
@@ -438,7 +414,7 @@ class _CustomerRefundRequestScreenState
                 width: 8,
                 height: 20,
                 decoration: BoxDecoration(
-                  color: _primary,
+                  color: AppColors.primarySky,
                   borderRadius: BorderRadius.circular(100),
                 ),
               ),
@@ -448,7 +424,7 @@ class _CustomerRefundRequestScreenState
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: _t(17, FontWeight.w700, _onSurface,
+                  style: _t(17, FontWeight.w700, AppColors.textLight,
                       height: 24 / 17, letterSpacing: -0.17),
                 ),
               ),
@@ -481,10 +457,10 @@ class _CustomerRefundRequestScreenState
               height: height,
               padding: padding,
               decoration: BoxDecoration(
-                color: focused ? Colors.white : _canvas,
+                color: focused ? Colors.white : AppColors.surfaceCanvas,
                 borderRadius: BorderRadius.circular(radius),
                 border: Border.all(
-                  color: hasError ? _coral : (focused ? _cyan : Colors.transparent),
+                  color: hasError ? AppColors.coralAlert : (focused ? AppColors.cyanElectric : Colors.transparent),
                   width: 2,
                 ),
               ),
@@ -495,7 +471,7 @@ class _CustomerRefundRequestScreenState
                 padding: const EdgeInsets.only(left: 4, top: 4),
                 child: Text(
                   errorText,
-                  style: _t(11, FontWeight.w500, _coral, height: 14 / 11),
+                  style: _t(11, FontWeight.w500, AppColors.coralAlert, height: 14 / 11),
                 ),
               ),
           ],
@@ -509,7 +485,7 @@ class _CustomerRefundRequestScreenState
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         text,
-        style: _t(11, FontWeight.w700, _onSurfaceVariant,
+        style: _t(11, FontWeight.w700, AppColors.textSecondary,
             height: 14 / 11, letterSpacing: 0.22),
       ),
     );
@@ -527,7 +503,7 @@ class _CustomerRefundRequestScreenState
             'Select Refund Reason',
             Text(
               'REQUIRED',
-              style: _t(10, FontWeight.w800, _primary, height: 1.2, letterSpacing: 0.6),
+              style: _t(10, FontWeight.w800, AppColors.primarySky, height: 1.2, letterSpacing: 0.6),
             ),
           ),
           const SizedBox(height: 12),
@@ -542,12 +518,12 @@ class _CustomerRefundRequestScreenState
                   duration: const Duration(milliseconds: 150),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    color: active ? _primary : _containerLow,
+                    color: active ? AppColors.primarySky : AppColors.surfaceContainerLow,
                     borderRadius: BorderRadius.circular(100),
                     boxShadow: active
                         ? [
                       BoxShadow(
-                        color: _primary.withValues(alpha: 0.2),
+                        color: AppColors.primarySky.withValues(alpha: 0.2),
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
@@ -559,7 +535,7 @@ class _CustomerRefundRequestScreenState
                     style: _t(
                       11,
                       FontWeight.w700,
-                      active ? Colors.white : _onSurfaceVariant,
+                      active ? Colors.white : AppColors.textSecondary,
                       height: 14 / 11,
                       letterSpacing: 0.22,
                     ),
@@ -581,13 +557,13 @@ class _CustomerRefundRequestScreenState
                 onChanged: (_) {
                   if (_customError != null) setState(() => _customError = null);
                 },
-                style: _t(13, FontWeight.w500, _onSurface, height: 18 / 13),
+                style: _t(13, FontWeight.w500, AppColors.textLight, height: 18 / 13),
                 decoration: InputDecoration(
                   isDense: true,
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
                   hintText: 'Please state your specific reason...',
-                  hintStyle: _t(13, FontWeight.w500, _outline, height: 18 / 13),
+                  hintStyle: _t(13, FontWeight.w500, AppColors.outline, height: 18 / 13),
                 ),
               ),
             ),
@@ -612,7 +588,7 @@ class _CustomerRefundRequestScreenState
             'Detailed Issue Description',
             Text(
               '$count / $_minChars min',
-              style: _t(10, FontWeight.w800, met ? _secondary : _coral,
+              style: _t(10, FontWeight.w800, met ? AppColors.secondary : AppColors.coralAlert,
                   height: 1.2, letterSpacing: 0.6),
             ),
           ),
@@ -629,14 +605,14 @@ class _CustomerRefundRequestScreenState
               },
               minLines: 4,
               maxLines: 4,
-              style: _t(13, FontWeight.w500, _onSurface, height: 18 / 13),
+              style: _t(13, FontWeight.w500, AppColors.textLight, height: 18 / 13),
               decoration: InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.zero,
                 hintText:
                 'Describe the issue encountered with your order in detail (e.g., hairline crack near neck causing continuous leak during delivery)...',
-                hintStyle: _t(13, FontWeight.w500, _outline, height: 18 / 13),
+                hintStyle: _t(13, FontWeight.w500, AppColors.outline, height: 18 / 13),
               ),
             ),
           ),
@@ -645,17 +621,17 @@ class _CustomerRefundRequestScreenState
             width: double.infinity,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: _ice,
+              color: AppColors.surfaceIce,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline, size: 18, color: _primary),
+                const Icon(Icons.info_outline, size: 18, color: AppColors.primarySky),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Clear descriptions help AquaOps technicians process dispatch replacements and approvals faster.',
-                    style: _t(11, FontWeight.w400, _primary, height: 1.3),
+                    style: _t(11, FontWeight.w400, AppColors.primarySky, height: 1.3),
                   ),
                 ),
               ],
@@ -684,22 +660,30 @@ class _CustomerRefundRequestScreenState
         _photoBytes = bytes;
         _pickingPhoto = false;
       });
-      _showToast('Photo Added', 'Evidence file attached to refund claim.', 'success');
+      AppToast.showSuccess(
+        context,
+        'Evidence file attached to refund claim.',
+        title: 'Photo Added',
+      );
     } on TimeoutException {
       if (!mounted) return;
       setState(() => _pickingPhoto = false);
-      _showToast('Photo Error', 'Taking too long — please try a smaller photo or try again.', 'error');
+      AppToast.showError(
+        context,
+        'Taking too long — please try a smaller photo or try again.',
+        title: 'Photo Error',
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _pickingPhoto = false);
-      _showToast('Photo Error', '$e', 'error');
+      AppToast.showError(context, '$e', title: 'Photo Error');
     }
   }
 
   Widget _photoButton(IconData icon, String label, ImageSource source) {
     return Expanded(
       child: Material(
-        color: _ice,
+        color: AppColors.surfaceIce,
         borderRadius: BorderRadius.circular(100),
         child: InkWell(
           borderRadius: BorderRadius.circular(100),
@@ -710,23 +694,23 @@ class _CustomerRefundRequestScreenState
               mainAxisAlignment: MainAxisAlignment.center,
               children: _pickingPhoto
                   ? [
-                      const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: _primary),
-                      ),
-                      const SizedBox(width: 8),
-                      Text('Loading...', style: _t(13, FontWeight.w700, _primary, height: 16 / 13, letterSpacing: 0.13)),
-                    ]
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primarySky),
+                ),
+                const SizedBox(width: 8),
+                Text('Loading...', style: _t(13, FontWeight.w700, AppColors.primarySky, height: 16 / 13, letterSpacing: 0.13)),
+              ]
                   : [
-                      Icon(icon, size: 20, color: _primary),
-                      const SizedBox(width: 8),
-                      Text(
-                        label,
-                        style: _t(13, FontWeight.w700, _primary,
-                            height: 16 / 13, letterSpacing: 0.13),
-                      ),
-                    ],
+                Icon(icon, size: 20, color: AppColors.primarySky),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: _t(13, FontWeight.w700, AppColors.primarySky,
+                      height: 16 / 13, letterSpacing: 0.13),
+                ),
+              ],
             ),
           ),
         ),
@@ -747,11 +731,11 @@ class _CustomerRefundRequestScreenState
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.verified, size: 14, color: _secondary),
+                const Icon(Icons.verified, size: 14, color: AppColors.secondary),
                 const SizedBox(width: 4),
                 Text(
                   'RECOMMENDED',
-                  style: _t(10, FontWeight.w800, _secondary,
+                  style: _t(10, FontWeight.w800, AppColors.secondary,
                       height: 1.2, letterSpacing: 0.6),
                 ),
               ],
@@ -771,7 +755,7 @@ class _CustomerRefundRequestScreenState
               width: double.infinity,
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: _canvas,
+                color: AppColors.surfaceCanvas,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
@@ -789,13 +773,13 @@ class _CustomerRefundRequestScreenState
                           'Evidence photo attached',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: _t(13, FontWeight.w700, _onSurface, height: 18 / 13),
+                          style: _t(13, FontWeight.w700, AppColors.textLight, height: 18 / 13),
                         ),
                         Text(
                           'Ready to submit with your claim',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: _t(11, FontWeight.w400, _secondary, height: 16 / 11),
+                          style: _t(11, FontWeight.w400, AppColors.secondary, height: 16 / 11),
                         ),
                       ],
                     ),
@@ -804,16 +788,16 @@ class _CustomerRefundRequestScreenState
                     customBorder: const CircleBorder(),
                     onTap: () {
                       setState(() => _photoBytes = null);
-                      _showToast(
-                        'Photo Removed',
+                      AppToast.showInfo(
+                        context,
                         'You can take or attach a replacement photo anytime.',
-                        'info',
+                        title: 'Photo Removed',
                       );
                     },
                     child: const SizedBox(
                       width: 36,
                       height: 36,
-                      child: Icon(Icons.delete_outline, size: 20, color: _coral),
+                      child: Icon(Icons.delete_outline, size: 20, color: AppColors.coralAlert),
                     ),
                   ),
                 ],
@@ -826,7 +810,7 @@ class _CustomerRefundRequestScreenState
                 child: Text(
                   'No photo attached yet. Evidence speeds up verification.',
                   textAlign: TextAlign.center,
-                  style: _t(11, FontWeight.w400, _outline, height: 16 / 11),
+                  style: _t(11, FontWeight.w400, AppColors.outline, height: 16 / 11),
                 ),
               ),
             ),
@@ -848,17 +832,17 @@ class _CustomerRefundRequestScreenState
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: _frost,
+                color: AppColors.surfaceFrost,
                 borderRadius: BorderRadius.circular(100),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.lock, size: 13, color: _primary),
+                  const Icon(Icons.lock, size: 13, color: AppColors.primarySky),
                   const SizedBox(width: 4),
                   Text(
                     'SECURE',
-                    style: _t(10, FontWeight.w800, _primary,
+                    style: _t(10, FontWeight.w800, AppColors.primarySky,
                         height: 1.2, letterSpacing: 0.6),
                   ),
                 ],
@@ -874,7 +858,7 @@ class _CustomerRefundRequestScreenState
             errorText: _nameError,
             child: Row(
               children: [
-                const Icon(Icons.badge, size: 18, color: _primary),
+                const Icon(Icons.badge, size: 18, color: AppColors.primarySky),
                 const SizedBox(width: 10),
                 Expanded(
                   child: TextField(
@@ -884,13 +868,13 @@ class _CustomerRefundRequestScreenState
                       if (_nameError != null) setState(() => _nameError = null);
                     },
                     textCapitalization: TextCapitalization.words,
-                    style: _t(15, FontWeight.w500, _onSurface, height: 22 / 15),
+                    style: _t(15, FontWeight.w500, AppColors.textLight, height: 22 / 15),
                     decoration: InputDecoration(
                       isDense: true,
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
                       hintText: 'e.g. Maria Santos',
-                      hintStyle: _t(15, FontWeight.w500, _outline, height: 22 / 15),
+                      hintStyle: _t(15, FontWeight.w500, AppColors.outline, height: 22 / 15),
                     ),
                   ),
                 ),
@@ -906,7 +890,7 @@ class _CustomerRefundRequestScreenState
             errorText: _numberError,
             child: Row(
               children: [
-                const Icon(Icons.phone_iphone, size: 18, color: _primary),
+                const Icon(Icons.phone_iphone, size: 18, color: AppColors.primarySky),
                 const SizedBox(width: 10),
                 Expanded(
                   child: TextField(
@@ -921,7 +905,7 @@ class _CustomerRefundRequestScreenState
                       fontSize: 15,
                       height: 22 / 15,
                       fontWeight: FontWeight.w500,
-                      color: _onSurface,
+                      color: AppColors.textLight,
                       letterSpacing: 1.2,
                     ),
                     decoration: InputDecoration(
@@ -929,7 +913,7 @@ class _CustomerRefundRequestScreenState
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
                       hintText: '09XX XXX XXXX',
-                      hintStyle: _t(15, FontWeight.w500, _outline, height: 22 / 15),
+                      hintStyle: _t(15, FontWeight.w500, AppColors.outline, height: 22 / 15),
                     ),
                   ),
                 ),
@@ -941,7 +925,7 @@ class _CustomerRefundRequestScreenState
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _canvas,
+              color: AppColors.surfaceCanvas,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
@@ -949,7 +933,7 @@ class _CustomerRefundRequestScreenState
               children: [
                 const Padding(
                   padding: EdgeInsets.only(top: 2),
-                  child: Icon(Icons.shield, size: 18, color: _primary),
+                  child: Icon(Icons.shield, size: 18, color: AppColors.primarySky),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -958,7 +942,7 @@ class _CustomerRefundRequestScreenState
                       children: [
                         TextSpan(
                           text: 'Data Privacy Guard: ',
-                          style: _t(11, FontWeight.w700, _onSurface, height: 1.5),
+                          style: _t(11, FontWeight.w700, AppColors.textLight, height: 1.5),
                         ),
                         const TextSpan(
                           text:
@@ -966,7 +950,7 @@ class _CustomerRefundRequestScreenState
                         ),
                       ],
                     ),
-                    style: _t(11, FontWeight.w400, _onSurfaceVariant, height: 1.5),
+                    style: _t(11, FontWeight.w400, AppColors.textSecondary, height: 1.5),
                   ),
                 ),
               ],
@@ -982,11 +966,11 @@ class _CustomerRefundRequestScreenState
     return Container(
       height: 56,
       decoration: BoxDecoration(
-        color: done ? _secondary : _primary,
+        color: done ? AppColors.secondary : AppColors.primarySky,
         borderRadius: BorderRadius.circular(100),
         boxShadow: [
           BoxShadow(
-            color: (done ? _secondary : _primary).withValues(alpha: 0.25),
+            color: (done ? AppColors.secondary : AppColors.primarySky).withValues(alpha: 0.25),
             blurRadius: 6,
             offset: const Offset(0, 4),
           ),
@@ -1029,95 +1013,20 @@ class _CustomerRefundRequestScreenState
     );
   }
 
-  Widget _buildToast(double bottomInset) {
-    IconData icon;
-    Color iconColor;
-    if (_toastType == 'error') {
-      icon = Icons.error;
-      iconColor = _coral;
-    } else if (_toastType == 'success') {
-      icon = Icons.check_circle;
-      iconColor = _secondary;
-    } else {
-      icon = Icons.info;
-      iconColor = const Color(0xFF006194);
-    }
-
-    return Positioned(
-      left: 0,
-      right: 0,
-      bottom: 24 + bottomInset,
-      child: IgnorePointer(
-        child: AnimatedSlide(
-          duration: const Duration(milliseconds: 300),
-          offset: _toastVisible ? Offset.zero : const Offset(0, 0.4),
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 300),
-            opacity: _toastVisible ? 1 : 0,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 384),
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.18),
-                        blurRadius: 25,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(icon, size: 24, color: iconColor),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _toastTitle,
-                              style: _t(17, FontWeight.w700, _onSurface,
-                                  height: 24 / 17, letterSpacing: -0.17),
-                            ),
-                            Text(
-                              _toastMessage,
-                              style: _t(11, FontWeight.w400, _onSurfaceVariant,
-                                  height: 16 / 11),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final topInset = media.padding.top;
 
     return Scaffold(
-      backgroundColor: _surface,
+      backgroundColor: AppColors.background,
       body: Stack(
         children: [
           Positioned.fill(
             child: Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: _maxWidth),
+                constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
                 child: SingleChildScrollView(
                   keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: EdgeInsets.fromLTRB(
@@ -1145,12 +1054,12 @@ class _CustomerRefundRequestScreenState
                         child: TextButton(
                           onPressed: _isSubmitting ? null : () => Navigator.pop(context),
                           style: TextButton.styleFrom(
-                            foregroundColor: _onSurfaceVariant,
+                            foregroundColor: AppColors.textSecondary,
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           ),
                           child: Text(
                             'Cancel & Keep Order',
-                            style: _t(13, FontWeight.w700, _onSurfaceVariant,
+                            style: _t(13, FontWeight.w700, AppColors.textSecondary,
                                 height: 16 / 13, letterSpacing: 0.13),
                           ),
                         ),
@@ -1162,7 +1071,6 @@ class _CustomerRefundRequestScreenState
             ),
           ),
           Positioned(top: 0, left: 0, right: 0, child: _buildHeader(topInset)),
-          _buildToast(media.padding.bottom),
         ],
       ),
     );

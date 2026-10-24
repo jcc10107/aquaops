@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/constants/app_colors.dart';
 import '../models/inventory_model.dart';
 import '../models/order_model.dart';
 import '../models/refund_model.dart';
@@ -149,15 +150,6 @@ class NotificationFeed extends StatefulWidget {
 }
 
 class _NotificationFeedState extends State<NotificationFeed> {
-  static const Color _blue = Color(0xFF0284C7);
-  static const Color _frost = Color(0xFFE0F2FE);
-  static const Color _mint = Color(0xFF6CF8BB);
-  static const Color _mintText = Color(0xFF00714D);
-  static const Color _coral = Color(0xFFF43F5E);
-  static const Color _coralBg = Color(0xFFFFDAD6);
-  static const Color _amber = Color(0xFFD97706);
-  static const Color _amberBg = Color(0xFFFEF3C7);
-
   final FirestoreService _fs = FirestoreService();
   Stream<List<InventoryModel>>? _inventory;
   Stream<List<MaintenanceAlertModel>>? _maintenance;
@@ -293,8 +285,8 @@ class _NotificationFeedState extends State<NotificationFeed> {
         id: 'low_stock:${i.id}',
         category: NotificationCategory.system,
         icon: Icons.inventory_2,
-        iconColor: _coral,
-        iconBg: _coralBg,
+        iconColor: AppColors.coralAlert,
+        iconBg: AppColors.errorContainer,
         title: 'Low Stock Alert',
         message: '${i.name} is below minimum threshold (${i.currentStock} ${i.unit} left).',
         sortTime: now,
@@ -306,8 +298,8 @@ class _NotificationFeedState extends State<NotificationFeed> {
         id: 'maint:${a.id}',
         category: NotificationCategory.system,
         icon: Icons.build_circle,
-        iconColor: _amber,
-        iconBg: _amberBg,
+        iconColor: AppColors.amber600,
+        iconBg: AppColors.amber50,
         title: 'Maintenance Overdue',
         message: '${a.equipmentName} — ${a.taskType} is overdue.',
         sortTime: a.dueDate,
@@ -327,8 +319,8 @@ class _NotificationFeedState extends State<NotificationFeed> {
         id: 'pos:${o.id}',
         category: NotificationCategory.orders,
         icon: Icons.point_of_sale,
-        iconColor: _mintText,
-        iconBg: _mint,
+        iconColor: AppColors.onSecondaryContainer,
+        iconBg: AppColors.secondaryContainer,
         title: 'POS Sale ${o.orderNumber}',
         message: '${o.items.map((i) => '${i.quantity}× ${i.name}').join(', ')} • ${_money(o.totalAmount)} paid via ${_payment(o)}.',
         sortTime: o.createdAt,
@@ -348,8 +340,8 @@ class _NotificationFeedState extends State<NotificationFeed> {
           id: 'unassigned:${o.id}',
           category: NotificationCategory.delivery,
           icon: Icons.local_shipping,
-          iconColor: _blue,
-          iconBg: _frost,
+          iconColor: AppColors.primarySky,
+          iconBg: AppColors.surfaceFrost,
           title: 'Unassigned Delivery',
           message: 'Order ${o.orderNumber} for ${o.customerName} needs a rider.',
           sortTime: now,
@@ -362,8 +354,8 @@ class _NotificationFeedState extends State<NotificationFeed> {
           id: 'transfer:${o.id}:${o.assignedRiderId}',
           category: NotificationCategory.delivery,
           icon: Icons.swap_horiz,
-          iconColor: _amber,
-          iconBg: _amberBg,
+          iconColor: AppColors.amber600,
+          iconBg: AppColors.amber50,
           title: 'Delivery Transferred',
           message: 'Order ${o.orderNumber} is now with ${o.assignedRiderName ?? 'another rider'}. Reason: ${o.lastTransferReason}.',
           sortTime: o.createdAt,
@@ -376,8 +368,8 @@ class _NotificationFeedState extends State<NotificationFeed> {
           id: 'owner_cancel:${o.id}',
           category: NotificationCategory.orders,
           icon: Icons.cancel,
-          iconColor: _coral,
-          iconBg: _coralBg,
+          iconColor: AppColors.coralAlert,
+          iconBg: AppColors.errorContainer,
           title: 'Order Cancelled',
           message: 'Order ${o.orderNumber} from ${o.customerName} (${_money(o.totalAmount)}) was cancelled.',
           sortTime: o.createdAt,
@@ -395,8 +387,8 @@ class _NotificationFeedState extends State<NotificationFeed> {
         id: 'refund_request:${r.id}',
         category: NotificationCategory.orders,
         icon: Icons.assignment_return,
-        iconColor: _amber,
-        iconBg: _amberBg,
+        iconColor: AppColors.amber600,
+        iconBg: AppColors.amber50,
         title: 'Refund Request Awaiting Review',
         message: '${r.customerName} requested ${_money(r.amount)} for order ${r.orderNumber}${r.reason.isEmpty ? '' : ' — ${r.reason}'}.',
         sortTime: r.requestedAt,
@@ -417,8 +409,8 @@ class _NotificationFeedState extends State<NotificationFeed> {
           id: 'rider_assign:${o.id}:${o.assignedRiderId}',
           category: NotificationCategory.delivery,
           icon: transferred ? Icons.swap_horiz : Icons.two_wheeler,
-          iconColor: transferred ? _amber : _blue,
-          iconBg: transferred ? _amberBg : _frost,
+          iconColor: transferred ? AppColors.amber600 : AppColors.primarySky,
+          iconBg: transferred ? AppColors.amber50 : AppColors.surfaceFrost,
           title: transferred ? 'Delivery Transferred to You' : 'New Delivery Assigned',
           message: '${o.orderNumber} for ${o.customerName}${address.isEmpty ? '' : ' • $address'} • $summary • ${_money(o.totalAmount)} (${_payment(o)})${transferred ? '. Reason: ${o.lastTransferReason}' : ''}.',
           sortTime: o.createdAt,
@@ -431,8 +423,8 @@ class _NotificationFeedState extends State<NotificationFeed> {
           id: 'rider_cancel:${o.id}',
           category: NotificationCategory.delivery,
           icon: Icons.cancel,
-          iconColor: _coral,
-          iconBg: _coralBg,
+          iconColor: AppColors.coralAlert,
+          iconBg: AppColors.errorContainer,
           title: 'Delivery Cancelled',
           message: 'Order ${o.orderNumber} for ${o.customerName} was cancelled. No drop-off is needed.',
           sortTime: o.createdAt,
@@ -453,8 +445,8 @@ class _NotificationFeedState extends State<NotificationFeed> {
             id: 'cust_order:${o.id}:pending',
             category: NotificationCategory.orders,
             icon: Icons.receipt_long,
-            iconColor: _mintText,
-            iconBg: _mint,
+            iconColor: AppColors.onSecondaryContainer,
+            iconBg: AppColors.secondaryContainer,
             title: 'Order ${o.orderNumber} Placed',
             message: '${_summary(o)} • ${_money(o.totalAmount)}. We are assigning a rider to your order.',
             sortTime: o.createdAt,
@@ -465,8 +457,8 @@ class _NotificationFeedState extends State<NotificationFeed> {
             id: 'cust_order:${o.id}:refilling',
             category: NotificationCategory.orders,
             icon: Icons.water_drop,
-            iconColor: _blue,
-            iconBg: _frost,
+            iconColor: AppColors.primarySky,
+            iconBg: AppColors.surfaceFrost,
             title: 'Order ${o.orderNumber} Is Being Prepared',
             message: '${_summary(o)} is being refilled and packed.',
             sortTime: o.createdAt,
@@ -480,8 +472,8 @@ class _NotificationFeedState extends State<NotificationFeed> {
             id: 'cust_order:${o.id}:outForDelivery',
             category: NotificationCategory.delivery,
             icon: Icons.local_shipping,
-            iconColor: _blue,
-            iconBg: _frost,
+            iconColor: AppColors.primarySky,
+            iconBg: AppColors.surfaceFrost,
             title: 'Order ${o.orderNumber} Out for Delivery',
             message: '${rider.isEmpty ? 'Your rider' : 'Rider $rider'} is on the way${address.isEmpty ? '' : ' to $address'}.',
             sortTime: o.createdAt,
@@ -497,8 +489,8 @@ class _NotificationFeedState extends State<NotificationFeed> {
             id: 'cust_order:${o.id}:delivered',
             category: NotificationCategory.delivery,
             icon: Icons.check_circle,
-            iconColor: _mintText,
-            iconBg: _mint,
+            iconColor: AppColors.onSecondaryContainer,
+            iconBg: AppColors.secondaryContainer,
             title: 'Order ${o.orderNumber} Delivered',
             message: '${_summary(o)} was delivered${recipient.isEmpty ? '' : ' and received by $recipient'}. Total ${_money(o.totalAmount)}.',
             sortTime: at,
@@ -511,8 +503,8 @@ class _NotificationFeedState extends State<NotificationFeed> {
             id: 'cust_order:${o.id}:cancelled',
             category: NotificationCategory.orders,
             icon: Icons.cancel,
-            iconColor: _coral,
-            iconBg: _coralBg,
+            iconColor: AppColors.coralAlert,
+            iconBg: AppColors.errorContainer,
             title: 'Order ${o.orderNumber} Cancelled',
             message: 'This order was cancelled.',
             sortTime: o.createdAt,
@@ -537,50 +529,50 @@ class _NotificationFeedState extends State<NotificationFeed> {
       Color iconColor;
       Color iconBg;
       switch (r.status) {
-        case RefundStatus.pending:
-          title = 'Refund Request Submitted';
-          message = 'Your request for order ${r.orderNumber} (${_money(r.amount)}) is under review.';
-          tag = 'Under Review';
-          icon = Icons.currency_exchange;
-          iconColor = _amber;
-          iconBg = _amberBg;
-          break;
-        case RefundStatus.approved:
-          if (isRedelivery) {
-            final when = r.redeliveryScheduledAt;
-            title = 'Redelivery Approved';
-            message = when == null
-                ? 'A free redelivery for order ${r.orderNumber} was approved.'
-                : 'A free redelivery for order ${r.orderNumber} is scheduled for ${_fmtDate(when)} • ${_fmtClock(when)}.';
-            tag = 'Redelivery Queued';
-            icon = Icons.local_shipping;
-          } else {
-            title = 'Refund Approved';
-            message = 'Your ${_money(r.amount)} refund for order ${r.orderNumber} was approved and will be sent to your GCash.';
-            tag = 'Approved';
-            icon = Icons.verified;
-          }
-          iconColor = _mintText;
-          iconBg = _mint;
-          break;
-        case RefundStatus.processed:
-          final ref = (r.gcashRefNumber ?? '').trim();
-          title = 'Refund Completed';
-          message = '${_money(r.amount)} was sent to your GCash for order ${r.orderNumber}${ref.isEmpty ? '' : ' (Ref #$ref)'}.';
-          tag = 'Completed';
-          icon = Icons.check_circle;
-          iconColor = _mintText;
-          iconBg = _mint;
-          break;
-        case RefundStatus.rejected:
-          final reason = (r.rejectionReason ?? '').trim();
-          title = 'Refund Declined';
-          message = 'Your request for order ${r.orderNumber} was declined${reason.isEmpty ? '.' : ': $reason'}';
-          tag = 'Declined';
-          icon = Icons.cancel;
-          iconColor = _coral;
-          iconBg = _coralBg;
-          break;
+      case RefundStatus.pending:
+      title = 'Refund Request Submitted';
+      message = 'Your request for order ${r.orderNumber} (${_money(r.amount)}) is under review.';
+      tag = 'Under Review';
+      icon = Icons.currency_exchange;
+      iconColor = AppColors.amber600;
+      iconBg = AppColors.amber50;
+      break;
+      case RefundStatus.approved:
+      if (isRedelivery) {
+      final when = r.redeliveryScheduledAt;
+      title = 'Redelivery Approved';
+      message = when == null
+      ? 'A free redelivery for order ${r.orderNumber} was approved.'
+          : 'A free redelivery for order ${r.orderNumber} is scheduled for ${_fmtDate(when)} • ${_fmtClock(when)}.';
+      tag = 'Redelivery Queued';
+      icon = Icons.local_shipping;
+      } else {
+      title = 'Refund Approved';
+      message = 'Your ${_money(r.amount)} refund for order ${r.orderNumber} was approved and will be sent to your GCash.';
+      tag = 'Approved';
+      icon = Icons.verified;
+      }
+      iconColor = AppColors.onSecondaryContainer;
+      iconBg = AppColors.secondaryContainer;
+      break;
+      case RefundStatus.processed:
+      final ref = (r.gcashRefNumber ?? '').trim();
+      title = 'Refund Completed';
+      message = '${_money(r.amount)} was sent to your GCash for order ${r.orderNumber}${ref.isEmpty ? '' : ' (Ref #$ref)'}.';
+      tag = 'Completed';
+      icon = Icons.check_circle;
+      iconColor = AppColors.onSecondaryContainer;
+      iconBg = AppColors.secondaryContainer;
+      break;
+      case RefundStatus.rejected:
+      final reason = (r.rejectionReason ?? '').trim();
+      title = 'Refund Declined';
+      message = 'Your request for order ${r.orderNumber} was declined${reason.isEmpty ? '.' : ': $reason'}';
+      tag = 'Declined';
+      icon = Icons.cancel;
+      iconColor = AppColors.coralAlert;
+      iconBg = AppColors.errorContainer;
+      break;
       }
       items.add(AppNotification(
         id: 'cust_refund:${r.id}:${r.status.name}',

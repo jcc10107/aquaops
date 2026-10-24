@@ -1,109 +1,12 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/layout_constants.dart';
+import '../../core/constants/zones.dart';
+import '../../core/utils/app_toast.dart';
 import '../../models/saved_address_model.dart';
 import '../../services/firestore_service.dart';
 
 const String _font = 'Plus Jakarta Sans';
-const Color _background = Color(0xFFF6FAFC);
-const Color _canvas = Color(0xFFF8FAFC);
-const Color _onSurface = Color(0xFF131B2E);
-const Color _onSurfaceVariant = Color(0xFF3F4850);
-const Color _frost = Color(0xFFE0F2FE);
-const Color _cyan = Color(0xFF06B6D4);
-const Color _teal = Color(0xFF14B8A6);
-const Color _secondary = Color(0xFF006C49);
-const Color _blue = Color(0xFF0284C7);
-const Color _blueDark = Color(0xFF0369A1);
-const Color _slate100 = Color(0xFFF1F5F9);
-const Color _slate200 = Color(0xFFE2E8F0);
-const Color _slate300 = Color(0xFFCBD5E1);
-const Color _slate400 = Color(0xFF94A3B8);
-const Color _slate500 = Color(0xFF64748B);
-const Color _errorRed = Color(0xFFBA1A1A);
-
-const List<String> _barangays = [
-  'Barangay I-A (Sambat)',
-  'Barangay I-B',
-  'Barangay II-A',
-  'Barangay II-B',
-  'Barangay II-C',
-  'Barangay II-D',
-  'Barangay II-E',
-  'Barangay II-F',
-  'Barangay III-A',
-  'Barangay III-B',
-  'Barangay III-C',
-  'Barangay III-D',
-  'Barangay III-E',
-  'Barangay IV-A',
-  'Barangay IV-B',
-  'Barangay IV-C',
-  'Barangay V-A',
-  'Barangay V-B',
-  'Barangay V-C',
-  'Barangay V-D',
-  'Barangay VI-A',
-  'Barangay VI-B',
-  'Barangay VI-C',
-  'Barangay VI-D',
-  'Barangay VI-E',
-  'Barangay VII-A',
-  'Barangay VII-B',
-  'Barangay VII-C',
-  'Barangay VII-D',
-  'Barangay VII-E',
-  'Barangay Bagong Bayan (Poblacion)',
-  'Barangay Atisan',
-  'Barangay Bautista',
-  'Barangay Concepcion',
-  'Barangay Del Remedio',
-  'Barangay Dolores',
-  'Barangay San Antonio 1',
-  'Barangay San Antonio 2',
-  'Barangay San Bartolome',
-  'Barangay San Buenaventura',
-  'Barangay San Crispin',
-  'Barangay San Cristobal',
-  'Barangay San Diego',
-  'Barangay San Francisco',
-  'Barangay San Gabriel',
-  'Barangay San Gregorio',
-  'Barangay San Ignacio',
-  'Barangay San Isidro',
-  'Barangay San Joaquin',
-  'Barangay San Jose',
-  'Barangay San Juan',
-  'Barangay San Lorenzo',
-  'Barangay San Lucas 1',
-  'Barangay San Lucas 2',
-  'Barangay San Marcos',
-  'Barangay San Mateo',
-  'Barangay San Miguel',
-  'Barangay San Nicolas',
-  'Barangay San Pedro',
-  'Barangay San Rafael',
-  'Barangay San Roque',
-  'Barangay San Vicente',
-  'Barangay Santa Ana',
-  'Barangay Santa Catalina',
-  'Barangay Santa Cruz',
-  'Barangay Santa Elena',
-  'Barangay Santa Felomina',
-  'Barangay Santa Isabel',
-  'Barangay Santa Maria',
-  'Barangay Santa Maria Magdalena',
-  'Barangay Santa Monica',
-  'Barangay Santa Veronica',
-  'Barangay Santiago 1',
-  'Barangay Santiago 2',
-  'Barangay Santisimo Rosario',
-  'Barangay Santo Angel',
-  'Barangay Santo Cristo',
-  'Barangay Santo Niño',
-  'Barangay Soledad',
-];
 
 class _NewAddress {
   final String label;
@@ -136,23 +39,23 @@ InputDecoration _fieldDecoration({String? hint, double vertical = 10, String? er
       fontFamily: _font,
       fontSize: 13,
       fontWeight: FontWeight.w500,
-      color: _slate400,
+      color: AppColors.slate400,
     ),
     filled: true,
-    fillColor: _canvas,
+    fillColor: AppColors.surfaceCanvas,
     isDense: true,
     contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: vertical),
-    border: border(_slate200),
-    enabledBorder: border(errorText != null ? _errorRed : _slate200),
-    focusedBorder: border(errorText != null ? _errorRed : _blue),
-    errorBorder: border(_errorRed),
-    focusedErrorBorder: border(_errorRed),
+    border: border(AppColors.slate200),
+    enabledBorder: border(errorText != null ? AppColors.error : AppColors.slate200),
+    focusedBorder: border(errorText != null ? AppColors.error : AppColors.primarySky),
+    errorBorder: border(AppColors.error),
+    focusedErrorBorder: border(AppColors.error),
     errorText: errorText,
     errorStyle: const TextStyle(
       fontFamily: _font,
       fontSize: 11,
       fontWeight: FontWeight.w500,
-      color: _errorRed,
+      color: AppColors.error,
     ),
   );
 }
@@ -215,7 +118,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
         fontFamily: _font,
         fontSize: 12,
         fontWeight: FontWeight.w700,
-        color: _onSurface,
+        color: AppColors.textLight,
       ),
     );
   }
@@ -229,14 +132,14 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 12),
           decoration: BoxDecoration(
-            color: active ? _frost : Colors.white,
+            color: active ? AppColors.surfaceFrost : Colors.white,
             borderRadius: BorderRadius.circular(9999),
-            border: Border.all(color: active ? _blue : _slate200),
+            border: Border.all(color: active ? AppColors.primarySky : AppColors.slate200),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 16, color: active ? _blue : _onSurfaceVariant),
+              Icon(icon, size: 16, color: active ? AppColors.primarySky : AppColors.textSecondary),
               const SizedBox(width: 6),
               Text(
                 tag,
@@ -244,7 +147,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                   fontFamily: _font,
                   fontSize: 12,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                  color: active ? _blue : _onSurfaceVariant,
+                  color: active ? AppColors.primarySky : AppColors.textSecondary,
                 ),
               ),
             ],
@@ -259,7 +162,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: _slate100)),
+        border: Border(bottom: BorderSide(color: AppColors.slate100)),
       ),
       child: Column(
         children: [
@@ -267,7 +170,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: _slate300,
+              color: AppColors.slate300,
               borderRadius: BorderRadius.circular(9999),
             ),
           ),
@@ -280,8 +183,8 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                   Container(
                     width: 32,
                     height: 32,
-                    decoration: const BoxDecoration(color: _frost, shape: BoxShape.circle),
-                    child: const Icon(Icons.add_location_alt_outlined, size: 18, color: _blue),
+                    decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle),
+                    child: const Icon(Icons.add_location_alt_outlined, size: 18, color: AppColors.primarySky),
                   ),
                   const SizedBox(width: 8),
                   const Text(
@@ -290,7 +193,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                       fontFamily: _font,
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: _onSurface,
+                      color: AppColors.textLight,
                     ),
                   ),
                 ],
@@ -301,7 +204,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                 child: const SizedBox(
                   width: 32,
                   height: 32,
-                  child: Icon(Icons.close, size: 20, color: _slate400),
+                  child: Icon(Icons.close, size: 20, color: AppColors.slate400),
                 ),
               ),
             ],
@@ -336,14 +239,14 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                 TextSpan(
                   children: [
                     TextSpan(text: 'Barangay '),
-                    TextSpan(text: '*', style: TextStyle(color: _errorRed)),
+                    TextSpan(text: '*', style: TextStyle(color: AppColors.error)),
                   ],
                 ),
                 style: TextStyle(
                   fontFamily: _font,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: _onSurface,
+                  color: AppColors.textLight,
                 ),
               ),
               Text(
@@ -352,7 +255,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                   fontFamily: _font,
                   fontSize: 11,
                   fontWeight: FontWeight.w400,
-                  color: _slate400,
+                  color: AppColors.slate400,
                 ),
               ),
             ],
@@ -369,7 +272,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                     fontFamily: _font,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: _onSurface,
+                    color: AppColors.textLight,
                   ),
                   decoration: _fieldDecoration(hint: 'Enter city/barangay...', errorText: _barangayError),
                   onChanged: (v) => setState(() {
@@ -390,24 +293,24 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                     fontFamily: _font,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: _onSurface,
+                    color: AppColors.textLight,
                   ),
                   inputDecorationTheme: InputDecorationTheme(
                     hintStyle: const TextStyle(
                       fontFamily: _font,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: _slate400,
+                      color: AppColors.slate400,
                     ),
                     filled: true,
-                    fillColor: _canvas,
+                    fillColor: AppColors.surfaceCanvas,
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _slate200)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _slate200)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _blue)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primarySky)),
                   ),
-                  dropdownMenuEntries: _barangays
+                  dropdownMenuEntries: sanPabloBarangays
                       .map((b) => DropdownMenuEntry<String>(value: b, label: b))
                       .toList(),
                   onSelected: (v) => setState(() {
@@ -423,7 +326,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
               padding: const EdgeInsets.only(left: 4, top: 4),
               child: Text(
                 _barangayError!,
-                style: const TextStyle(fontFamily: _font, fontSize: 11, fontWeight: FontWeight.w500, color: _errorRed),
+                style: const TextStyle(fontFamily: _font, fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.error),
               ),
             ),
           const SizedBox(height: 16),
@@ -431,14 +334,14 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
             TextSpan(
               children: [
                 TextSpan(text: 'Street Address / House / Unit No. '),
-                TextSpan(text: '*', style: TextStyle(color: _errorRed)),
+                TextSpan(text: '*', style: TextStyle(color: AppColors.error)),
               ],
             ),
             style: TextStyle(
               fontFamily: _font,
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: _onSurface,
+              color: AppColors.textLight,
             ),
           ),
           const SizedBox(height: 6),
@@ -451,7 +354,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
               fontFamily: _font,
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: _onSurface,
+              color: AppColors.textLight,
             ),
             decoration: _fieldDecoration(
               hint: 'e.g. Block 8 Lot 14, Villa Antonio Subdivision',
@@ -469,7 +372,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                   fontFamily: _font,
                   fontSize: 11,
                   fontWeight: FontWeight.w400,
-                  color: _slate400,
+                  color: AppColors.slate400,
                 ),
               ),
             ],
@@ -482,7 +385,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
               fontFamily: _font,
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: _onSurface,
+              color: AppColors.textLight,
             ),
             decoration: _fieldDecoration(
               hint: "e.g. Yellow gate across Aling Nena's sari-sari store, press doorbell twice",
@@ -505,7 +408,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                         fontFamily: _font,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: _onSurface,
+                        color: AppColors.textLight,
                       ),
                       decoration: _fieldDecoration(vertical: 8),
                     ),
@@ -526,7 +429,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                         fontFamily: _font,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: _onSurface,
+                        color: AppColors.textLight,
                       ),
                       decoration: _fieldDecoration(vertical: 8),
                     ),
@@ -539,7 +442,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: _slate100)),
+              border: Border(top: BorderSide(color: AppColors.slate100)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -554,7 +457,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                           fontFamily: _font,
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: _onSurface,
+                          color: AppColors.textLight,
                         ),
                       ),
                       Text(
@@ -563,7 +466,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                           fontFamily: _font,
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
-                          color: _slate400,
+                          color: AppColors.slate400,
                         ),
                       ),
                     ],
@@ -574,7 +477,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                   onChanged: (v) => setState(() => _isPrimary = v),
                   thumbColor: WidgetStateProperty.all(Colors.white),
                   trackColor: WidgetStateProperty.resolveWith(
-                        (states) => states.contains(WidgetState.selected) ? _blue : _slate200,
+                        (states) => states.contains(WidgetState.selected) ? AppColors.primarySky : AppColors.slate200,
                   ),
                   trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
                 ),
@@ -586,11 +489,11 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
             height: 48,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: _blue,
+              color: AppColors.primarySky,
               borderRadius: BorderRadius.circular(9999),
               boxShadow: [
                 BoxShadow(
-                  color: _blue.withValues(alpha: 0.3),
+                  color: AppColors.primarySky.withValues(alpha: 0.3),
                   blurRadius: 20,
                   offset: const Offset(0, 6),
                 ),
@@ -600,7 +503,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(9999),
-                splashColor: _blueDark.withValues(alpha: 0.4),
+                splashColor: AppColors.primarySkyDark.withValues(alpha: 0.4),
                 onTap: _submit,
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -628,8 +531,8 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
             child: TextButton(
               onPressed: () => Navigator.pop(context),
               style: TextButton.styleFrom(
-                backgroundColor: _background,
-                foregroundColor: _slate500,
+                backgroundColor: AppColors.surfaceBackground,
+                foregroundColor: AppColors.slate500,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
               ),
               child: const Text(
@@ -638,7 +541,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                   fontFamily: _font,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: _slate500,
+                  color: AppColors.slate500,
                 ),
               ),
             ),
@@ -659,7 +562,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-            border: Border(top: BorderSide(color: _slate100)),
+            border: Border(top: BorderSide(color: AppColors.slate100)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -686,36 +589,13 @@ class SavedAddressesScreen extends StatefulWidget {
 class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
   final FirestoreService _firestoreService = FirestoreService();
 
-  bool _toastVisible = false;
-  String _toastMessage = '';
-  Timer? _toastTimer;
-
-  @override
-  void dispose() {
-    _toastTimer?.cancel();
-    super.dispose();
-  }
-
-  void _showToast(String message) {
-    _toastTimer?.cancel();
-    if (!mounted) return;
-    setState(() {
-      _toastMessage = message;
-      _toastVisible = true;
-    });
-    _toastTimer = Timer(const Duration(milliseconds: 2800), () {
-      if (!mounted) return;
-      setState(() => _toastVisible = false);
-    });
-  }
-
   Future<void> _openAddAddressSheet(String uid) async {
     final result = await showModalBottomSheet<_NewAddress>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: const Color(0x660F172A),
-      constraints: const BoxConstraints(maxWidth: 450),
+      constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
       builder: (sheetContext) => const _AddAddressSheet(),
     );
     if (result == null || !mounted) return;
@@ -729,9 +609,13 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
         phone: result.phone.isEmpty ? null : result.phone,
         isPrimary: result.isPrimary,
       );
-      _showToast('Address added to San Pablo dispatch routes!');
+      if (mounted) {
+        AppToast.showSuccess(context, 'Address added to San Pablo dispatch routes!');
+      }
     } catch (e) {
-      _showToast('Failed to save address: $e');
+      if (mounted) {
+        AppToast.showError(context, 'Failed to save address: $e');
+      }
     }
   }
 
@@ -753,7 +637,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: const Color(0xFFF1F5F9)),
+                border: Border.all(color: AppColors.slate100),
                 boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 24, offset: Offset(0, 10))],
               ),
               child: Column(
@@ -766,7 +650,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                       fontFamily: _font,
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF0F172A),
+                      color: AppColors.backgroundDark,
                       height: 1.2,
                       letterSpacing: -0.5,
                     ),
@@ -781,7 +665,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                           style: const TextStyle(
                             fontFamily: _font,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF334155),
+                            color: AppColors.borderDark,
                           ),
                         ),
                       ],
@@ -790,7 +674,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                       fontFamily: _font,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF64748B),
+                      color: AppColors.slate500,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -800,7 +684,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                       fontFamily: _font,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF334155),
+                      color: AppColors.borderDark,
                       letterSpacing: 0.2,
                     ),
                   ),
@@ -808,8 +692,8 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      border: Border.all(color: const Color(0xFFE2E8F0).withValues(alpha: 0.8)),
+                      color: AppColors.surfaceCanvas,
+                      border: Border.all(color: AppColors.slate200.withValues(alpha: 0.8)),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: TextFormField(
@@ -818,7 +702,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                         fontFamily: _font,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F172A),
+                        color: AppColors.backgroundDark,
                       ),
                       decoration: const InputDecoration(
                         hintText: 'Enter tag name',
@@ -826,7 +710,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                           fontFamily: _font,
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF94A3B8),
+                          color: AppColors.slate400,
                         ),
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.symmetric(vertical: 12),
@@ -841,8 +725,8 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                         child: TextButton(
                           onPressed: () => Navigator.pop(dialogContext),
                           style: TextButton.styleFrom(
-                            backgroundColor: const Color(0xFFF1F5F9),
-                            foregroundColor: const Color(0xFF475569),
+                            backgroundColor: AppColors.buttonSecondary,
+                            foregroundColor: AppColors.slate600,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                           ),
@@ -862,7 +746,6 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                           onPressed: () async {
                             final label = labelCtrl.text.trim();
                             if (label.isEmpty) return;
-                            final messenger = ScaffoldMessenger.of(context);
                             Navigator.pop(dialogContext);
                             try {
                               await _firestoreService.updateSavedAddressLabel(
@@ -871,19 +754,16 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                                 label: label,
                               );
                             } catch (e) {
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content: Text('Failed to update tag: $e'),
-                                  backgroundColor: AppColors.error,
-                                ),
-                              );
+                              if (mounted) {
+                                AppToast.showError(context, 'Failed to update tag: $e');
+                              }
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0284C7),
+                            backgroundColor: AppColors.primarySky,
                             foregroundColor: Colors.white,
                             elevation: 0,
-                            shadowColor: const Color(0xFF0284C7).withValues(alpha: 0.35),
+                            shadowColor: AppColors.primarySky.withValues(alpha: 0.35),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                           ).copyWith(
@@ -916,9 +796,13 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
         uid: uid,
         addressId: address.id,
       );
-      _showToast('Address removed');
+      if (mounted) {
+        AppToast.showInfo(context, 'Address removed');
+      }
     } catch (e) {
-      _showToast('Failed to delete address: $e');
+      if (mounted) {
+        AppToast.showError(context, 'Failed to delete address: $e');
+      }
     }
   }
 
@@ -931,11 +815,11 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
     return isPrimary ? Icons.home : Icons.pin_drop;
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader({String title = 'Saved Addresses', Color backIconColor = AppColors.textLight}) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: _background.withValues(alpha: 0.85),
+        color: AppColors.surfaceBackground.withValues(alpha: 0.85),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -948,7 +832,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
         bottom: false,
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 450),
+            constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
             child: SizedBox(
               height: 64,
               child: Padding(
@@ -958,91 +842,28 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                     InkWell(
                       customBorder: const CircleBorder(),
                       onTap: () => Navigator.maybePop(context),
-                      child: const SizedBox(
+                      child: SizedBox(
                         width: 44,
                         height: 44,
-                        child: Icon(Icons.arrow_back, size: 24, color: _onSurface),
+                        child: Icon(Icons.arrow_back, size: 24, color: backIconColor),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Saved Addresses',
+                        title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontFamily: _font,
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.17,
-                          color: _onSurface,
+                          color: AppColors.textLight,
                         ),
                       ),
                     ),
                   ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToast() {
-    final top = MediaQuery.of(context).padding.top + 16;
-    return Positioned(
-      top: top,
-      left: 0,
-      right: 0,
-      child: IgnorePointer(
-        child: AnimatedSlide(
-          offset: _toastVisible ? Offset.zero : const Offset(0, -4),
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-          child: AnimatedOpacity(
-            opacity: _toastVisible ? 1 : 0,
-            duration: const Duration(milliseconds: 300),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 350),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: _blue,
-                      borderRadius: BorderRadius.circular(9999),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 16,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.verified_outlined, size: 18, color: Colors.white),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            _toastMessage,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontFamily: _font,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.3,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
               ),
             ),
@@ -1083,7 +904,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: isPrimary ? _frost : const Color(0xFFEAEDFF),
+                          color: isPrimary ? AppColors.surfaceFrost : AppColors.surfaceContainer,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
@@ -1096,7 +917,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                         child: Icon(
                           _iconFor(address, isPrimary),
                           size: 20,
-                          color: isPrimary ? _blue : _onSurfaceVariant,
+                          color: isPrimary ? AppColors.primarySky : AppColors.textSecondary,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -1116,7 +937,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                                       fontSize: 15,
                                       fontWeight: FontWeight.w700,
                                       height: 1.2,
-                                      color: _onSurface,
+                                      color: AppColors.textLight,
                                     ),
                                   ),
                                 ),
@@ -1125,8 +946,8 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: isPrimary
-                                        ? const Color(0xFF6CF8BB)
-                                        : const Color(0xFFE2E7FF),
+                                        ? AppColors.secondaryContainer
+                                        : AppColors.surfaceContainerHigh,
                                     borderRadius: BorderRadius.circular(9999),
                                   ),
                                   child: Text(
@@ -1137,8 +958,8 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                                       fontWeight: FontWeight.w800,
                                       letterSpacing: 0.5,
                                       color: isPrimary
-                                          ? const Color(0xFF00714D)
-                                          : _onSurfaceVariant,
+                                          ? AppColors.onSecondaryContainer
+                                          : AppColors.textSecondary,
                                     ),
                                   ),
                                 ),
@@ -1152,7 +973,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                                     width: 6,
                                     height: 6,
                                     decoration: const BoxDecoration(
-                                      color: _cyan,
+                                      color: AppColors.cyanElectric,
                                       shape: BoxShape.circle,
                                     ),
                                   ),
@@ -1169,7 +990,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                                       fontFamily: _font,
                                       fontSize: 11,
                                       fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w500,
-                                      color: isPrimary ? _cyan : _onSurfaceVariant,
+                                      color: isPrimary ? AppColors.cyanElectric : AppColors.textSecondary,
                                     ),
                                   ),
                                 ),
@@ -1188,7 +1009,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                           child: Icon(
                             Icons.delete_outline,
                             size: 19,
-                            color: _onSurfaceVariant.withValues(alpha: 0.7),
+                            color: AppColors.textSecondary.withValues(alpha: 0.7),
                           ),
                         ),
                       ),
@@ -1199,7 +1020,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: _canvas,
+                      color: AppColors.surfaceCanvas,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Column(
@@ -1212,14 +1033,14 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             height: 1.35,
-                            color: _onSurface,
+                            color: AppColors.textLight,
                           ),
                         ),
                         if (note.isNotEmpty) ...[
                           const SizedBox(height: 6),
                           Row(
                             children: [
-                              const Icon(Icons.explore_outlined, size: 15, color: _cyan),
+                              const Icon(Icons.explore_outlined, size: 15, color: AppColors.cyanElectric),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
@@ -1229,7 +1050,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                                   style: const TextStyle(
                                     fontFamily: _font,
                                     fontSize: 11,
-                                    color: _onSurfaceVariant,
+                                    color: AppColors.textSecondary,
                                   ),
                                 ),
                               ),
@@ -1244,7 +1065,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                                 width: 8,
                                 height: 8,
                                 decoration: const BoxDecoration(
-                                  color: _teal,
+                                  color: AppColors.tealAccent,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -1259,7 +1080,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: 0.4,
-                                    color: _secondary,
+                                    color: AppColors.secondary,
                                   ),
                                 ),
                               ),
@@ -1287,10 +1108,10 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.2,
-                                color: _blue,
+                                color: AppColors.primarySky,
                               ),
                             ),
-                            Icon(Icons.chevron_right, size: 16, color: _blue),
+                            Icon(Icons.chevron_right, size: 16, color: AppColors.primarySky),
                           ],
                         ),
                       ),
@@ -1306,7 +1127,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
               width: 6,
               child: Container(
                 decoration: BoxDecoration(
-                  color: isPrimary ? _blue : const Color(0xFFDAE2FD),
+                  color: isPrimary ? AppColors.primarySky : AppColors.accentBlueSoft,
                   borderRadius: const BorderRadius.horizontal(right: Radius.circular(9999)),
                 ),
               ),
@@ -1322,7 +1143,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _frost.withValues(alpha: 0.6),
+        color: AppColors.surfaceFrost.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -1348,7 +1169,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                 ),
               ],
             ),
-            child: const Icon(Icons.local_shipping_outlined, size: 22, color: _blue),
+            child: const Icon(Icons.local_shipping_outlined, size: 22, color: AppColors.primarySky),
           ),
           const SizedBox(width: 12),
           const Expanded(
@@ -1364,7 +1185,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.2,
-                    color: _onSurface,
+                    color: AppColors.textLight,
                   ),
                 ),
                 SizedBox(height: 2),
@@ -1375,7 +1196,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                   style: TextStyle(
                     fontFamily: _font,
                     fontSize: 11,
-                    color: _onSurfaceVariant,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ],
@@ -1386,16 +1207,20 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
     );
   }
 
-  Widget _buildAddButton(String uid) {
+  Widget _buildPrimaryActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     return Container(
       height: 56,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: _blue,
+        color: AppColors.primarySky,
         borderRadius: BorderRadius.circular(9999),
         boxShadow: [
           BoxShadow(
-            color: _blue.withValues(alpha: 0.38),
+            color: AppColors.primarySky.withValues(alpha: 0.38),
             blurRadius: 24,
             spreadRadius: -2,
             offset: const Offset(0, 8),
@@ -1406,16 +1231,16 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(9999),
-          splashColor: _blueDark.withValues(alpha: 0.4),
-          onTap: () => _openAddAddressSheet(uid),
-          child: const Row(
+          splashColor: AppColors.primarySkyDark.withValues(alpha: 0.4),
+          onTap: onTap,
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.add_location_alt_outlined, color: Colors.white, size: 20),
-              SizedBox(width: 8),
+              Icon(icon, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
               Text(
-                'Add New Address',
-                style: TextStyle(
+                label,
+                style: const TextStyle(
                   fontFamily: _font,
                   color: Colors.white,
                   fontSize: 14,
@@ -1427,6 +1252,14 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAddButton(String uid) {
+    return _buildPrimaryActionButton(
+      icon: Icons.add_location_alt_outlined,
+      label: 'Add New Address',
+      onTap: () => _openAddAddressSheet(uid),
     );
   }
 
@@ -1463,7 +1296,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                 fontFamily: _font,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: _onSurfaceVariant,
+                color: AppColors.textSecondary,
               ),
             ),
           );
@@ -1487,94 +1320,89 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: _background,
-      body: Stack(
+      backgroundColor: AppColors.surfaceBackground,
+      body: Column(
         children: [
-          Column(
-            children: [
-              _buildHeader(),
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 450),
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(16, 4, 16, 32 + bottomInset),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: _frost,
-                                borderRadius: BorderRadius.circular(9999),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.05),
-                                    blurRadius: 2,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ],
+          _buildHeader(),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16, 4, 16, 32 + bottomInset),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceFrost,
+                            borderRadius: BorderRadius.circular(9999),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 2,
+                                offset: const Offset(0, 1),
                               ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.pin_drop, size: 13, color: _blue),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'AQUA LOGISTICS NETWORK',
-                                    style: TextStyle(
-                                      fontFamily: _font,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.6,
-                                      color: _blue,
-                                    ),
-                                  ),
-                                ],
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.pin_drop, size: 13, color: AppColors.primarySky),
+                              SizedBox(width: 6),
+                              Text(
+                                'AQUA LOGISTICS NETWORK',
+                                style: TextStyle(
+                                  fontFamily: _font,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.6,
+                                  color: AppColors.primarySky,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                            const Text(
-                              'Saved Delivery Addresses',
-                              style: TextStyle(
-                                fontFamily: _font,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                height: 28 / 22,
-                                letterSpacing: -0.44,
-                                color: _onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            const Text(
-                              'Manage frequent drop-off locations and telematic routes',
-                              style: TextStyle(
-                                fontFamily: _font,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                height: 18 / 13,
-                                color: _onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            _buildAddressList(uid),
-                            const SizedBox(height: 12),
-                            _buildFleetSnapshot(),
-                            const SizedBox(height: 12),
-                            _buildAddButton(uid),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Saved Delivery Addresses',
+                          style: TextStyle(
+                            fontFamily: _font,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            height: 28 / 22,
+                            letterSpacing: -0.44,
+                            color: AppColors.textLight,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Manage frequent drop-off locations and telematic routes',
+                          style: TextStyle(
+                            fontFamily: _font,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            height: 18 / 13,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildAddressList(uid),
+                        const SizedBox(height: 12),
+                        _buildFleetSnapshot(),
+                        const SizedBox(height: 12),
+                        _buildAddButton(uid),
+                      ],
                     ),
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-          _buildToast(),
         ],
       ),
     );

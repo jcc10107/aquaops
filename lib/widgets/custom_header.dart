@@ -1,14 +1,15 @@
 import 'dart:ui';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
+import '../core/utils/string_utils.dart'; // TASK 2.2: Shared string utility import
 import '../models/user_model.dart';
-import '../services/firestore_service.dart';
 import '../screens/profile/profile_screen.dart';
+import '../services/auth_service.dart';
+import '../services/firestore_service.dart';
 import 'aqua_logo.dart';
 import 'notification_bell.dart';
 
-class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
+class CustomHeader extends StatefulWidget implements PreferredSizeWidget {
   final String hubName;
   final VoidCallback? onProfileTap;
 
@@ -23,18 +24,25 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(contentHeight);
 
-  String _getInitials(String fullName) {
-    if (fullName.trim().isEmpty) return 'U';
-    final List<String> parts = fullName.trim().split(RegExp(r'\s+'));
-    if (parts.length > 1) {
-      return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
-    }
-    return parts.first.substring(0, parts.first.length >= 2 ? 2 : 1).toUpperCase();
+  @override
+  State<CustomHeader> createState() => _CustomHeaderState();
+}
+
+class _CustomHeaderState extends State<CustomHeader> {
+  late final Stream<UserModel?> _userStream;
+
+  @override
+  void initState() {
+    super.initState();
+    final String? uid = AuthService().currentUserId;
+    _userStream = uid == null
+        ? const Stream<UserModel?>.empty()
+        : FirestoreService().getUserStream(uid);
   }
 
   void _navigateToProfile(BuildContext context) {
-    if (onProfileTap != null) {
-      onProfileTap!();
+    if (widget.onProfileTap != null) {
+      widget.onProfileTap!();
     } else {
       Navigator.push(
         context,
@@ -48,14 +56,12 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final String? uid = FirebaseAuth.instance.currentUser?.uid;
 
     return StreamBuilder<UserModel?>(
-      stream: uid == null
-          ? const Stream<UserModel?>.empty()
-          : FirestoreService().getUserStream(uid),
+      stream: _userStream,
       builder: (context, snapshot) {
-        final String initials = _getInitials(snapshot.data?.name ?? 'User');
+        // TASK 2.2: Replaced local method with shared getInitials utility
+        final String initials = getInitials(snapshot.data?.name ?? 'User');
         return _buildHeader(context, isDark, initials);
       },
     );
@@ -71,7 +77,7 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: Container(
-              height: contentHeight + topInset,
+              height: CustomHeader.contentHeight + topInset,
               padding: EdgeInsets.fromLTRB(16, topInset, 16, 0),
               decoration: BoxDecoration(
                 color: isDark
@@ -159,16 +165,16 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFFECFEFF),
+                color: AppColors.cyan50,
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: const Color(0xFFA5F3FC).withValues(alpha: 0.6),
+                  color: AppColors.cyan200.withValues(alpha: 0.6),
                 ),
               ),
               child: const Text(
                 'HQ',
                 style: TextStyle(
-                  color: Color(0xFF00689C),
+                  color: AppColors.primaryLight,
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.5,
@@ -198,7 +204,7 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
             const SizedBox(width: 6),
             Flexible(
               child: Text(
-                hubName,
+                widget.hubName,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: isDark ? Colors.grey[400] : AppColors.textVariant,
@@ -233,7 +239,7 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0xFF0284C7),
+                    AppColors.primarySky,
                     Color(0xFF0099E5),
                     Color(0xFF00B4D8),
                   ],

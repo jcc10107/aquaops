@@ -1,14 +1,16 @@
 import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_colors.dart';
-import '../../models/order_model.dart';
-import '../../services/firestore_service.dart';
-import '../../services/cloudinary_service.dart';
-import '../../services/location_service.dart';
+import '../../core/constants/layout_constants.dart'; // Added centralized layout constants
 import '../../core/constants/zones.dart';
+import '../../core/utils/validators.dart';
+import '../../models/order_model.dart';
+import '../../services/auth_service.dart';
+import '../../services/cloudinary_service.dart';
+import '../../services/firestore_service.dart';
+import '../../services/location_service.dart';
 
 class CustomerCheckoutScreen extends StatefulWidget {
   final Map<String, int> cart;
@@ -33,72 +35,71 @@ class CustomerCheckoutScreen extends StatefulWidget {
   });
 
   @override
-  State<CustomerCheckoutScreen> createState() => _CustomerCheckoutScreenState();
+  State<CustomerCheckoutScreen> createState() =>
+      _CustomerCheckoutScreenState();
 }
 
 class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
   int _emptyGallonsReturning = 0;
   String _paymentMethod = 'gcash';
   bool _isPlacingOrder = false;
-  final TextEditingController _gcashRefController = TextEditingController(text: '1002938475632');
-  final TextEditingController _notesController = TextEditingController(text: 'Ring the bell twice, gate is unlocked...');
+  final TextEditingController _gcashRefController =
+  TextEditingController(text: '1002938475632');
+  final TextEditingController _notesController =
+  TextEditingController(text: 'Ring the bell twice, gate is unlocked...');
+
   bool _hasUploadedReceipt = false;
   Uint8List? _receiptBytes;
   String? _receiptUrl;
   bool _isUploadingReceipt = false;
   String? _gcashRefError;
   String? _receiptError;
+
   double _deliveryFee = 0;
   ({double baseFee, double ratePerKm})? _deliveryFeeConfig;
   double? _deliveryDistanceKm;
   bool _distanceResolved = false;
-  StreamSubscription<({double baseFee, double ratePerKm})>? _deliveryFeeConfigSub;
-  ({String accountName, String accountNumber, String? qrImageUrl}) _gcashAccount =
-      (accountName: 'Station Owner (Aquaflow)', accountNumber: '09171234567', qrImageUrl: null);
-  StreamSubscription<({String accountName, String accountNumber, String? qrImageUrl})>? _gcashAccountSub;
+  StreamSubscription<({double baseFee, double ratePerKm})>?
+  _deliveryFeeConfigSub;
 
-  bool get _calculatingDeliveryFee => _deliveryFeeConfig == null || !_distanceResolved;
+  ({String accountName, String accountNumber, String? qrImageUrl})
+  _gcashAccount = (
+  accountName: 'Station Owner (Aquaflow)',
+  accountNumber: '09171234567',
+  qrImageUrl: null,
+  );
+  StreamSubscription<
+      ({String accountName, String accountNumber, String? qrImageUrl})>?
+  _gcashAccountSub;
+
+  bool get _calculatingDeliveryFee =>
+      _deliveryFeeConfig == null || !_distanceResolved;
 
   final FirestoreService _firestoreService = FirestoreService();
   final CloudinaryService _cloudinary = CloudinaryService();
   final LocationService _locationService = LocationService();
   final ImagePicker _picker = ImagePicker();
-  String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
   static const String _fontFamily = 'Plus Jakarta Sans';
-  static const Color _primaryBlue = Color(0xFF0284C7);
-  static const Color _surfaceCanvas = Color(0xFFF8FAFC);
-  static const Color _surfaceLowest = Color(0xFFFFFFFF);
-  static const Color _onSurface = Color(0xFF131B2E);
-  static const Color _onSurfaceVariant = Color(0xFF3F4850);
-  static const Color _surfaceIce = Color(0xFFF0F9FF);
-  static const Color _secondary = Color(0xFF006C49);
-  static const Color _secondaryContainer = Color(0xFF6CF8BB);
-  static const Color _coralAlert = Color(0xFFF43F5E);
-  static const Color _errorContainer = Color(0xFFFFDAD6);
-  static const Color _outline = Color(0xFF707881);
-
-  // Addresses are free text from the customer's real Saved Addresses (not a
-  // fixed list). zoneGroupOf looks specifically for a labeled "Barangay X"
-  // segment so a street name that happens to share words with a barangay
-  // (e.g. "San Marcos St") doesn't get misrouted to that barangay instead
-  // of the one actually named in the address. Any barangay outside the 4
-  // legacy-coded ones is now saved under its own real name instead of
-  // collapsing to 'other'.
-  String _resolveAreaZone(String address) => zoneGroupOf(address);
 
   @override
   void initState() {
     super.initState();
-    _emptyGallonsReturning = _orderedRefillsCount > 0 ? (_orderedRefillsCount - 1) : 0;
-    _deliveryFeeConfigSub = _firestoreService.getDeliveryFeeConfigStream().listen((config) {
-      _deliveryFeeConfig = config;
-      _recomputeDeliveryFee();
-    });
-    _gcashAccountSub = _firestoreService.getGcashAccountStream().listen((account) {
-      if (!mounted) return;
-      setState(() => _gcashAccount = account);
-    });
+    _emptyGallonsReturning =
+    _orderedRefillsCount > 0 ? (_orderedRefillsCount) : 0;
+
+    _deliveryFeeConfigSub =
+        _firestoreService.getDeliveryFeeConfigStream().listen((config) {
+          _deliveryFeeConfig = config;
+          _recomputeDeliveryFee();
+        });
+
+    _gcashAccountSub =
+        _firestoreService.getGcashAccountStream().listen((account) {
+          if (!mounted) return;
+          setState(() => _gcashAccount = account);
+        });
+
     _resolveDeliveryDistance();
   }
 
@@ -111,11 +112,6 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
     super.dispose();
   }
 
-  // Resolves the real road distance from the station to this checkout's
-  // delivery address once (the address is fixed for the lifetime of this
-  // screen instance, passed in via widget.currentAddress/currentLat/Lng).
-  // Never blocks checkout on failure — a null distance just means the
-  // delivery fee falls back to the base fee alone.
   Future<void> _resolveDeliveryDistance() async {
     try {
       final destination = await _locationService.resolveDestination(
@@ -129,9 +125,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
           destLng: destination.longitude,
         );
       }
-    } catch (_) {
-      // Fall back to base-fee-only — never block checkout over a routing hiccup.
-    }
+    } catch (_) {}
     if (!mounted) return;
     setState(() => _distanceResolved = true);
     _recomputeDeliveryFee();
@@ -141,7 +135,8 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
     final config = _deliveryFeeConfig;
     if (config == null || !mounted) return;
     setState(() {
-      _deliveryFee = config.baseFee + (config.ratePerKm * (_deliveryDistanceKm ?? 0));
+      _deliveryFee =
+          config.baseFee + (config.ratePerKm * (_deliveryDistanceKm ?? 0));
     });
   }
 
@@ -172,21 +167,50 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
     return _missingContainersCount * 200.0;
   }
 
-  double get _checkoutTotal => _cartSubtotal + _missingContainerDeposit + _deliveryFee;
+  double get _checkoutTotal =>
+      _cartSubtotal + _missingContainerDeposit + _deliveryFee;
+
+  Widget _buildCheckoutCard({
+    required Widget child,
+    EdgeInsetsGeometry? padding,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: padding ?? const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F0284C7),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
 
   Future<void> _placeOrder() async {
     if (widget.cart.isEmpty) return;
-    final uid = _uid;
+    final uid = AuthService().currentUserId;
     if (uid == null) return;
     if (_calculatingDeliveryFee) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Still calculating your delivery fee — please wait a moment.')),
+        const SnackBar(
+          content: Text(
+            'Still calculating your delivery fee — please wait a moment.',
+          ),
+        ),
       );
       return;
     }
 
+    final sanitizedRef = Validators.sanitizePhone(_gcashRefController.text);
     setState(() {
-      _gcashRefError = (_paymentMethod == 'gcash' && _gcashRefController.text.trim().length != 13)
+      _gcashRefError =
+      (_paymentMethod == 'gcash' && sanitizedRef.length != 13)
           ? 'Enter the 13-digit GCash reference number.'
           : null;
       _receiptError = (_paymentMethod == 'gcash' && _receiptUrl == null)
@@ -213,17 +237,21 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
         customerName: profile?.name ?? 'Customer',
         customerPhone: profile?.phone ?? '',
         deliveryAddress: widget.currentAddress,
-        areaZone: _resolveAreaZone(widget.currentAddress),
+        areaZone: zoneGroupOf(widget.currentAddress),
         deliveryLat: widget.currentLat,
         deliveryLng: widget.currentLng,
         items: items,
         totalAmount: _checkoutTotal,
         deliveryFee: _deliveryFee,
         paymentMethod: _paymentMethod,
-        gcashReference: _paymentMethod == 'gcash' && _gcashRefController.text.trim().isNotEmpty
+        gcashReference:
+        _paymentMethod == 'gcash' &&
+            _gcashRefController.text.trim().isNotEmpty
             ? _gcashRefController.text.trim()
             : null,
-        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
         gcashScreenshotUrl: _paymentMethod == 'gcash' ? _receiptUrl : null,
       );
 
@@ -251,14 +279,23 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
     if (_isUploadingReceipt) return;
     setState(() => _isUploadingReceipt = true);
     try {
-      final shot = await _picker.pickImage(source: ImageSource.gallery).timeout(const Duration(seconds: 20));
+      final shot = await _picker
+          .pickImage(source: ImageSource.gallery)
+          .timeout(const Duration(seconds: 20));
       if (shot == null) {
         if (!mounted) return;
         setState(() => _isUploadingReceipt = false);
         return;
       }
-      final bytes = await shot.readAsBytes().timeout(const Duration(seconds: 20));
-      final url = await _cloudinary.uploadImage(bytes, filename: 'receipt_gcash.jpg', folder: 'gcash_screenshots').timeout(const Duration(seconds: 30));
+      final bytes =
+      await shot.readAsBytes().timeout(const Duration(seconds: 20));
+      final url = await _cloudinary
+          .uploadImage(
+        bytes,
+        filename: 'receipt_gcash.jpg',
+        folder: 'gcash_screenshots',
+      )
+          .timeout(const Duration(seconds: 30));
       if (!mounted) return;
       setState(() {
         _receiptBytes = bytes;
@@ -277,17 +314,18 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
       if (!mounted) return;
       setState(() => _isUploadingReceipt = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to attach screenshot: $e'), backgroundColor: AppColors.error),
+        SnackBar(
+          content: Text('Failed to attach screenshot: $e'),
+          backgroundColor: AppColors.error,
+        ),
       );
     }
   }
 
-  // '09171234567' -> '0917 123 4567'. Falls back to the raw value for
-  // anything that doesn't match the expected 11-digit shape (e.g. while a
-  // stream update is still loading, or an owner saved something unusual).
   String _formatGcashNumber(String number) {
-    if (!RegExp(r'^\d{11}$').hasMatch(number)) return number;
-    return '${number.substring(0, 4)} ${number.substring(4, 7)} ${number.substring(7)}';
+    final clean = Validators.sanitizePhone(number);
+    if (clean.length != 11) return number;
+    return '${clean.substring(0, 4)} ${clean.substring(4, 7)} ${clean.substring(7)}';
   }
 
   void _copyGcashNumber() {
@@ -295,7 +333,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('GCash number copied to clipboard!'),
-        backgroundColor: _primaryBlue,
+        backgroundColor: AppColors.primarySky,
       ),
     );
   }
@@ -305,123 +343,120 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
     final int totalItemCount = widget.cart.values.fold(0, (a, b) => a + b);
 
     return Scaffold(
-      backgroundColor: _surfaceCanvas,
+      backgroundColor: AppColors.surfaceCanvas,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            SizedBox(
-              height: 64,
-              width: double.infinity,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _surfaceCanvas.withValues(alpha: 0.8),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x0A000000),
-                      blurRadius: 8,
-                      offset: Offset(0, 1),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Material(
-                      color: _surfaceIce,
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: widget.onBack,
-                        child: const SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: Icon(Icons.arrow_back, color: _primaryBlue, size: 22),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Checkout',
-                          style: TextStyle(
-                            fontFamily: _fontFamily,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.17,
-                            color: _onSurface,
-                          ),
-                        ),
-                        Text(
-                          'ORDER SUMMARY & REFILL DISPATCH',
-                          style: TextStyle(
-                            fontFamily: _fontFamily,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.6,
-                            color: _primaryBlue,
-                          ),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+            child: Column(
+              children: [
+                SizedBox(
+                  height: 64,
+                  width: double.infinity,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceCanvas.withValues(alpha: 0.8),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x0A000000),
+                          blurRadius: 8,
+                          offset: Offset(0, 1),
                         ),
                       ],
                     ),
-                  ],
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Material(
+                          color: AppColors.surfaceIce,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: widget.onBack,
+                            child: const SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Icon(
+                                Icons.arrow_back,
+                                color: AppColors.primarySky,
+                                size: 22,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Checkout',
+                              style: TextStyle(
+                                fontFamily: _fontFamily,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.17,
+                                color: AppColors.textLight,
+                              ),
+                            ),
+                            Text(
+                              'ORDER SUMMARY & REFILL DISPATCH',
+                              style: TextStyle(
+                                fontFamily: _fontFamily,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.6,
+                                color: AppColors.primarySky,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(
+                      top: 16,
+                      bottom: 40,
+                      left: 16,
+                      right: 16,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildDeliveryCard(),
+                        const SizedBox(height: 16),
+                        _buildOrderSummaryCard(totalItemCount),
+                        const SizedBox(height: 16),
+                        if (_orderedRefillsCount > 0) ...[
+                          _buildContainerExchangeCard(),
+                          const SizedBox(height: 16),
+                        ],
+                        _buildPaymentMethodCard(),
+                        const SizedBox(height: 16),
+                        _buildDeliveryNotesCard(),
+                        const SizedBox(height: 16),
+                        _buildTotalsCard(),
+                        const SizedBox(height: 16),
+                        _buildConfirmButton(),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(
-                  top: 16,
-                  bottom: 40,
-                  left: 16,
-                  right: 16,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildDeliveryCard(),
-                    const SizedBox(height: 16),
-                    _buildOrderSummaryCard(totalItemCount),
-                    const SizedBox(height: 16),
-                    if (_orderedRefillsCount > 0) ...[
-                      _buildContainerExchangeCard(),
-                      const SizedBox(height: 16),
-                    ],
-                    _buildPaymentMethodCard(),
-                    const SizedBox(height: 16),
-                    _buildDeliveryNotesCard(),
-                    const SizedBox(height: 16),
-                    _buildTotalsCard(),
-                    const SizedBox(height: 16),
-                    _buildConfirmButton(),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildDeliveryCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _surfaceLowest,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F0284C7),
-            blurRadius: 20,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
+    return _buildCheckoutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -437,10 +472,14 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                       width: 40,
                       height: 40,
                       decoration: const BoxDecoration(
-                        color: _surfaceIce,
+                        color: AppColors.surfaceIce,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.location_on, color: _primaryBlue, size: 20),
+                      child: const Icon(
+                        Icons.location_on,
+                        color: AppColors.primarySky,
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -456,7 +495,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                                   fontSize: 10,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0.6,
-                                  color: _primaryBlue,
+                                  color: AppColors.primarySky,
                                 ),
                               ),
                               const SizedBox(width: 6),
@@ -464,15 +503,20 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                                 width: 6,
                                 height: 6,
                                 decoration: const BoxDecoration(
-                                  color: _secondary,
+                                  color: AppColors.secondary,
                                   shape: BoxShape.circle,
                                 ),
                               ),
                               const SizedBox(width: 6),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: _secondaryContainer.withValues(alpha: 0.4),
+                                  color: AppColors.secondaryContainer.withValues(
+                                    alpha: 0.4,
+                                  ),
                                   borderRadius: BorderRadius.circular(100),
                                 ),
                                 child: const Text(
@@ -481,7 +525,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                                     fontFamily: _fontFamily,
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
-                                    color: _secondary,
+                                    color: AppColors.secondary,
                                   ),
                                 ),
                               ),
@@ -497,7 +541,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                               fontSize: 17,
                               fontWeight: FontWeight.w700,
                               letterSpacing: -0.17,
-                              color: _onSurface,
+                              color: AppColors.textLight,
                             ),
                           ),
                           const Text(
@@ -506,7 +550,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                               fontFamily: _fontFamily,
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
-                              color: _onSurfaceVariant,
+                              color: AppColors.textSecondary,
                             ),
                           ),
                         ],
@@ -517,20 +561,23 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
               ),
               const SizedBox(width: 8),
               Material(
-                color: _surfaceIce,
+                color: AppColors.surfaceIce,
                 borderRadius: BorderRadius.circular(100),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(100),
                   onTap: widget.onChangeAddress,
                   child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     child: Text(
                       'Change',
                       style: TextStyle(
                         fontFamily: _fontFamily,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: _primaryBlue,
+                        color: AppColors.primarySky,
                       ),
                     ),
                   ),
@@ -542,12 +589,12 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: _surfaceCanvas,
+              color: AppColors.surfaceCanvas,
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Row(
               children: [
-                Icon(Icons.pin_drop, size: 18, color: _outline),
+                Icon(Icons.pin_drop, size: 18, color: AppColors.outline),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -558,7 +605,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                       fontFamily: _fontFamily,
                       fontSize: 11,
                       fontWeight: FontWeight.w400,
-                      color: _onSurfaceVariant,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ),
@@ -571,20 +618,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
   }
 
   Widget _buildOrderSummaryCard(int totalItemCount) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _surfaceLowest,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F0284C7),
-            blurRadius: 20,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
+    return _buildCheckoutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -593,7 +627,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.local_drink, color: _primaryBlue, size: 20),
+                  Icon(Icons.local_drink, color: AppColors.primarySky, size: 20),
                   SizedBox(width: 8),
                   Text(
                     'Order Summary',
@@ -602,15 +636,18 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.17,
-                      color: _onSurface,
+                      color: AppColors.textLight,
                     ),
                   ),
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  color: _surfaceIce,
+                  color: AppColors.surfaceIce,
                   borderRadius: BorderRadius.circular(100),
                 ),
                 child: Text(
@@ -619,7 +656,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                     fontFamily: _fontFamily,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: _primaryBlue,
+                    color: AppColors.primarySky,
                   ),
                 ),
               ),
@@ -643,12 +680,12 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                           width: 32,
                           height: 32,
                           decoration: const BoxDecoration(
-                            color: _surfaceIce,
+                            color: AppColors.surfaceIce,
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             isSlim ? Icons.water_drop : Icons.local_drink,
-                            color: _primaryBlue,
+                            color: AppColors.primarySky,
                             size: 18,
                           ),
                         ),
@@ -665,7 +702,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                                   fontFamily: _fontFamily,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
-                                  color: _onSurface,
+                                  color: AppColors.textLight,
                                 ),
                               ),
                               Text(
@@ -674,7 +711,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                                   fontFamily: _fontFamily,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w400,
-                                  color: _onSurfaceVariant,
+                                  color: AppColors.textSecondary,
                                 ),
                               ),
                             ],
@@ -690,7 +727,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                       fontFamily: _fontFamily,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: _onSurface,
+                      color: AppColors.textLight,
                     ),
                   ),
                 ],
@@ -703,20 +740,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
   }
 
   Widget _buildContainerExchangeCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _surfaceLowest,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F0284C7),
-            blurRadius: 20,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
+    return _buildCheckoutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -726,7 +750,11 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
               Expanded(
                 child: Row(
                   children: [
-                    const Icon(Icons.swap_horizontal_circle, color: _primaryBlue, size: 20),
+                    const Icon(
+                      Icons.swap_horizontal_circle,
+                      color: AppColors.primarySky,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
@@ -739,7 +767,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                               fontSize: 17,
                               fontWeight: FontWeight.w700,
                               letterSpacing: -0.17,
-                              color: _onSurface,
+                              color: AppColors.textLight,
                             ),
                           ),
                           Text(
@@ -748,7 +776,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                               fontFamily: _fontFamily,
                               fontSize: 11,
                               fontWeight: FontWeight.w400,
-                              color: _onSurfaceVariant,
+                              color: AppColors.textSecondary,
                             ),
                           ),
                         ],
@@ -759,9 +787,12 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  color: _secondaryContainer.withValues(alpha: 0.4),
+                  color: AppColors.secondaryContainer.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(100),
                 ),
                 child: const Text(
@@ -770,7 +801,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                     fontFamily: _fontFamily,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: _secondary,
+                    color: AppColors.secondary,
                   ),
                 ),
               ),
@@ -780,7 +811,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _surfaceCanvas,
+              color: AppColors.surfaceCanvas,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
@@ -796,7 +827,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                           fontFamily: _fontFamily,
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
-                          color: _onSurface,
+                          color: AppColors.textLight,
                         ),
                       ),
                       Text(
@@ -805,7 +836,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                           fontFamily: _fontFamily,
                           fontSize: 11,
                           fontWeight: FontWeight.w400,
-                          color: _onSurfaceVariant,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ],
@@ -814,7 +845,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                 Row(
                   children: [
                     Material(
-                      color: _surfaceLowest,
+                      color: AppColors.surfaceLowest,
                       shape: const CircleBorder(),
                       elevation: 1,
                       shadowColor: Colors.black12,
@@ -828,7 +859,11 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                         child: const SizedBox(
                           width: 36,
                           height: 36,
-                          child: Icon(Icons.remove, size: 18, color: _primaryBlue),
+                          child: Icon(
+                            Icons.remove,
+                            size: 18,
+                            color: AppColors.primarySky,
+                          ),
                         ),
                       ),
                     ),
@@ -841,12 +876,12 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                           fontFamily: _fontFamily,
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
-                          color: _onSurface,
+                          color: AppColors.textLight,
                         ),
                       ),
                     ),
                     Material(
-                      color: _surfaceLowest,
+                      color: AppColors.surfaceLowest,
                       shape: const CircleBorder(),
                       elevation: 1,
                       shadowColor: Colors.black12,
@@ -860,7 +895,11 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                         child: const SizedBox(
                           width: 36,
                           height: 36,
-                          child: Icon(Icons.add, size: 18, color: _primaryBlue),
+                          child: Icon(
+                            Icons.add,
+                            size: 18,
+                            color: AppColors.primarySky,
+                          ),
                         ),
                       ),
                     ),
@@ -874,13 +913,13 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: _errorContainer.withValues(alpha: 0.4),
+                color: AppColors.errorContainer.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.error, color: _coralAlert, size: 20),
+                  const Icon(Icons.error, color: AppColors.coralAlert, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -893,7 +932,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.6,
-                            color: _coralAlert,
+                            color: AppColors.coralAlert,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -903,7 +942,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                             fontFamily: _fontFamily,
                             fontSize: 11,
                             fontWeight: FontWeight.w400,
-                            color: _onSurfaceVariant,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                       ],
@@ -921,20 +960,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
   Widget _buildPaymentMethodCard() {
     final bool isGcash = _paymentMethod == 'gcash';
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _surfaceLowest,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F0284C7),
-            blurRadius: 20,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
+    return _buildCheckoutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -943,7 +969,11 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.account_balance_wallet, color: _primaryBlue, size: 20),
+                  Icon(
+                    Icons.account_balance_wallet,
+                    color: AppColors.primarySky,
+                    size: 20,
+                  ),
                   SizedBox(width: 8),
                   Text(
                     'Payment Method',
@@ -952,7 +982,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.17,
-                      color: _onSurface,
+                      color: AppColors.textLight,
                     ),
                   ),
                 ],
@@ -964,7 +994,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.2,
-                  color: _primaryBlue,
+                  color: AppColors.primarySky,
                 ),
               ),
             ],
@@ -978,13 +1008,21 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                   child: ElevatedButton.icon(
                     onPressed: () => setState(() => _paymentMethod = 'cash'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: !isGcash ? _primaryBlue : _surfaceCanvas,
-                      foregroundColor: !isGcash ? Colors.white : _onSurfaceVariant,
+                      backgroundColor:
+                      !isGcash ? AppColors.primarySky : AppColors.surfaceCanvas,
+                      foregroundColor:
+                      !isGcash ? Colors.white : AppColors.textSecondary,
                       elevation: !isGcash ? 4 : 0,
                       shadowColor: const Color(0x400284C7),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(100),
+                      ),
                     ),
-                    icon: Icon(Icons.payments, size: 18, color: !isGcash ? Colors.white : _onSurfaceVariant),
+                    icon: Icon(
+                      Icons.payments,
+                      size: 18,
+                      color: !isGcash ? Colors.white : AppColors.textSecondary,
+                    ),
                     label: const Text(
                       'Cash on Delivery',
                       style: TextStyle(
@@ -1003,13 +1041,20 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                   child: ElevatedButton.icon(
                     onPressed: () => setState(() => _paymentMethod = 'gcash'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isGcash ? _primaryBlue : _surfaceCanvas,
-                      foregroundColor: isGcash ? Colors.white : _onSurfaceVariant,
+                      backgroundColor: isGcash ? AppColors.primarySky : AppColors.surfaceCanvas,
+                      foregroundColor:
+                      isGcash ? Colors.white : AppColors.textSecondary,
                       elevation: isGcash ? 4 : 0,
                       shadowColor: const Color(0x400284C7),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(100),
+                      ),
                     ),
-                    icon: Icon(Icons.check_circle, size: 18, color: isGcash ? Colors.white : _onSurfaceVariant),
+                    icon: Icon(
+                      Icons.check_circle,
+                      size: 18,
+                      color: isGcash ? Colors.white : AppColors.textSecondary,
+                    ),
                     label: const Text(
                       'GCash Transfer',
                       style: TextStyle(
@@ -1029,7 +1074,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: _surfaceCanvas,
+                color: AppColors.surfaceCanvas,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -1048,7 +1093,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.6,
-                              color: _primaryBlue,
+                              color: AppColors.primarySky,
                             ),
                           ),
                           Text(
@@ -1057,7 +1102,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                               fontFamily: _fontFamily,
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
-                              color: _onSurface,
+                              color: AppColors.textLight,
                             ),
                           ),
                           Text(
@@ -1066,13 +1111,13 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                               fontFamily: 'monospace',
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
-                              color: _onSurfaceVariant,
+                              color: AppColors.textSecondary,
                             ),
                           ),
                         ],
                       ),
                       Material(
-                        color: _surfaceLowest,
+                        color: AppColors.surfaceLowest,
                         shape: const CircleBorder(),
                         elevation: 1,
                         shadowColor: Colors.black12,
@@ -1082,7 +1127,11 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                           child: const SizedBox(
                             width: 36,
                             height: 36,
-                            child: Icon(Icons.content_copy, size: 18, color: _primaryBlue),
+                            child: Icon(
+                              Icons.content_copy,
+                              size: 18,
+                              color: AppColors.primarySky,
+                            ),
                           ),
                         ),
                       ),
@@ -1096,7 +1145,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                         fontFamily: _fontFamily,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: _onSurfaceVariant,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1106,13 +1155,16 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                         height: 220,
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: _surfaceLowest,
+                          color: AppColors.surfaceLowest,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          border: Border.all(color: AppColors.slate200),
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: Image.network(_gcashAccount.qrImageUrl!, fit: BoxFit.contain),
+                          child: Image.network(
+                            _gcashAccount.qrImageUrl!,
+                            fit: BoxFit.contain,
+                          ),
                         ),
                       ),
                     ),
@@ -1124,7 +1176,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                       fontFamily: _fontFamily,
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: _onSurfaceVariant,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -1132,27 +1184,42 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                     height: 48,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
-                      color: _surfaceCanvas,
+                      color: AppColors.surfaceCanvas,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: _gcashRefError != null ? _coralAlert : Colors.transparent, width: _gcashRefError != null ? 1.5 : 1),
+                      border: Border.all(
+                        color: _gcashRefError != null
+                            ? AppColors.coralAlert
+                            : Colors.transparent,
+                        width: _gcashRefError != null ? 1.5 : 1,
+                      ),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.tag, color: _gcashRefError != null ? _coralAlert : _primaryBlue, size: 20),
+                        Icon(
+                          Icons.tag,
+                          color: _gcashRefError != null
+                              ? AppColors.coralAlert
+                              : AppColors.primarySky,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextField(
                             controller: _gcashRefController,
                             maxLength: 13,
                             keyboardType: TextInputType.number,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
                             onChanged: (_) {
-                              if (_gcashRefError != null) setState(() => _gcashRefError = null);
+                              if (_gcashRefError != null) {
+                                setState(() => _gcashRefError = null);
+                              }
                             },
                             style: const TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 15,
-                              color: _onSurface,
+                              color: AppColors.textLight,
                             ),
                             decoration: const InputDecoration(
                               hintText: 'Enter reference number',
@@ -1164,8 +1231,19 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                           ),
                         ),
                         Icon(
-                          _gcashRefController.text.trim().length == 13 ? Icons.check_circle : Icons.circle_outlined,
-                          color: _gcashRefController.text.trim().length == 13 ? _secondary : _outline,
+                          Validators.sanitizePhone(
+                            _gcashRefController.text,
+                          ).length ==
+                              13
+                              ? Icons.check_circle
+                              : Icons.circle_outlined,
+                          color:
+                          Validators.sanitizePhone(
+                            _gcashRefController.text,
+                          ).length ==
+                              13
+                              ? AppColors.secondary
+                              : AppColors.outline,
                           size: 20,
                         ),
                       ],
@@ -1176,7 +1254,12 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                       padding: const EdgeInsets.only(left: 4, top: 4),
                       child: Text(
                         _gcashRefError!,
-                        style: const TextStyle(fontFamily: _fontFamily, fontSize: 11, fontWeight: FontWeight.w500, color: _coralAlert),
+                        style: const TextStyle(
+                          fontFamily: _fontFamily,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.coralAlert,
+                        ),
                       ),
                     ),
                   const SizedBox(height: 12),
@@ -1189,7 +1272,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                           fontFamily: _fontFamily,
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
-                          color: _onSurfaceVariant,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                       Text(
@@ -1198,7 +1281,9 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                           fontFamily: _fontFamily,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: _hasUploadedReceipt ? _secondary : _coralAlert,
+                          color: _hasUploadedReceipt
+                              ? AppColors.secondary
+                              : AppColors.coralAlert,
                         ),
                       ),
                     ],
@@ -1208,26 +1293,44 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                     width: double.infinity,
                     height: 44,
                     child: OutlinedButton.icon(
-                      onPressed: _isUploadingReceipt ? null : _pickAndUploadReceipt,
+                      onPressed: _isUploadingReceipt
+                          ? null
+                          : _pickAndUploadReceipt,
                       style: OutlinedButton.styleFrom(
-                        backgroundColor: _surfaceIce,
-                        side: BorderSide(color: _receiptError != null ? _coralAlert : _primaryBlue.withValues(alpha: 0.4), width: _receiptError != null ? 1.5 : 1.5),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        backgroundColor: AppColors.surfaceIce,
+                        side: BorderSide(
+                          color: _receiptError != null
+                              ? AppColors.coralAlert
+                              : AppColors.primarySky.withValues(alpha: 0.4),
+                          width: _receiptError != null ? 1.5 : 1.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
                       icon: _isUploadingReceipt
                           ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: _primaryBlue),
-                            )
-                          : const Icon(Icons.add_photo_alternate, size: 20, color: _primaryBlue),
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primarySky,
+                        ),
+                      )
+                          : const Icon(
+                        Icons.add_photo_alternate,
+                        size: 20,
+                        color: AppColors.primarySky,
+                      ),
                       label: Text(
-                        _isUploadingReceipt ? 'Loading...' : 'Upload Screenshot from Gallery',
+                        _isUploadingReceipt
+                            ? 'Loading...'
+                            : 'Upload Screenshot from Gallery',
                         style: const TextStyle(
                           fontFamily: _fontFamily,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: _primaryBlue,
+                          color: AppColors.primarySky,
                         ),
                       ),
                     ),
@@ -1237,7 +1340,12 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                       padding: const EdgeInsets.only(left: 4, top: 4),
                       child: Text(
                         _receiptError!,
-                        style: const TextStyle(fontFamily: _fontFamily, fontSize: 11, fontWeight: FontWeight.w500, color: _coralAlert),
+                        style: const TextStyle(
+                          fontFamily: _fontFamily,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.coralAlert,
+                        ),
                       ),
                     ),
                   if (_hasUploadedReceipt) ...[
@@ -1245,7 +1353,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: _surfaceCanvas,
+                        color: AppColors.surfaceCanvas,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
@@ -1255,12 +1363,19 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                             height: 36,
                             clipBehavior: Clip.antiAlias,
                             decoration: BoxDecoration(
-                              color: _surfaceIce,
+                              color: AppColors.surfaceIce,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: _receiptBytes != null
-                                ? Image.memory(_receiptBytes!, fit: BoxFit.cover)
-                                : const Icon(Icons.image, color: _primaryBlue, size: 20),
+                                ? Image.memory(
+                              _receiptBytes!,
+                              fit: BoxFit.cover,
+                            )
+                                : const Icon(
+                              Icons.image,
+                              color: AppColors.primarySky,
+                              size: 20,
+                            ),
                           ),
                           const SizedBox(width: 10),
                           const Expanded(
@@ -1273,7 +1388,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                                     fontFamily: _fontFamily,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
-                                    color: _onSurface,
+                                    color: AppColors.textLight,
                                   ),
                                 ),
                                 Text(
@@ -1282,7 +1397,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                                     fontFamily: _fontFamily,
                                     fontSize: 11,
                                     fontWeight: FontWeight.w400,
-                                    color: _secondary,
+                                    color: AppColors.secondary,
                                   ),
                                 ),
                               ],
@@ -1293,10 +1408,16 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                             shape: const CircleBorder(),
                             child: InkWell(
                               customBorder: const CircleBorder(),
-                              onTap: _isUploadingReceipt ? null : _pickAndUploadReceipt,
+                              onTap: _isUploadingReceipt
+                                  ? null
+                                  : _pickAndUploadReceipt,
                               child: const Padding(
                                 padding: EdgeInsets.all(6),
-                                child: Icon(Icons.sync, size: 18, color: _primaryBlue),
+                                child: Icon(
+                                  Icons.sync,
+                                  size: 18,
+                                  color: AppColors.primarySky,
+                                ),
                               ),
                             ),
                           ),
@@ -1312,7 +1433,11 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                               }),
                               child: const Padding(
                                 padding: EdgeInsets.all(6),
-                                child: Icon(Icons.close, size: 18, color: _outline),
+                                child: Icon(
+                                  Icons.close,
+                                  size: 18,
+                                  color: AppColors.outline,
+                                ),
                               ),
                             ),
                           ),
@@ -1330,26 +1455,13 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
   }
 
   Widget _buildDeliveryNotesCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _surfaceLowest,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F0284C7),
-            blurRadius: 20,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
+    return _buildCheckoutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
-              Icon(Icons.speaker_notes, color: _primaryBlue, size: 20),
+              Icon(Icons.speaker_notes, color: AppColors.primarySky, size: 20),
               SizedBox(width: 8),
               Text(
                 'Delivery Notes',
@@ -1358,7 +1470,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.17,
-                  color: _onSurface,
+                  color: AppColors.textLight,
                 ),
               ),
               SizedBox(width: 6),
@@ -1368,7 +1480,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                   fontFamily: _fontFamily,
                   fontSize: 11,
                   fontWeight: FontWeight.w400,
-                  color: _onSurfaceVariant,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ],
@@ -1377,7 +1489,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: _surfaceCanvas,
+              color: AppColors.surfaceCanvas,
               borderRadius: BorderRadius.circular(16),
             ),
             child: TextField(
@@ -1385,11 +1497,11 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
               style: const TextStyle(
                 fontFamily: _fontFamily,
                 fontSize: 13,
-                color: _onSurface,
+                color: AppColors.textLight,
               ),
               decoration: const InputDecoration(
                 hintText: 'Provide instructions for rider...',
-                hintStyle: TextStyle(color: _onSurfaceVariant),
+                hintStyle: TextStyle(color: AppColors.textSecondary),
                 border: InputBorder.none,
                 isDense: true,
               ),
@@ -1401,20 +1513,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
   }
 
   Widget _buildTotalsCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _surfaceLowest,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F0284C7),
-            blurRadius: 20,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
+    return _buildCheckoutCard(
       child: Column(
         children: [
           Row(
@@ -1426,7 +1525,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                   fontFamily: _fontFamily,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: _onSurfaceVariant,
+                  color: AppColors.textSecondary,
                 ),
               ),
               Text(
@@ -1435,7 +1534,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                   fontFamily: _fontFamily,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: _onSurface,
+                  color: AppColors.textLight,
                 ),
               ),
             ],
@@ -1447,7 +1546,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.shield, size: 16, color: _coralAlert),
+                    const Icon(Icons.shield, size: 16, color: AppColors.coralAlert),
                     const SizedBox(width: 6),
                     Text(
                       'Container Deposit (${_missingContainersCount}x)',
@@ -1455,7 +1554,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                         fontFamily: _fontFamily,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: _coralAlert,
+                        color: AppColors.coralAlert,
                       ),
                     ),
                   ],
@@ -1466,7 +1565,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                     fontFamily: _fontFamily,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: _coralAlert,
+                    color: AppColors.coralAlert,
                   ),
                 ),
               ],
@@ -1479,7 +1578,11 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.local_shipping, size: 16, color: _onSurfaceVariant),
+                    Icon(
+                      Icons.local_shipping,
+                      size: 16,
+                      color: AppColors.textSecondary,
+                    ),
                     SizedBox(width: 6),
                     Text(
                       'Delivery Fee',
@@ -1487,7 +1590,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                         fontFamily: _fontFamily,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: _onSurfaceVariant,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ],
@@ -1496,18 +1599,21 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                   const SizedBox(
                     width: 13,
                     height: 13,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: _onSurfaceVariant),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.textSecondary,
+                    ),
                   )
                 else
-                Text(
-                  '₱${_deliveryFee.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontFamily: _fontFamily,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: _onSurface,
+                  Text(
+                    '₱${_deliveryFee.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontFamily: _fontFamily,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textLight,
+                    ),
                   ),
-                ),
               ],
             ),
           ],
@@ -1515,7 +1621,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _surfaceIce,
+              color: AppColors.surfaceIce,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
@@ -1531,7 +1637,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.6,
-                        color: _primaryBlue,
+                        color: AppColors.primarySky,
                       ),
                     ),
                     Text(
@@ -1540,7 +1646,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                         fontFamily: _fontFamily,
                         fontSize: 11,
                         fontWeight: FontWeight.w400,
-                        color: _onSurfaceVariant,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ],
@@ -1552,7 +1658,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.44,
-                    color: _primaryBlue,
+                    color: AppColors.primarySky,
                   ),
                 ),
               ],
@@ -1570,10 +1676,10 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
       child: ElevatedButton(
         onPressed: _isPlacingOrder ? null : _placeOrder,
         style: ElevatedButton.styleFrom(
-          backgroundColor: _primaryBlue,
+          backgroundColor: AppColors.primarySky,
           foregroundColor: Colors.white,
           elevation: 6,
-          shadowColor: _primaryBlue.withValues(alpha: 0.45),
+          shadowColor: AppColors.primarySky.withValues(alpha: 0.45),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(100),
           ),

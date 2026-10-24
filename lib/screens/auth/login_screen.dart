@@ -1,191 +1,153 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../../main.dart';
 import '../../core/constants/app_colors.dart';
-import '../../models/user_model.dart';
+import '../../core/constants/layout_constants.dart';
+import '../../core/utils/app_toast.dart';
+import '../../core/utils/validators.dart';
 import '../../services/auth_service.dart';
-import '../../widgets/aqua_logo.dart';
+import '../../widgets/auth_brand_header.dart';
 import 'reset_password_screen.dart';
+import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passController = TextEditingController();
+class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
-  bool _isLoading = false;
+  final TextEditingController _emailCtrl = TextEditingController();
+  final TextEditingController _passwordCtrl = TextEditingController();
 
-  final FocusNode _emailFocus = FocusNode();
-  final FocusNode _passwordFocus = FocusNode();
   bool _obscurePassword = true;
-  bool _isEmailValid = false;
+  bool _isLoading = false;
   String? _emailError;
   String? _passwordError;
 
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat(reverse: true);
-    _pulseAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(_pulseController);
-
-    _emailFocus.addListener(_onFocusChanged);
-    _passwordFocus.addListener(_onFocusChanged);
-    _emailController.addListener(_onEmailChanged);
-  }
+  static const String _font = 'Plus Jakarta Sans';
 
   @override
   void dispose() {
-    _pulseController.dispose();
-    _emailFocus.dispose();
-    _passwordFocus.dispose();
-    _emailController.removeListener(_onEmailChanged);
-    _emailController.dispose();
-    _passController.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
     super.dispose();
   }
 
-  void _onFocusChanged() {
-    setState(() {});
-  }
+  Future<void> _handleLogin() async {
+    final email = _emailCtrl.text.trim();
+    final password = _passwordCtrl.text;
 
-  void _onEmailChanged() {
-    final valid = _emailController.text.trim().length > 4;
-    if (_isEmailValid != valid || _emailError != null) {
-      setState(() {
-        _isEmailValid = valid;
-        _emailError = null;
-      });
-    }
-  }
-
-  bool _validateAll() {
-    final email = _emailController.text.trim();
-    final password = _passController.text;
     setState(() {
-      _emailError = email.isEmpty ? 'Email address is required.' : null;
+      _emailError = Validators.validateEmail(email);
       _passwordError = password.isEmpty ? 'Password is required.' : null;
     });
-    return _emailError == null && _passwordError == null;
-  }
 
-  Future<void> _handleLogin() async {
-    if (!_validateAll()) return;
-    final email = _emailController.text.trim();
-    final password = _passController.text;
+    if (_emailError != null || _passwordError != null) {
+      AppToast.showError(
+        context,
+        'Please check the highlighted fields.',
+        title: 'Validation Error',
+      );
+      return;
+    }
 
+    FocusScope.of(context).unfocus();
     setState(() => _isLoading = true);
+
     try {
-      final user = await _authService.signIn(email, password);
+      await _authService.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
       if (!mounted) return;
-
-      if (user == null) {
-        _showError('Account not found. Please contact your station owner.');
-        setState(() => _isLoading = false);
-        return;
-      }
-
-      currentUserRoleNotifier.value = user.role.name;
-      switch (user.role) {
-        case UserRole.owner:
-          Navigator.pushReplacementNamed(context, '/owner_dashboard');
-          break;
-        case UserRole.staff:
-          Navigator.pushReplacementNamed(context, '/dispatch');
-          break;
-        case UserRole.rider:
-          Navigator.pushReplacementNamed(context, '/dispatch');
-          break;
-        case UserRole.customer:
-          Navigator.pushReplacementNamed(context, '/customer');
-          break;
-      }
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-      _showError(_authErrorMessage(e));
-      setState(() => _isLoading = false);
+      AppToast.showSuccess(context, 'Welcome back!', title: 'Login Successful');
     } catch (e) {
       if (!mounted) return;
-      _showError('Something went wrong. Please try again.');
       setState(() => _isLoading = false);
+      AppToast.showError(
+        context,
+        getAuthErrorMessage(e),
+        title: 'Login Failed',
+      );
     }
   }
 
-  String _authErrorMessage(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'user-not-found':
-      case 'wrong-password':
-      case 'invalid-credential':
-        return 'Invalid email or password.';
-      case 'invalid-email':
-        return 'That email address looks invalid.';
-      case 'user-disabled':
-        return 'This account has been disabled.';
-      default:
-        return e.message ?? 'Login failed. Please try again.';
-    }
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: AppColors.error),
-    );
-  }
-
-  void _showForgotPasswordDialog() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ResetPasswordScreen(
-          initialEmail: _emailController.text.trim(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInputContainer({
-    required FocusNode focusNode,
-    required Widget child,
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required String hint,
+    TextInputType keyboardType = TextInputType.text,
+    bool obscureText = false,
+    Widget? suffixIcon,
     String? errorText,
+    VoidCallback? onChanged,
   }) {
-    final bool isFocused = focusNode.hasFocus;
     final bool hasError = errorText != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFFFFF),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: hasError
-                  ? AppColors.error
-                  : (isFocused ? const Color(0xFF0284C7) : const Color(0xFFE5E9EB).withValues(alpha: 0.8)),
-              width: hasError ? 1.5 : 1,
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 4),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontFamily: _font,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF3F4850),
             ),
-            boxShadow: isFocused
-                ? [
-              BoxShadow(
-                color: const Color(0xFF0284C7).withValues(alpha: 0.15),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              )
-            ]
-                : [],
           ),
-          child: child,
+        ),
+        Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: hasError ? Border.all(color: AppColors.error, width: 1.5) : null,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 14, right: 10),
+                child: Icon(icon, color: hasError ? AppColors.error : const Color(0xFF707881), size: 18),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: keyboardType,
+                  obscureText: obscureText,
+                  onChanged: (_) => onChanged?.call(),
+                  style: const TextStyle(
+                    fontFamily: _font,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF131B2E),
+                  ),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF707881),
+                      fontWeight: FontWeight.w400,
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+              if (suffixIcon != null) suffixIcon,
+              const SizedBox(width: 8),
+            ],
+          ),
         ),
         if (hasError)
           Padding(
@@ -193,7 +155,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             child: Text(
               errorText,
               style: const TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
+                fontFamily: _font,
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
                 color: AppColors.error,
@@ -207,294 +169,140 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6FAFC),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            child: Container(
-              width: double.infinity,
-              constraints: const BoxConstraints(maxWidth: 384),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 48),
+            physics: const BouncingScrollPhysics(),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: kMaxContentWidth), // Using global content width constraint
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const AquaLogo(size: 80),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'AquaOps',
-                    style: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
-                      fontSize: 30,
-                      height: 1.26,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.9,
-                      color: Color(0xFF171C1E),
+                  const AuthBrandHeader(
+                    title: 'Welcome Back',
+                    subtitle: 'Sign in to manage orders & water delivery',
+                  ),
+                  const SizedBox(height: 28),
+                  _buildInputField(
+                    controller: _emailCtrl,
+                    label: 'Email Address',
+                    icon: Icons.mail_outline,
+                    hint: 'name@example.com',
+                    keyboardType: TextInputType.emailAddress,
+                    errorText: _emailError,
+                    onChanged: () {
+                      if (_emailError != null) setState(() => _emailError = null);
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  _buildInputField(
+                    controller: _passwordCtrl,
+                    label: 'Password',
+                    icon: Icons.lock_outline,
+                    hint: '••••••••',
+                    obscureText: _obscurePassword,
+                    errorText: _passwordError,
+                    onChanged: () {
+                      if (_passwordError != null) setState(() => _passwordError = null);
+                    },
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        color: const Color(0xFF707881),
+                        size: 18,
+                      ),
+                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Secure dispatch & station portal',
-                    style: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF404751),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ResetPasswordScreen()),
+                        );
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      ),
+                      child: const Text(
+                        'Forgot Password?',
+                        style: TextStyle(
+                          fontFamily: _font,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF0284C7),
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFFFFF),
-                      borderRadius: BorderRadius.circular(9999),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 2,
-                          offset: const Offset(0, 1),
-                        )
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AnimatedBuilder(
-                          animation: _pulseAnimation,
-                          builder: (context, child) {
-                            return Opacity(
-                              opacity: _pulseAnimation.value,
-                              child: Container(
-                                width: 8,
-                                height: 8,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF0284C7),
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            );
-                          },
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _handleLogin,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0284C7),
+                        foregroundColor: Colors.white,
+                        elevation: 4,
+                        shadowColor: const Color(0x330284C7),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(100),
                         ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'SYSTEM ONLINE',
-                          style: TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF005E9F),
-                          ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
                         ),
-                      ],
+                      )
+                          : const Text(
+                        'Sign In',
+                        style: TextStyle(
+                          fontFamily: _font,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.only(left: 4, bottom: 6),
-                        child: Text(
-                          'EMAIL ADDRESS',
+                      const Text(
+                        "Don't have an account? ",
+                        style: TextStyle(
+                          fontFamily: _font,
+                          fontSize: 13,
+                          color: Color(0xFF3F4850),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => const SignupScreen()),
+                          );
+                        },
+                        child: const Text(
+                          'Sign Up',
                           style: TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF404751),
+                            fontFamily: _font,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0284C7),
                           ),
                         ),
-                      ),
-                      _buildInputContainer(
-                        focusNode: _emailFocus,
-                        errorText: _emailError,
-                        child: Row(
-                          children: [
-                            const Icon(Icons.mail_outline, color: Color(0xFF005E9F), size: 20),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextField(
-                                controller: _emailController,
-                                focusNode: _emailFocus,
-                                keyboardType: TextInputType.emailAddress,
-                                style: const TextStyle(
-                                  fontFamily: 'Plus Jakarta Sans',
-                                  fontSize: 15,
-                                  color: Color(0xFF171C1E),
-                                ),
-                                decoration: const InputDecoration(
-                                  hintText: 'user@aquaops.com',
-                                  hintStyle: TextStyle(
-                                    color: Color(0xFFC0C7D3),
-                                  ),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.symmetric(vertical: 10),
-                                ),
-                              ),
-                            ),
-                            AnimatedOpacity(
-                              duration: const Duration(milliseconds: 200),
-                              opacity: _isEmailValid ? 1.0 : 0.0,
-                              child: const Icon(Icons.check_circle, color: Color(0xFF006B5F), size: 18),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      const Padding(
-                        padding: EdgeInsets.only(left: 4, bottom: 6),
-                        child: Text(
-                          'PASSWORD',
-                          style: TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF404751),
-                          ),
-                        ),
-                      ),
-                      _buildInputContainer(
-                        focusNode: _passwordFocus,
-                        errorText: _passwordError,
-                        child: Row(
-                          children: [
-                            const Icon(Icons.lock_outline, color: Color(0xFF005E9F), size: 20),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextField(
-                                controller: _passController,
-                                focusNode: _passwordFocus,
-                                obscureText: _obscurePassword,
-                                onChanged: (_) {
-                                  if (_passwordError != null) setState(() => _passwordError = null);
-                                },
-                                style: const TextStyle(
-                                  fontFamily: 'Plus Jakarta Sans',
-                                  fontSize: 15,
-                                  color: Color(0xFF171C1E),
-                                ),
-                                decoration: const InputDecoration(
-                                  hintText: '••••••••••••',
-                                  hintStyle: TextStyle(
-                                    color: Color(0xFFC0C7D3),
-                                  ),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.symmetric(vertical: 10),
-                                ),
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _obscurePassword = !_obscurePassword;
-                                });
-                              },
-                              child: Icon(
-                                _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                                color: const Color(0xFF404751),
-                                size: 20,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 8, right: 4),
-                          child: GestureDetector(
-                            onTap: _showForgotPasswordDialog,
-                            child: const Text(
-                              'Forgot Password?',
-                              style: TextStyle(
-                                fontFamily: 'Plus Jakarta Sans',
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF005E9F),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0284C7),
-                          borderRadius: BorderRadius.circular(9999),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF0284C7).withValues(alpha: 0.25),
-                              blurRadius: 6,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(9999),
-                            onTap: _isLoading ? null : _handleLogin,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                              child: _isLoading
-                                  ? const Center(
-                                child: SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              )
-                                  : const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    'Log In',
-                                    style: TextStyle(
-                                      fontFamily: 'Plus Jakarta Sans',
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Icon(Icons.arrow_forward, color: Colors.white, size: 18),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            'New to AquaOps? ',
-                            style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 13,
-                              fontWeight: FontWeight.w400,
-                              color: Color(0xFF404751),
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () => Navigator.pushNamed(context, '/signup'),
-                            child: const Text(
-                              'Sign Up',
-                              style: TextStyle(
-                                fontFamily: 'Plus Jakarta Sans',
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF005E9F),
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),

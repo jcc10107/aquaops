@@ -1,12 +1,16 @@
+
 import 'dart:ui';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../models/order_model.dart';
 import '../../models/rider_cash_out_model.dart';
 import '../../models/user_model.dart';
+import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
+import '../../widgets/bottom_sheet_chrome.dart';
 
 class RiderCashOutModal extends StatefulWidget {
   const RiderCashOutModal({super.key});
@@ -20,34 +24,12 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
   static const double _gap = 16;
   static const double _headerHeight = 64;
 
-  static const Color _emerald = Color(0xFF059669);
-  static const Color _emeraldLight = Color(0xFF10B981);
-  static const Color _heroLabel = Color(0xFFA7F3D0);
-  static const Color _emerald100 = Color(0xFFD1FAE5);
-  static const Color _emerald700 = Color(0xFF047857);
-  static const Color _cyanHighlight = Color(0xFF22D3EE);
-  static const Color _secondary = Color(0xFF006C49);
-  static const Color _onSurface = Color(0xFF131B2E);
-  static const Color _onSurfaceVariant = Color(0xFF3F4850);
-  static const Color _surfaceContainerLow = Color(0xFFF2F3FF);
-  static const Color _surfaceCanvas = Color(0xFFF8FAFC);
-  static const Color _background = Color(0xFFF6FAFC);
-  static const Color _faint = Color(0xFF94A3B8);
-  static const Color _fieldBorder = Color(0xFFE2E8F0);
-  static const Color _handle = Color(0xFFBFC7D2);
-  static const Color _slate100 = Color(0xFFF1F5F9);
-  static const Color _slate600 = Color(0xFF475569);
-  static const Color _amber = Color(0xFFB45309);
-  static const Color _greenDark = Color(0xFF047857);
-  static const Color _greenLight = Color(0xFFECFDF5);
-  static const Color _greenBorder = Color(0xFFA7F3D0);
-
-  static final TextStyle _labelMd = GoogleFonts.plusJakartaSans(
+  static const TextStyle _labelMd = TextStyle(
     fontSize: 11,
     height: 14 / 11,
     fontWeight: FontWeight.w700,
     letterSpacing: 0.22,
-    color: _onSurfaceVariant,
+    color: AppColors.textSecondary,
   );
 
   final FirestoreService _firestoreService = FirestoreService();
@@ -77,7 +59,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
   }
 
   Future<void> _prefillVerifierName() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = AuthService().currentUserId;
     if (uid == null) return;
     final profile = await _firestoreService.getUser(uid);
     if (mounted && profile != null) {
@@ -85,21 +67,15 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
     }
   }
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message, style: GoogleFonts.plusJakartaSans()), backgroundColor: AppColors.error),
-    );
-  }
-
   Future<void> _closeCashOut(UserModel rider, DateTime since) async {
     if (!_certified) return;
     final handedOver = double.tryParse(_cashHandedOverCtrl.text);
     if (handedOver == null) {
-      _showError('Enter the counted cash amount.');
+      AppToast.showError(context, 'Enter the counted cash amount.');
       return;
     }
     if (_verifiedByCtrl.text.trim().isEmpty) {
-      _showError('Enter the verifying staff name.');
+      AppToast.showError(context, 'Enter the verifying staff name.');
       return;
     }
 
@@ -121,11 +97,12 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      _showError('Failed to close cash-out: $e');
+      AppToast.showError(context, 'Failed to close cash-out: $e');
     }
   }
 
-  TextStyle _mono(double size, {FontWeight weight = FontWeight.w700, Color color = _onSurface, double letterSpacing = 0}) {
+  // TASK 7.4: Monospace retained for numerical accuracy/reconciliation
+  TextStyle _mono(double size, {FontWeight weight = FontWeight.w700, Color color = AppColors.textLight, double letterSpacing = 0}) {
     return GoogleFonts.robotoMono(fontSize: size, fontWeight: weight, color: color, letterSpacing: letterSpacing);
   }
 
@@ -139,9 +116,9 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
 
   BoxDecoration _fieldDecoration() {
     return BoxDecoration(
-      color: _surfaceContainerLow,
+      color: AppColors.surfaceContainerLow,
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: _fieldBorder.withValues(alpha: 0.8)),
+      border: Border.all(color: AppColors.slate200.withValues(alpha: 0.8)),
     );
   }
 
@@ -155,7 +132,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
             child: Container(
               width: double.infinity,
               padding: EdgeInsets.only(top: topInset),
-              color: _background.withValues(alpha: 0.85),
+              color: AppColors.surfaceBackground.withValues(alpha: 0.85),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: _maxWidth),
@@ -171,11 +148,11 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                             child: const SizedBox(
                               width: 44,
                               height: 44,
-                              child: Icon(Icons.arrow_back, size: 24, color: _onSurfaceVariant),
+                              child: Icon(Icons.arrow_back, size: 24, color: AppColors.textSecondary),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Expanded(
+                          const Expanded(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,23 +161,23 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                                   'Rider Cash-Out',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 17, height: 1.25, fontWeight: FontWeight.w700, color: _onSurface),
+                                  style: TextStyle(fontSize: 17, height: 1.25, fontWeight: FontWeight.w700, color: AppColors.textLight),
                                 ),
-                                const SizedBox(height: 2),
+                                SizedBox(height: 2),
                                 Row(
                                   children: [
-                                    const SizedBox(
+                                    SizedBox(
                                       width: 6,
                                       height: 6,
-                                      child: DecoratedBox(decoration: BoxDecoration(color: _emeraldLight, shape: BoxShape.circle)),
+                                      child: DecoratedBox(decoration: BoxDecoration(color: AppColors.emerald500, shape: BoxShape.circle)),
                                     ),
-                                    const SizedBox(width: 6),
+                                    SizedBox(width: 6),
                                     Flexible(
                                       child: Text(
                                         'Shift Reconciliation Protocol',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: _emerald),
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.emerald600),
                                       ),
                                     ),
                                   ],
@@ -254,36 +231,36 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [_emerald, _emeraldLight],
+          colors: [AppColors.emerald600, AppColors.emerald500],
         ),
-        boxShadow: [BoxShadow(color: _emeraldLight.withValues(alpha: 0.3), blurRadius: 25, spreadRadius: -5, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: AppColors.emerald500.withValues(alpha: 0.3), blurRadius: 25, spreadRadius: -5, offset: const Offset(0, 10))],
       ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Positioned(right: -56, bottom: -56, child: _buildGlow(176, _cyanHighlight.withValues(alpha: 0.28))),
+          Positioned(right: -56, bottom: -56, child: _buildGlow(176, AppColors.cyanHighlight.withValues(alpha: 0.28))),
           Positioned(left: -48, top: -48, child: _buildGlow(128, Colors.white.withValues(alpha: 0.2))),
           Row(
             children: [
               Container(
                 width: 48,
                 height: 48,
-                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
+                decoration: const BoxDecoration(color: Colors.white24, shape: BoxShape.circle),
                 child: const Icon(Icons.currency_exchange, size: 26, color: Colors.white),
               ),
               const SizedBox(width: 12),
-              Expanded(
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'CASH RECONCILIATION',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 10, height: 1.2, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: _heroLabel),
+                      style: TextStyle(fontSize: 10, height: 1.2, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.emerald200),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: 2),
                     Text(
                       'Rider Cash-Out',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w700, letterSpacing: -0.44, color: Colors.white),
+                      style: TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w700, letterSpacing: -0.44, color: Colors.white),
                     ),
                   ],
                 ),
@@ -328,49 +305,12 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Center(
-                        child: Container(
-                          width: 48,
-                          height: 6,
-                          decoration: BoxDecoration(color: _handle, borderRadius: BorderRadius.circular(100)),
-                        ),
-                      ),
+                      const BottomSheetDragHandle(),
                       const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Choose Active Courier',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 18, height: 1.25, fontWeight: FontWeight.w700, color: _onSurface),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Select rider to reconcile shift cash-out',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _onSurfaceVariant),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Material(
-                            color: _surfaceContainerLow,
-                            shape: const CircleBorder(),
-                            child: InkWell(
-                              customBorder: const CircleBorder(),
-                              onTap: () => Navigator.pop(sheetContext),
-                              child: const SizedBox(
-                                width: 32,
-                                height: 32,
-                                child: Icon(Icons.close, size: 18, color: _onSurfaceVariant),
-                              ),
-                            ),
-                          ),
-                        ],
+                      BottomSheetHeader(
+                        title: 'Choose Active Courier',
+                        subtitle: 'Select rider to reconcile shift cash-out',
+                        onClose: () => Navigator.pop(sheetContext),
                       ),
                       const SizedBox(height: 16),
                       Flexible(
@@ -391,10 +331,10 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                                     child: Container(
                                       padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(
-                                        color: isSelected ? _greenLight.withValues(alpha: 0.4) : _surfaceContainerLow,
+                                        color: isSelected ? AppColors.emerald50.withValues(alpha: 0.4) : AppColors.surfaceContainerLow,
                                         borderRadius: BorderRadius.circular(16),
                                         border: Border.all(
-                                          color: isSelected ? _emeraldLight : _fieldBorder.withValues(alpha: 0.8),
+                                          color: isSelected ? AppColors.emerald500 : AppColors.slate200.withValues(alpha: 0.8),
                                           width: isSelected ? 2 : 1,
                                         ),
                                       ),
@@ -404,13 +344,13 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                                             width: 40,
                                             height: 40,
                                             decoration: BoxDecoration(
-                                              color: isSelected ? _emerald100 : _slate100,
+                                              color: isSelected ? AppColors.emerald100 : AppColors.slate100,
                                               shape: BoxShape.circle,
                                             ),
                                             child: Icon(
                                               Icons.sports_motorsports,
                                               size: 20,
-                                              color: isSelected ? _emerald700 : _slate600,
+                                              color: isSelected ? AppColors.emerald700 : AppColors.slate600,
                                             ),
                                           ),
                                           const SizedBox(width: 12),
@@ -422,18 +362,18 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                                                   r.name,
                                                   maxLines: 1,
                                                   overflow: TextOverflow.ellipsis,
-                                                  style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700, color: _onSurface),
+                                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textLight),
                                                 ),
                                                 Text(
                                                   zone,
                                                   maxLines: 1,
                                                   overflow: TextOverflow.ellipsis,
-                                                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _onSurfaceVariant),
+                                                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                                                 ),
                                               ],
                                             ),
                                           ),
-                                          if (isSelected) const Icon(Icons.check_circle, size: 22, color: _emerald),
+                                          if (isSelected) const Icon(Icons.check_circle, size: 22, color: AppColors.emerald600),
                                         ],
                                       ),
                                     ),
@@ -449,7 +389,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                         width: double.infinity,
                         height: 48,
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: [_emerald, _emeraldLight]),
+                          gradient: const LinearGradient(colors: [AppColors.emerald600, AppColors.emerald500]),
                           borderRadius: BorderRadius.circular(100),
                           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 6, offset: const Offset(0, 4))],
                         ),
@@ -467,15 +407,15 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                                 });
                               }
                             },
-                            child: Center(
+                            child: const Center(
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.check, size: 20, color: Colors.white),
-                                  const SizedBox(width: 8),
+                                  Icon(Icons.check, size: 20, color: Colors.white),
+                                  SizedBox(width: 8),
                                   Text(
                                     'Confirm Courier Selection',
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
                                   ),
                                 ],
                               ),
@@ -512,11 +452,11 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                     rider.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700, color: _onSurface),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textLight),
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Icon(Icons.expand_more, size: 20, color: _onSurfaceVariant),
+                const Icon(Icons.expand_more, size: 20, color: AppColors.textSecondary),
               ],
             ),
           ),
@@ -535,9 +475,9 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'ACTIVE DELIVERY COURIER',
-            style: GoogleFonts.plusJakartaSans(fontSize: 10, height: 1.2, fontWeight: FontWeight.w800, letterSpacing: 0.5, color: _onSurfaceVariant),
+            style: TextStyle(fontSize: 10, height: 1.2, fontWeight: FontWeight.w800, letterSpacing: 0.5, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 6),
           _buildRiderDropdown(riders, rider),
@@ -545,19 +485,19 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: _emeraldLight.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(100)),
+            decoration: BoxDecoration(color: AppColors.emerald500.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(100)),
             child: Row(
               children: [
-                const Icon(Icons.location_on, size: 20, color: _emerald),
+                const Icon(Icons.location_on, size: 20, color: AppColors.emerald600),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text.rich(
                     TextSpan(
                       children: [
-                        TextSpan(text: 'Assigned Zone: ', style: _labelMd),
+                        const TextSpan(text: 'Assigned Zone: ', style: _labelMd),
                         TextSpan(
                           text: hasArea ? rider.assignedArea : 'No specific area assigned',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: _onSurface),
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textLight),
                         ),
                       ],
                     ),
@@ -573,7 +513,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
     );
   }
 
-  Widget _buildMetricTile(IconData icon, String value, String label, {Color color = _emerald}) {
+  Widget _buildMetricTile(IconData icon, String value, String label, {Color color = AppColors.emerald600}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -584,7 +524,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
           Container(
             width: 36,
             height: 36,
-            decoration: BoxDecoration(color: _emeraldLight.withValues(alpha: 0.12), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: AppColors.emerald500.withValues(alpha: 0.12), shape: BoxShape.circle),
             child: Icon(icon, size: 20, color: color),
           ),
           const SizedBox(height: 8),
@@ -592,9 +532,9 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(fontSize: 17, height: 24 / 17, fontWeight: FontWeight.w700, letterSpacing: -0.17, color: _onSurface),
+            style: const TextStyle(fontSize: 17, height: 24 / 17, fontWeight: FontWeight.w700, letterSpacing: -0.17, color: AppColors.textLight),
           ),
-          Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 11, height: 16 / 11, color: _onSurfaceVariant)),
+          Text(label, style: const TextStyle(fontSize: 11, height: 16 / 11, color: AppColors.textSecondary)),
         ],
       ),
     );
@@ -608,13 +548,13 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('CASH COLLECTED (COD)', style: GoogleFonts.plusJakartaSans(fontSize: 11, height: 14 / 11, fontWeight: FontWeight.w700, letterSpacing: 0.55, color: _onSurfaceVariant)),
+          const Text('CASH COLLECTED (COD)', style: TextStyle(fontSize: 11, height: 14 / 11, fontWeight: FontWeight.w700, letterSpacing: 0.55, color: AppColors.textSecondary)),
           const SizedBox(height: 8),
           Text(
             '₱${cashCollected.toStringAsFixed(2)}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: _mono(30, weight: FontWeight.w800, color: _emerald, letterSpacing: -0.9),
+            style: _mono(30, weight: FontWeight.w800, color: AppColors.emerald600, letterSpacing: -0.9),
           ),
         ],
       ),
@@ -623,7 +563,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
 
   Widget _buildVarianceBanner(double variance) {
     final balanced = variance.abs() < 0.01;
-    final color = balanced ? _secondary : _amber;
+    final color = balanced ? AppColors.secondary : AppColors.amber700;
 
     return Container(
       width: double.infinity,
@@ -643,7 +583,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                     balanced ? 'Exact match: Balanced' : (variance > 0 ? 'Over' : 'Short'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 11, height: 14 / 11, fontWeight: FontWeight.w700, letterSpacing: 0.22, color: color),
+                    style: TextStyle(fontSize: 11, height: 14 / 11, fontWeight: FontWeight.w700, letterSpacing: 0.22, color: color),
                   ),
                 ),
               ],
@@ -669,15 +609,15 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
               Container(
                 width: 32,
                 height: 32,
-                decoration: BoxDecoration(color: _emeraldLight.withValues(alpha: 0.12), shape: BoxShape.circle),
-                child: const Icon(Icons.point_of_sale, size: 18, color: _emerald),
+                decoration: const BoxDecoration(color: Color(0x1F10B981), shape: BoxShape.circle),
+                child: const Icon(Icons.point_of_sale, size: 18, color: AppColors.emerald600),
               ),
               const SizedBox(width: 8),
-              Text('Physical Turnover', style: GoogleFonts.plusJakartaSans(fontSize: 17, height: 24 / 17, fontWeight: FontWeight.w700, letterSpacing: -0.17, color: _onSurface)),
+              const Text('Physical Turnover', style: TextStyle(fontSize: 17, height: 24 / 17, fontWeight: FontWeight.w700, letterSpacing: -0.17, color: AppColors.textLight)),
             ],
           ),
           const SizedBox(height: 16),
-          Text('Physical Cash Handed to Station (₱)', style: _labelMd),
+          const Text('Physical Cash Handed to Station (₱)', style: _labelMd),
           const SizedBox(height: 4),
           AnimatedBuilder(
             animation: _cashFocus,
@@ -686,13 +626,13 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                 decoration: BoxDecoration(
-                  color: focused ? Colors.white : _surfaceCanvas,
+                  color: focused ? Colors.white : AppColors.surfaceCanvas,
                   borderRadius: BorderRadius.circular(100),
-                  border: Border.all(color: focused ? _emerald : Colors.transparent, width: 2),
+                  border: Border.all(color: focused ? AppColors.emerald600 : Colors.transparent, width: 2),
                 ),
                 child: Row(
                   children: [
-                    Text('₱', style: _mono(17, color: _emerald)),
+                    Text('₱', style: _mono(17, color: AppColors.emerald600)),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextFormField(
@@ -705,7 +645,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                           contentPadding: EdgeInsets.zero,
                           border: InputBorder.none,
                           hintText: cashCollected.toStringAsFixed(2),
-                          hintStyle: _mono(17, color: _faint),
+                          hintStyle: _mono(17, color: AppColors.slate400),
                         ),
                       ),
                     ),
@@ -719,18 +659,18 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
             _buildVarianceBanner(variance),
           ],
           const SizedBox(height: 16),
-          Text('Verifying Station Staff Name', style: _labelMd),
+          const Text('Verifying Station Staff Name', style: _labelMd),
           const SizedBox(height: 4),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(color: _surfaceCanvas, borderRadius: BorderRadius.circular(100)),
+            decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(100)),
             child: Row(
               children: [
                 Container(
                   width: 32,
                   height: 32,
-                  decoration: BoxDecoration(color: _emeraldLight.withValues(alpha: 0.12), shape: BoxShape.circle),
-                  child: const Icon(Icons.badge, size: 18, color: _emerald),
+                  decoration: const BoxDecoration(color: Color(0x1F10B981), shape: BoxShape.circle),
+                  child: const Icon(Icons.badge, size: 18, color: AppColors.emerald600),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -739,22 +679,22 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                     children: [
                       TextFormField(
                         controller: _verifiedByCtrl,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 13, height: 18 / 13, fontWeight: FontWeight.w700, color: _onSurface),
+                        style: const TextStyle(fontSize: 13, height: 18 / 13, fontWeight: FontWeight.w700, color: AppColors.textLight),
                         decoration: const InputDecoration(
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
                           border: InputBorder.none,
                         ),
                       ),
-                      Text('Station Staff', style: GoogleFonts.plusJakartaSans(fontSize: 11, height: 16 / 11, color: _onSurfaceVariant)),
+                      const Text('Station Staff', style: TextStyle(fontSize: 11, height: 16 / 11, color: AppColors.textSecondary)),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: _emeraldLight.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(100)),
-                  child: Text('Authorized', style: GoogleFonts.plusJakartaSans(fontSize: 10, height: 1.2, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: _emerald)),
+                  decoration: const BoxDecoration(color: Color(0x1F10B981), borderRadius: BorderRadius.all(Radius.circular(100))),
+                  child: const Text('Authorized', style: TextStyle(fontSize: 10, height: 1.2, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: AppColors.emerald600)),
                 ),
               ],
             ),
@@ -766,7 +706,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
 
   Widget _buildCertifyCard(double amount, int emptiesReturned) {
     return Material(
-      color: _emeraldLight.withValues(alpha: 0.08),
+      color: AppColors.emerald500.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -778,7 +718,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
             children: [
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Icon(_certified ? Icons.check_box : Icons.check_box_outline_blank, size: 24, color: _emerald),
+                child: Icon(_certified ? Icons.check_box : Icons.check_box_outline_blank, size: 24, color: AppColors.emerald600),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -786,13 +726,13 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                   TextSpan(
                     children: [
                       const TextSpan(text: 'I certify that physical cash of '),
-                      TextSpan(text: '₱${amount.toStringAsFixed(2)}', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: _emerald)),
+                      TextSpan(text: '₱${amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.emerald600)),
                       const TextSpan(text: ' and '),
-                      TextSpan(text: '$emptiesReturned empty containers', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: _emerald)),
+                      TextSpan(text: '$emptiesReturned empty containers', style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.emerald600)),
                       const TextSpan(text: ' have been physically handed over and reconciled without discrepancies.'),
                     ],
                   ),
-                  style: GoogleFonts.plusJakartaSans(fontSize: 13, height: 18 / 13, fontWeight: FontWeight.w500, color: _onSurface),
+                  style: const TextStyle(fontSize: 13, height: 18 / 13, fontWeight: FontWeight.w500, color: AppColors.textLight),
                 ),
               ),
             ],
@@ -808,9 +748,9 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
       child: Container(
         height: 56,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [_emerald, _emeraldLight]),
+          gradient: const LinearGradient(colors: [AppColors.emerald600, AppColors.emerald500]),
           borderRadius: BorderRadius.circular(100),
-          boxShadow: [BoxShadow(color: _emeraldLight.withValues(alpha: 0.35), blurRadius: 14, offset: const Offset(0, 4))],
+          boxShadow: [BoxShadow(color: AppColors.emerald500.withValues(alpha: 0.35), blurRadius: 14, offset: const Offset(0, 4))],
         ),
         child: Material(
           color: Colors.transparent,
@@ -827,7 +767,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                   const SizedBox(width: 8),
                   Text(
                     _isSubmitting ? 'Reconciling & Closing...' : 'Verify & Close Cash-Out',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
                   ),
                 ],
               ),
@@ -845,16 +785,16 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isBalanced ? _greenLight : const Color(0xFFFEF2F2),
+        color: isBalanced ? AppColors.emerald50 : const Color(0xFFFEF2F2),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isBalanced ? _greenBorder : const Color(0xFFFECACA)),
+        border: Border.all(color: isBalanced ? AppColors.emerald200 : const Color(0xFFFECACA)),
       ),
       child: Column(
         children: [
           Icon(
             isBalanced ? Icons.check_circle : Icons.warning_amber,
             size: 40,
-            color: isBalanced ? _greenDark : const Color(0xFFB91C1C),
+            color: isBalanced ? AppColors.emerald700 : const Color(0xFFB91C1C),
           ),
           const SizedBox(height: 12),
           Text(
@@ -862,7 +802,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                 ? 'Cash-out recorded — balanced!'
                 : 'Cash-out recorded with a discrepancy of ₱${_lastDiscrepancy!.toStringAsFixed(2)}',
             textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: _onSurface),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textLight),
           ),
           const SizedBox(height: 16),
           SizedBox(
@@ -871,11 +811,11 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
             child: ElevatedButton(
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _emerald,
+                backgroundColor: AppColors.emerald600,
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
               ),
-              child: Text('Done', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold)),
+              child: const Text('Done', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -890,8 +830,6 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
         .where((o) => o.assignedRiderId == rider.id && o.status == OrderStatus.delivered && o.revenueDate.isAfter(since))
         .toList();
 
-    // Same computation closeRiderCashOut uses server-side, so this preview
-    // can never drift from what actually gets recorded on submit.
     final summary = summarizeRiderCashOut(orders);
     final stopsCompleted = summary.stopsCompleted;
     final gallonsDelivered = summary.gallonsDelivered;
@@ -904,11 +842,11 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
           child: Text(
             'DELIVERIES SINCE LAST CASH-OUT',
-            style: GoogleFonts.plusJakartaSans(fontSize: 13, height: 16 / 13, fontWeight: FontWeight.w700, letterSpacing: 0.65, color: _onSurfaceVariant),
+            style: TextStyle(fontSize: 13, height: 16 / 13, fontWeight: FontWeight.w700, letterSpacing: 0.65, color: AppColors.textSecondary),
           ),
         ),
         const SizedBox(height: 8),
@@ -941,11 +879,11 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
           style: TextButton.styleFrom(
             minimumSize: const Size(double.infinity, 44),
             padding: EdgeInsets.zero,
-            foregroundColor: _onSurfaceVariant,
-            overlayColor: _fieldBorder.withValues(alpha: 0.4),
+            foregroundColor: AppColors.textSecondary,
+            overlayColor: AppColors.slate200.withValues(alpha: 0.4),
             shape: const StadiumBorder(),
           ),
-          child: Text('Cancel', style: GoogleFonts.plusJakartaSans(fontSize: 13, height: 16 / 13, fontWeight: FontWeight.w700, letterSpacing: 0.13)),
+          child: const Text('Cancel', style: TextStyle(fontSize: 13, height: 16 / 13, fontWeight: FontWeight.w700, letterSpacing: 0.13)),
         ),
       ],
     );
@@ -956,70 +894,65 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
     final media = MediaQuery.of(context);
     final topInset = media.padding.top;
 
-    return Theme(
-      data: Theme.of(context).copyWith(
-        textTheme: GoogleFonts.plusJakartaSansTextTheme(Theme.of(context).textTheme),
-      ),
-      child: Scaffold(
-        backgroundColor: _background,
-        body: Stack(
-          children: [
-            Positioned.fill(
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: _maxWidth),
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(16, topInset + _headerHeight + 16, 16, 64 + media.padding.bottom),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildHero(),
-                        const SizedBox(height: _gap),
-                        StreamBuilder<List<UserModel>>(
-                          stream: _firestoreService.getRidersStream(),
-                          builder: (context, ridersSnapshot) {
-                            final riders = ridersSnapshot.data ?? const <UserModel>[];
-                            if (riders.isEmpty) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 24),
-                                child: Text('No rider accounts found.', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: _onSurfaceVariant)),
-                              );
-                            }
-                            _selectedRiderId ??= riders.first.id;
-                            final rider = riders.firstWhere((r) => r.id == _selectedRiderId, orElse: () => riders.first);
-
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildCourierCard(riders, rider),
-                                const SizedBox(height: _gap),
-                                StreamBuilder<RiderCashOutModel?>(
-                                  stream: _firestoreService.getLatestRiderCashOutStream(rider.id),
-                                  builder: (context, lastCashOutSnapshot) {
-                                    final since = lastCashOutSnapshot.data?.closedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-
-                                    return StreamBuilder<List<OrderModel>>(
-                                      stream: _firestoreService.getAllOrdersStream(),
-                                      builder: (context, ordersSnapshot) {
-                                        return _buildRiderSection(rider, since, ordersSnapshot.data ?? const <OrderModel>[]);
-                                      },
-                                    );
-                                  },
-                                ),
-                              ],
+    return Scaffold(
+      backgroundColor: AppColors.surfaceBackground,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: _maxWidth),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(16, topInset + _headerHeight + 16, 16, 64 + media.padding.bottom),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHero(),
+                      const SizedBox(height: _gap),
+                      StreamBuilder<List<UserModel>>(
+                        stream: _firestoreService.getRidersStream(),
+                        builder: (context, ridersSnapshot) {
+                          final riders = ridersSnapshot.data ?? const <UserModel>[];
+                          if (riders.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 24),
+                              child: Text('No rider accounts found.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                             );
-                          },
-                        ),
-                      ],
-                    ),
+                          }
+                          _selectedRiderId ??= riders.first.id;
+                          final rider = riders.firstWhere((r) => r.id == _selectedRiderId, orElse: () => riders.first);
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildCourierCard(riders, rider),
+                              const SizedBox(height: _gap),
+                              StreamBuilder<RiderCashOutModel?>(
+                                stream: _firestoreService.getLatestRiderCashOutStream(rider.id),
+                                builder: (context, lastCashOutSnapshot) {
+                                  final since = lastCashOutSnapshot.data?.closedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+                                  return StreamBuilder<List<OrderModel>>(
+                                    stream: _firestoreService.getAllOrdersStream(),
+                                    builder: (context, ordersSnapshot) {
+                                      return _buildRiderSection(rider, since, ordersSnapshot.data ?? const <OrderModel>[]);
+                                    },
+                                  );
+                                },
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-            Positioned(top: 0, left: 0, right: 0, child: _buildHeader(topInset)),
-          ],
-        ),
+          ),
+          Positioned(top: 0, left: 0, right: 0, child: _buildHeader(topInset)),
+        ],
       ),
     );
   }

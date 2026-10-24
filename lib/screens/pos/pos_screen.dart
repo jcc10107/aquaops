@@ -1,12 +1,14 @@
 import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/layout_constants.dart';
 import '../../core/constants/zones.dart';
+import '../../core/utils/app_toast.dart';
 import '../../models/order_model.dart';
 import '../../models/shift_model.dart';
+import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/location_service.dart';
 
@@ -23,9 +25,6 @@ class _PosScreenState extends State<PosScreen> {
   static const double _newBottlePrice = 250.0;
   static const double _bottle500Price = 15.0;
 
-  // Full real San Pablo barangay list (shared with the dispatch queue and
-  // customer checkout) — replaces the old 2-mock-entry dropdown. No
-  // preselection: a forgotten default must never silently misroute an order.
   final List<ZoneOption> _zoneOptions = buildZoneOptions();
 
   int _round = 1;
@@ -33,20 +32,16 @@ class _PosScreenState extends State<PosScreen> {
   int _newB = 0;
   int _bottle500 = 0;
   String _pay = 'cash';
-  bool _showToast = false;
   bool _isCheckingOut = false;
-  String _lastOrderNumber = '';
   bool _deliveryMode = false;
   String _deliveryPay = 'cash';
-  // 'counter' = already settled at the register before dispatch; 'rider' =
-  // collected COD at the doorstep (today's only prior behavior).
   String _deliveryPaymentTiming = 'rider';
   String? _zoneValue;
   String? _deliveryNameError;
   String? _deliveryPhoneError;
   String? _deliveryAddressError;
   String? _deliveryZoneError;
-  Timer? _toastTimer;
+
   final TextEditingController _tenderCtrl = TextEditingController(text: '35');
   final TextEditingController _gcashRefCtrl = TextEditingController();
   final TextEditingController _phoneCtrl = TextEditingController();
@@ -65,19 +60,10 @@ class _PosScreenState extends State<PosScreen> {
     super.initState();
     _deliveryFeeConfigSub = _firestoreService.getDeliveryFeeConfigStream().listen((config) {
       _deliveryFeeConfig = config;
-      // No distance resolved yet for a config that just loaded/changed — the
-      // base-only estimate below updates live; the real distance-aware
-      // amount is (re)computed right before submission, which is what's
-      // actually charged.
       if (mounted) setState(() => _deliveryFee = config.baseFee);
     });
   }
 
-  // Recomputes _deliveryFee from the real road distance to the typed
-  // delivery address, right before submission (so the amount charged is
-  // always distance-accurate, even though the live summary preview only
-  // shows the base fee until then). Never blocks the sale — on any
-  // geocoding/routing failure, falls back to the base fee alone.
   Future<void> _resolveDeliveryFeeForSubmit(String address, String zone) async {
     final config = _deliveryFeeConfig;
     if (config == null) return;
@@ -145,7 +131,6 @@ class _PosScreenState extends State<PosScreen> {
     _nameCtrl.dispose();
     _addressCtrl.dispose();
     _zoneFreeTextCtrl.dispose();
-    _toastTimer?.cancel();
     super.dispose();
   }
 
@@ -177,8 +162,6 @@ class _PosScreenState extends State<PosScreen> {
           name: 'New Bottle + Water (5-Gal)',
           quantity: _newB,
           unitPrice: _newBottlePrice,
-          // Matches the walk-in sale's existing treatment of New Jug: its
-          // water draws from the same round-gallon stock.
           productKey: 'inv_water_round',
         ),
       if (_bottle500 > 0)
@@ -187,38 +170,23 @@ class _PosScreenState extends State<PosScreen> {
           quantity: _bottle500,
           unitPrice: _bottle500Price,
           requiresPackaging: false,
-          // No inventory doc exists for 500ml stock yet, so no productKey —
-          // intentionally not deducted (see decision log in the delivery
-          // workflow plan: no deduction unless inventory docs exist).
         ),
     ];
   }
 
   Future<void> _triggerCheckout() async {
     if (_totalItems == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add at least one item before checkout.')),
-      );
+      AppToast.showInfo(context, 'Add at least one item before checkout.');
       return;
     }
     if (_pay == 'cash') {
       final double tendered = double.tryParse(_tenderCtrl.text) ?? 0.0;
       if (tendered < _tot) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tendered cash is less than the total.'),
-            backgroundColor: AppColors.coralAlert,
-          ),
-        );
+        AppToast.showError(context, 'Tendered cash is less than the total.');
         return;
       }
     } else if (_gcashRefCtrl.text.trim().length != 13) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter the 13-digit GCash reference number.'),
-          backgroundColor: AppColors.coralAlert,
-        ),
-      );
+      AppToast.showError(context, 'Enter the 13-digit GCash reference number.');
       return;
     }
 
@@ -266,37 +234,28 @@ class _PosScreenState extends State<PosScreen> {
       if (!mounted) return;
       setState(() {
         _isCheckingOut = false;
-        _lastOrderNumber = orderNumber;
         _round = 0;
         _slim = 0;
         _newB = 0;
         _bottle500 = 0;
         _tenderCtrl.text = '0';
         _gcashRefCtrl.clear();
-        _showToast = true;
       });
-      _toastTimer?.cancel();
-      _toastTimer = Timer(const Duration(milliseconds: 2600), () {
-        if (mounted) setState(() => _showToast = false);
-      });
+      AppToast.showSuccess(
+        context,
+        'Database record finalized & inventory updated ($orderNumber)',
+        title: 'Sale Successfully Recorded',
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isCheckingOut = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Checkout failed: $e'),
-          backgroundColor: AppColors.coralAlert,
-        ),
-      );
+      AppToast.showError(context, 'Checkout failed: $e');
     }
   }
 
   Future<void> _submitDelivery() async {
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     if (_totalItems == 0) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Add at least one item before dispatching.')),
-      );
+      AppToast.showInfo(context, 'Add at least one item before dispatching.');
       return;
     }
     final String name = _nameCtrl.text.trim();
@@ -315,8 +274,6 @@ class _PosScreenState extends State<PosScreen> {
       return;
     }
 
-    // Resolve the real distance-based fee now, before anything (the cash-
-    // tendered check below, the order total) depends on _tot being accurate.
     await _resolveDeliveryFeeForSubmit(address, zoneLabel(_zoneValue!));
     if (!mounted) return;
 
@@ -326,33 +283,19 @@ class _PosScreenState extends State<PosScreen> {
       if (_pay == 'cash') {
         final double tendered = double.tryParse(_tenderCtrl.text) ?? 0.0;
         if (tendered < _tot) {
-          messenger.showSnackBar(
-            const SnackBar(
-              content: Text('Tendered cash is less than the total.'),
-              backgroundColor: AppColors.coralAlert,
-            ),
-          );
+          AppToast.showError(context, 'Tendered cash is less than the total.');
           return;
         }
       } else if (_gcashRefCtrl.text.trim().length != 13) {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Enter the 13-digit GCash reference number.'),
-            backgroundColor: AppColors.coralAlert,
-          ),
-        );
+        AppToast.showError(context, 'Enter the 13-digit GCash reference number.');
         return;
       } else {
         gcashRef = _gcashRefCtrl.text.trim();
       }
 
-      // Open shift is recommended for a counter-settled sale, but never
-      // blocks the sale — just a heads-up for reconciliation later.
       final shift = await _firestoreService.getOpenShiftStream().first;
       if (shift == null && mounted) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('No shift is open — this sale will still go through.')),
-        );
+        AppToast.showInfo(context, 'No shift is open — this sale will still go through.');
       }
     }
 
@@ -373,7 +316,6 @@ class _PosScreenState extends State<PosScreen> {
       if (!mounted) return;
       setState(() {
         _isCheckingOut = false;
-        _lastOrderNumber = orderNumber;
         _round = 0;
         _slim = 0;
         _newB = 0;
@@ -384,21 +326,16 @@ class _PosScreenState extends State<PosScreen> {
         _zoneValue = null;
         _deliveryPaymentTiming = 'rider';
         _gcashRefCtrl.clear();
-        _showToast = true;
       });
-      _toastTimer?.cancel();
-      _toastTimer = Timer(const Duration(milliseconds: 2600), () {
-        if (mounted) setState(() => _showToast = false);
-      });
+      AppToast.showSuccess(
+        context,
+        'Queued for rider assignment in Dispatch ($orderNumber)',
+        title: 'Delivery Order Dispatched',
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isCheckingOut = false);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Failed to dispatch delivery: $e'),
-          backgroundColor: AppColors.coralAlert,
-        ),
-      );
+      AppToast.showError(context, 'Failed to dispatch delivery: $e');
     }
   }
 
@@ -424,188 +361,197 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   Future<String> _currentUserName() async {
-    final String? uid = FirebaseAuth.instance.currentUser?.uid;
+    final String? uid = AuthService().currentUserId;
     if (uid == null) return 'Staff';
     final profile = await _firestoreService.getUser(uid);
     return profile?.name ?? 'Staff';
   }
 
-  void _showOpenShiftDialog() {
+  Future<void> _showOpenShiftDialog() async {
     final TextEditingController cashCtrl = TextEditingController(text: '0');
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Open Shift'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Enter the starting cash float in the till.',
-              style: TextStyle(fontSize: 13, color: AppColors.textVariant),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: cashCtrl,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                prefixText: '₱ ',
-                filled: true,
-                fillColor: AppColors.surfaceCanvas,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+    double? confirmedAmount;
+    try {
+      confirmedAmount = await showDialog<double>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Open Shift'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Enter the starting cash float in the till.',
+                style: TextStyle(fontSize: 13, color: AppColors.textVariant),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: cashCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                ],
+                decoration: InputDecoration(
+                  prefixText: '₱ ',
+                  filled: true,
+                  fillColor: AppColors.surfaceCanvas,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primarySky,
+              ),
+              onPressed: () {
+                final double? openingCash = double.tryParse(cashCtrl.text.trim());
+                if (openingCash == null || openingCash < 0) {
+                  AppToast.showError(dialogContext, 'Enter a valid non-negative cash amount.');
+                  return;
+                }
+                Navigator.pop(dialogContext, openingCash);
+              },
+              child: const Text(
+                'Open Shift',
+                style: TextStyle(color: Colors.white),
               ),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              cashCtrl.dispose();
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0284C7),
-            ),
-            onPressed: () async {
-              final double openingCash = double.tryParse(cashCtrl.text) ?? 0;
-              final ScaffoldMessengerState messenger =
-              ScaffoldMessenger.of(context);
-              Navigator.pop(dialogContext);
-              try {
-                final String name = await _currentUserName();
-                await _firestoreService.openShift(
-                  openedByName: name,
-                  openingCash: openingCash,
-                );
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Shift opened.'),
-                    backgroundColor: Color(0xFF0284C7),
-                  ),
-                );
-              } catch (e) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('Failed to open shift: $e'),
-                    backgroundColor: AppColors.coralAlert,
-                  ),
-                );
-              }
-            },
-            child: const Text(
-              'Open Shift',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
+      );
+    } finally {
+      cashCtrl.dispose();
+    }
+
+    if (confirmedAmount == null || !mounted) return;
+
+    try {
+      final String name = await _currentUserName();
+      await _firestoreService.openShift(
+        openedByName: name,
+        openingCash: confirmedAmount,
+      );
+      if (mounted) {
+        AppToast.showSuccess(context, 'Shift opened.');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.showError(context, 'Failed to open shift: $e');
+      }
+    }
   }
 
-  void _showCloseShiftDialog(ShiftModel shift) {
+  Future<void> _showCloseShiftDialog(ShiftModel shift) async {
     final TextEditingController cashCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Close Shift'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Opened by ${shift.openedByName} with ₱${shift.openingCash.toStringAsFixed(2)} starting float.',
-              style: const TextStyle(fontSize: 13, color: AppColors.textVariant),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Count the cash in the till now:',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textMain,
+    double? confirmedAmount;
+    try {
+      confirmedAmount = await showDialog<double>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Close Shift'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Opened by ${shift.openedByName} with ₱${shift.openingCash.toStringAsFixed(2)} starting float.',
+                style: const TextStyle(fontSize: 13, color: AppColors.textVariant),
               ),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: cashCtrl,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              decoration: InputDecoration(
-                prefixText: '₱ ',
-                filled: true,
-                fillColor: AppColors.surfaceCanvas,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+              const SizedBox(height: 16),
+              const Text(
+                'Count the cash in the till now:',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textMain,
                 ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: cashCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                autofocus: true,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                ],
+                decoration: InputDecoration(
+                  prefixText: '₱ ',
+                  filled: true,
+                  fillColor: AppColors.surfaceCanvas,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primarySky,
+              ),
+              onPressed: () {
+                final double? closingCash = double.tryParse(cashCtrl.text.trim());
+                if (closingCash == null || closingCash < 0) {
+                  AppToast.showError(dialogContext, 'Enter a valid non-negative cash amount.');
+                  return;
+                }
+                Navigator.pop(dialogContext, closingCash);
+              },
+              child: const Text(
+                'Close Shift',
+                style: TextStyle(color: Colors.white),
               ),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              cashCtrl.dispose();
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0284C7),
-            ),
-            onPressed: () async {
-              final double? closingCash = double.tryParse(cashCtrl.text);
-              if (closingCash == null) return;
-              final ScaffoldMessengerState messenger =
-              ScaffoldMessenger.of(context);
-              Navigator.pop(dialogContext);
-              try {
-                final String name = await _currentUserName();
-                final double discrepancy = await _firestoreService.closeShift(
-                  shiftId: shift.id,
-                  openedAt: shift.openedAt,
-                  openingCash: shift.openingCash,
-                  closingCash: closingCash,
-                  closedByName: name,
-                );
-                final bool isBalanced = discrepancy.abs() < 0.01;
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      isBalanced
-                          ? 'Shift closed. Balanced!'
-                          : 'Shift closed. Discrepancy: ₱${discrepancy.toStringAsFixed(2)}',
-                    ),
-                    backgroundColor:
-                    isBalanced ? const Color(0xFF0284C7) : AppColors.coralAlert,
-                  ),
-                );
-              } catch (e) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('Failed to close shift: $e'),
-                    backgroundColor: AppColors.coralAlert,
-                  ),
-                );
-              }
-            },
-            child: const Text(
-              'Close Shift',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
+      );
+    } finally {
+      cashCtrl.dispose();
+    }
+
+    if (confirmedAmount == null || !mounted) return;
+
+    try {
+      final String name = await _currentUserName();
+      final double discrepancy = await _firestoreService.closeShift(
+        shiftId: shift.id,
+        openedAt: shift.openedAt,
+        openingCash: shift.openingCash,
+        closingCash: confirmedAmount,
+        closedByName: name,
+      );
+      final bool isBalanced = discrepancy.abs() < 0.01;
+      if (mounted) {
+        if (isBalanced) {
+          AppToast.showSuccess(context, 'Shift closed. Balanced!');
+        } else {
+          AppToast.showError(
+            context,
+            'Shift closed. Discrepancy: ₱${discrepancy.toStringAsFixed(2)}',
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.showError(context, 'Failed to close shift: $e');
+      }
+    }
   }
 
   Widget _buildShiftCard() {
@@ -621,14 +567,14 @@ class _PosScreenState extends State<PosScreen> {
                 height: 44,
                 decoration: BoxDecoration(
                   color: shift != null
-                      ? const Color(0xFFE0F2FE)
+                      ? AppColors.surfaceFrost
                       : AppColors.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
                   shift != null ? Icons.point_of_sale : Icons.lock_clock,
                   color: shift != null
-                      ? const Color(0xFF0284C7)
+                      ? AppColors.primarySky
                       : AppColors.textVariant,
                   size: 24,
                 ),
@@ -669,7 +615,7 @@ class _PosScreenState extends State<PosScreen> {
                   side: BorderSide(
                     color: shift != null
                         ? AppColors.coralAlert
-                        : const Color(0xFF0284C7),
+                        : AppColors.primarySky,
                   ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(100),
@@ -682,7 +628,7 @@ class _PosScreenState extends State<PosScreen> {
                     fontWeight: FontWeight.bold,
                     color: shift != null
                         ? AppColors.coralAlert
-                        : const Color(0xFF0284C7),
+                        : AppColors.primarySky,
                   ),
                 ),
               ),
@@ -719,7 +665,7 @@ class _PosScreenState extends State<PosScreen> {
               Icon(
                 icon,
                 size: 18,
-                color: selected ? const Color(0xFF0284C7) : AppColors.textVariant,
+                color: selected ? AppColors.primarySky : AppColors.textVariant,
               ),
               const SizedBox(width: 6),
               Flexible(
@@ -731,7 +677,7 @@ class _PosScreenState extends State<PosScreen> {
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: selected
-                        ? const Color(0xFF0284C7)
+                        ? AppColors.primarySky
                         : AppColors.textVariant,
                   ),
                 ),
@@ -804,7 +750,7 @@ class _PosScreenState extends State<PosScreen> {
             children: [
               Padding(
                 padding: EdgeInsets.only(top: maxLines > 1 ? 10 : 0),
-                child: Icon(icon, color: hasError ? AppColors.coralAlert : const Color(0xFF0284C7), size: 20),
+                child: Icon(icon, color: hasError ? AppColors.coralAlert : AppColors.primarySky, size: 20),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -860,7 +806,7 @@ class _PosScreenState extends State<PosScreen> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: selected
-                  ? const Color(0xFF0284C7).withValues(alpha: 0.3)
+                  ? AppColors.primarySky.withValues(alpha: 0.3)
                   : AppColors.outlineVariant.withValues(alpha: 0.2),
             ),
           ),
@@ -870,7 +816,7 @@ class _PosScreenState extends State<PosScreen> {
               Icon(
                 icon,
                 size: 16,
-                color: selected ? const Color(0xFF0284C7) : AppColors.textVariant,
+                color: selected ? AppColors.primarySky : AppColors.textVariant,
               ),
               const SizedBox(width: 4),
               Text(
@@ -878,7 +824,7 @@ class _PosScreenState extends State<PosScreen> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: selected ? const Color(0xFF0284C7) : AppColors.textVariant,
+                  color: selected ? AppColors.primarySky : AppColors.textVariant,
                 ),
               ),
             ],
@@ -918,7 +864,7 @@ class _PosScreenState extends State<PosScreen> {
             ),
             child: const Row(
               children: [
-                Icon(Icons.local_shipping, color: Color(0xFF0284C7), size: 22),
+                Icon(Icons.local_shipping, color: AppColors.primarySky, size: 22),
                 SizedBox(width: 8),
                 Text(
                   'Delivery Dispatch Details',
@@ -968,7 +914,7 @@ class _PosScreenState extends State<PosScreen> {
               color: AppColors.surfaceContainerLow,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: const Color(0xFF0284C7).withValues(alpha: 0.25),
+                color: AppColors.primarySky.withValues(alpha: 0.25),
               ),
             ),
             child: Column(
@@ -976,7 +922,7 @@ class _PosScreenState extends State<PosScreen> {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.location_on, color: Color(0xFF0284C7), size: 20),
+                    Icon(Icons.location_on, color: AppColors.primarySky, size: 20),
                     SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -1001,83 +947,83 @@ class _PosScreenState extends State<PosScreen> {
                         color: AppColors.surfaceLowest,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: const Color(0xFF0284C7).withValues(alpha: 0.3),
+                          color: AppColors.primarySky.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Row(
                         children: [
                           const Icon(
                             Icons.holiday_village,
-                            color: Color(0xFF0284C7),
+                            color: AppColors.primarySky,
                             size: 18,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: restricted
                                 ? DropdownMenu<String>(
-                                    initialSelection: _zoneValue,
-                                    menuHeight: 420,
-                                    enableFilter: true,
-                                    requestFocusOnTap: true,
-                                    hintText: 'Search barangay / zone',
-                                    textStyle: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textMain,
-                                      fontFamily: 'Plus Jakarta Sans',
-                                    ),
-                                    inputDecorationTheme: InputDecorationTheme(
-                                      hintStyle: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: AppColors.outline,
-                                        fontFamily: 'Plus Jakarta Sans',
-                                      ),
-                                      filled: true,
-                                      fillColor: AppColors.surfaceLowest,
-                                      isDense: true,
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                                    ),
-                                    dropdownMenuEntries: _zoneOptions
-                                        .map((z) => DropdownMenuEntry<String>(value: z.value, label: z.label))
-                                        .toList(),
-                                    onSelected: (val) {
-                                      if (val != null) {
-                                        setState(() {
-                                          _zoneValue = val;
-                                          _deliveryZoneError = null;
-                                        });
-                                      }
-                                    },
-                                  )
+                              initialSelection: _zoneValue,
+                              menuHeight: 420,
+                              enableFilter: true,
+                              requestFocusOnTap: true,
+                              hintText: 'Search barangay / zone',
+                              textStyle: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textMain,
+                                fontFamily: 'Plus Jakarta Sans',
+                              ),
+                              inputDecorationTheme: InputDecorationTheme(
+                                hintStyle: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.outline,
+                                  fontFamily: 'Plus Jakarta Sans',
+                                ),
+                                filled: true,
+                                fillColor: AppColors.surfaceLowest,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                              ),
+                              dropdownMenuEntries: _zoneOptions
+                                  .map((z) => DropdownMenuEntry<String>(value: z.value, label: z.label))
+                                  .toList(),
+                              onSelected: (val) {
+                                if (val != null) {
+                                  setState(() {
+                                    _zoneValue = val;
+                                    _deliveryZoneError = null;
+                                  });
+                                }
+                              },
+                            )
                                 : TextField(
-                                    controller: _zoneFreeTextCtrl,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textMain,
-                                      fontFamily: 'Plus Jakarta Sans',
-                                    ),
-                                    decoration: const InputDecoration(
-                                      hintText: 'Enter city/barangay...',
-                                      hintStyle: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: AppColors.outline,
-                                        fontFamily: 'Plus Jakarta Sans',
-                                      ),
-                                      isDense: true,
-                                      contentPadding: EdgeInsets.symmetric(vertical: 10),
-                                      border: InputBorder.none,
-                                    ),
-                                    onChanged: (v) => setState(() {
-                                      _zoneValue = v.trim().isEmpty ? null : v.trim();
-                                      _deliveryZoneError = null;
-                                    }),
-                                  ),
+                              controller: _zoneFreeTextCtrl,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textMain,
+                                fontFamily: 'Plus Jakarta Sans',
+                              ),
+                              decoration: const InputDecoration(
+                                hintText: 'Enter city/barangay...',
+                                hintStyle: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.outline,
+                                  fontFamily: 'Plus Jakarta Sans',
+                                ),
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(vertical: 10),
+                                border: InputBorder.none,
+                              ),
+                              onChanged: (v) => setState(() {
+                                _zoneValue = v.trim().isEmpty ? null : v.trim();
+                                _deliveryZoneError = null;
+                              }),
+                            ),
                           ),
                         ],
                       ),
@@ -1117,7 +1063,7 @@ class _PosScreenState extends State<PosScreen> {
               color: AppColors.surfaceIce,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: const Color(0xFF0284C7).withValues(alpha: 0.2),
+                color: AppColors.primarySky.withValues(alpha: 0.2),
               ),
             ),
             child: Column(
@@ -1125,7 +1071,7 @@ class _PosScreenState extends State<PosScreen> {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.payments, color: Color(0xFF0284C7), size: 18),
+                    Icon(Icons.payments, color: AppColors.primarySky, size: 18),
                     SizedBox(width: 6),
                     Text(
                       'Delivery Payment Choice',
@@ -1217,11 +1163,11 @@ class _PosScreenState extends State<PosScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFF0284C7) : AppColors.surfaceContainerLow,
+            color: selected ? AppColors.primarySky : AppColors.surfaceContainerLow,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: selected
-                  ? const Color(0xFF0284C7)
+                  ? AppColors.primarySky
                   : AppColors.outlineVariant.withValues(alpha: 0.2),
             ),
           ),
@@ -1255,370 +1201,363 @@ class _PosScreenState extends State<PosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool toastIsDelivery = _lastOrderNumber.startsWith('ORD-');
-    return Stack(
-      children: [
-        Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 450),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 130),
-              child: Column(
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 130),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFE0F2FE),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.point_of_sale,
-                                color: Color(0xFF0284C7),
-                                size: 22,
-                              ),
-                            ),
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: const BoxDecoration(
+                          color: AppColors.surfaceFrost,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.point_of_sale,
+                            color: AppColors.primarySky,
+                            size: 22,
                           ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF0F9FF),
-                              borderRadius: BorderRadius.circular(100),
-                              border: Border.all(
-                                color: const Color(0xFFBAE6FD),
-                              ),
-                            ),
-                            child: const Text(
-                              'POINT OF SALE',
-                              style: TextStyle(
-                                fontFamily: 'Plus Jakarta Sans',
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF0284C7),
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Walk-in Register',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                          height: 1.2,
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceIce,
+                          borderRadius: BorderRadius.circular(100),
+                          border: Border.all(
+                            color: AppColors.sky200,
+                          ),
+                        ),
+                        child: const Text(
+                          'POINT OF SALE',
+                          style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primarySky,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  _sectionCard(child: _buildModeToggle()),
-                  const SizedBox(height: 12),
-                  _buildShiftCard(),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Walk-in Register',
+                    style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.backgroundDark,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _sectionCard(child: _buildModeToggle()),
+              const SizedBox(height: 12),
+              _buildShiftCard(),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
                       children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.water_drop,
-                              color: Color(0xFF0284C7),
-                              size: 22,
-                            ),
-                            SizedBox(width: 6),
-                            Text(
-                              'Rapid Refill Presets',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textMain,
-                                letterSpacing: -0.17,
-                              ),
-                            ),
-                          ],
+                        Icon(
+                          Icons.water_drop,
+                          color: AppColors.primarySky,
+                          size: 22,
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceFrost,
-                            borderRadius: BorderRadius.circular(100),
-                            border: Border.all(
-                              color: const Color(0xFF0284C7).withValues(alpha: 0.2),
-                            ),
-                          ),
-                          child: const Text(
-                            'QUICK TAP',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF0284C7),
-                              letterSpacing: 0.6,
-                            ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Rapid Refill Presets',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textMain,
+                            letterSpacing: -0.17,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final double itemWidth = (constraints.maxWidth - 12) / 2;
-                      return Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceFrost,
+                        borderRadius: BorderRadius.circular(100),
+                        border: Border.all(
+                          color: AppColors.primarySky.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: const Text(
+                        'QUICK TAP',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primarySky,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final double itemWidth = (constraints.maxWidth - 12) / 2;
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: itemWidth,
+                        child: _buildGridCard(
+                          '5-Gal Round',
+                          'Refill only',
+                          _roundPrice,
+                          Icons.local_drink,
+                          _round,
+                              () => setState(() => _round = _round > 0 ? _round - 1 : 0),
+                              () => setState(() => _round++),
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: _buildGridCard(
+                          '5-Gal Slim',
+                          'Alkaline Refill',
+                          _slimPrice,
+                          Icons.eco,
+                          _slim,
+                              () => setState(() => _slim = _slim > 0 ? _slim - 1 : 0),
+                              () => setState(() => _slim++),
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: _buildGridCard(
+                          'New Bottle + Water',
+                          '5-Gal Polycarbonate',
+                          _newBottlePrice,
+                          Icons.inventory_2,
+                          _newB,
+                              () => setState(() => _newB = _newB > 0 ? _newB - 1 : 0),
+                              () => setState(() => _newB++),
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: _buildGridCard(
+                          '500ml Bottled',
+                          'PET Grab-and-go',
+                          _bottle500Price,
+                          Icons.sports_bar,
+                          _bottle500,
+                              () => setState(() => _bottle500 = _bottle500 > 0 ? _bottle500 - 1 : 0),
+                              () => setState(() => _bottle500++),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              if (_deliveryMode) _buildDeliverySection(),
+              if (!_deliveryMode || _deliveryPaymentTiming == 'counter') ...[
+                if (_deliveryMode) const SizedBox(height: 12),
+                _sectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          SizedBox(
-                            width: itemWidth,
-                            child: _buildGridCard(
-                              '5-Gal Round',
-                              'Refill only',
-                              _roundPrice,
-                              Icons.local_drink,
-                              _round,
-                                  () => setState(
-                                      () => _round = _round > 0 ? _round - 1 : 0),
-                                  () => setState(() => _round++),
-                            ),
-                          ),
-                          SizedBox(
-                            width: itemWidth,
-                            child: _buildGridCard(
-                              '5-Gal Slim',
-                              'Alkaline Refill',
-                              _slimPrice,
-                              Icons.eco,
-                              _slim,
-                                  () => setState(
-                                      () => _slim = _slim > 0 ? _slim - 1 : 0),
-                                  () => setState(() => _slim++),
-                            ),
-                          ),
-                          SizedBox(
-                            width: itemWidth,
-                            child: _buildGridCard(
-                              'New Bottle + Water',
-                              '5-Gal Polycarbonate',
-                              _newBottlePrice,
-                              Icons.inventory_2,
-                              _newB,
-                                  () => setState(
-                                      () => _newB = _newB > 0 ? _newB - 1 : 0),
-                                  () => setState(() => _newB++),
-                            ),
-                          ),
-                          SizedBox(
-                            width: itemWidth,
-                            child: _buildGridCard(
-                              '500ml Bottled',
-                              'PET Grab-and-go',
-                              _bottle500Price,
-                              Icons.sports_bar,
-                              _bottle500,
-                                  () => setState(() => _bottle500 =
-                              _bottle500 > 0 ? _bottle500 - 1 : 0),
-                                  () => setState(() => _bottle500++),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  if (_deliveryMode) _buildDeliverySection(),
-                  if (!_deliveryMode || _deliveryPaymentTiming == 'counter') ...[
-                    if (_deliveryMode) const SizedBox(height: 12),
-                    _sectionCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          const Row(
                             children: [
-                              const Row(
-                                children: [
-                                  Icon(
-                                    Icons.payments,
-                                    color: Color(0xFF0284C7),
-                                    size: 22,
-                                  ),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'Payment Method',
-                                    style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textMain,
-                                      letterSpacing: -0.17,
-                                    ),
-                                  ),
-                                ],
+                              Icon(
+                                Icons.payments,
+                                color: AppColors.primarySky,
+                                size: 22,
                               ),
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceContainerLow,
-                                  borderRadius: BorderRadius.circular(100),
-                                  border: Border.all(
-                                    color: AppColors.outlineVariant
-                                        .withValues(alpha: 0.2),
-                                  ),
-                                ),
-                                padding: const EdgeInsets.all(4),
-                                child: Row(
-                                  children: [
-                                    _payTab('Cash', Icons.payments, 'cash'),
-                                    _payTab('GCash QR', Icons.qr_code_2, 'gcash'),
-                                  ],
+                              SizedBox(width: 6),
+                              Text(
+                                'Payment Method',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textMain,
+                                  letterSpacing: -0.17,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          if (_pay == 'cash') ...[
-                            Row(
+                          Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(100),
+                              border: Border.all(
+                                color: AppColors.outlineVariant
+                                    .withValues(alpha: 0.2),
+                              ),
+                            ),
+                            padding: const EdgeInsets.all(4),
+                            child: Row(
                               children: [
-                                _buildTenderBtn('Exact', -1),
-                                const SizedBox(width: 8),
-                                _buildTenderBtn('₱50', 50),
-                                const SizedBox(width: 8),
-                                _buildTenderBtn('₱100', 100),
-                                const SizedBox(width: 8),
-                                _buildTenderBtn('₱500', 500),
+                                _payTab('Cash', Icons.payments, 'cash'),
+                                _payTab('GCash QR', Icons.qr_code_2, 'gcash'),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceCanvas,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: AppColors.outlineVariant
-                                      .withValues(alpha: 0.3),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.05),
-                                    blurRadius: 2,
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Tendered Cash',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.textVariant,
-                                        ),
-                                      ),
-                                      Row(
-                                        children: [
-                                          const Text(
-                                            '₱',
-                                            style: TextStyle(
-                                              fontSize: 17,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.textMain,
-                                            ),
-                                          ),
-                                          SizedBox(
-                                            width: 90,
-                                            child: TextField(
-                                              controller: _tenderCtrl,
-                                              keyboardType: TextInputType.number,
-                                              inputFormatters: [
-                                                FilteringTextInputFormatter
-                                                    .digitsOnly,
-                                              ],
-                                              onChanged: (val) =>
-                                                  setState(() {}),
-                                              style: const TextStyle(
-                                                fontSize: 17,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.textMain,
-                                              ),
-                                              decoration: const InputDecoration(
-                                                border: InputBorder.none,
-                                                isDense: true,
-                                                contentPadding: EdgeInsets.zero,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      const Text(
-                                        'Customer Change',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.textVariant,
-                                        ),
-                                      ),
-                                      Text(
-                                        '₱${_changeDue.toStringAsFixed(2)}',
-                                        style: const TextStyle(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF0284C7),
-                                          letterSpacing: -0.44,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (_pay == 'cash') ...[
+                        Row(
+                          children: [
+                            _buildTenderBtn('Exact', -1),
+                            const SizedBox(width: 8),
+                            _buildTenderBtn('₱50', 50),
+                            const SizedBox(width: 8),
+                            _buildTenderBtn('₱100', 100),
+                            const SizedBox(width: 8),
+                            _buildTenderBtn('₱500', 500),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceCanvas,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: AppColors.outlineVariant
+                                  .withValues(alpha: 0.3),
                             ),
-                          ] else ...[
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceIce,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: AppColors.cyanElectric
-                                      .withValues(alpha: 0.25),
-                                ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 2,
                               ),
-                              child: StreamBuilder<({String accountName, String accountNumber, String? qrImageUrl})>(
-                                stream: _firestoreService.getGcashAccountStream(),
-                                builder: (context, snapshot) {
-                                  final accountName = snapshot.data?.accountName ?? 'Station Owner (Aquaflow)';
-                                  final accountNumber = snapshot.data?.accountNumber ?? '09171234567';
-                                  final qrImageUrl = snapshot.data?.qrImageUrl;
-                                  return Column(
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment:
+                            MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Tendered Cash',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textVariant,
+                                    ),
+                                  ),
+                                  Row(
+                                    children: [
+                                      const Text(
+                                        '₱',
+                                        style: TextStyle(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textMain,
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 90,
+                                        child: TextField(
+                                          controller: _tenderCtrl,
+                                          keyboardType: TextInputType.number,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                          ],
+                                          onChanged: (val) =>
+                                              setState(() {}),
+                                          style: const TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.textMain,
+                                          ),
+                                          decoration: const InputDecoration(
+                                            border: InputBorder.none,
+                                            isDense: true,
+                                            contentPadding: EdgeInsets.zero,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  const Text(
+                                    'Customer Change',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textVariant,
+                                    ),
+                                  ),
+                                  Text(
+                                    '₱${_changeDue.toStringAsFixed(2)}',
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primarySky,
+                                      letterSpacing: -0.44,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceIce,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: AppColors.cyanElectric
+                                  .withValues(alpha: 0.25),
+                            ),
+                          ),
+                          child: StreamBuilder<({String accountName, String accountNumber, String? qrImageUrl})>(
+                            stream: _firestoreService.getGcashAccountStream(),
+                            builder: (context, snapshot) {
+                              final accountName = snapshot.data?.accountName ?? 'Station Owner (Aquaflow)';
+                              final accountNumber = snapshot.data?.accountNumber ?? '09171234567';
+                              final qrImageUrl = snapshot.data?.qrImageUrl;
+                              return Column(
                                 children: [
                                   Container(
                                     width: 220,
@@ -1641,19 +1580,19 @@ class _PosScreenState extends State<PosScreen> {
                                     ),
                                     child: qrImageUrl == null
                                         ? const Center(
-                                            child: Padding(
-                                              padding: EdgeInsets.all(8.0),
-                                              child: Text(
-                                                'No GCash QR uploaded yet. Use the reference number below.',
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(fontSize: 10, color: AppColors.textVariant),
-                                              ),
-                                            ),
-                                          )
+                                      child: Padding(
+                                        padding: EdgeInsets.all(8.0),
+                                        child: Text(
+                                          'No GCash QR uploaded yet. Use the reference number below.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(fontSize: 10, color: AppColors.textVariant),
+                                        ),
+                                      ),
+                                    )
                                         : ClipRRect(
-                                            borderRadius: BorderRadius.circular(8),
-                                            child: Image.network(qrImageUrl, fit: BoxFit.contain),
-                                          ),
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(qrImageUrl, fit: BoxFit.contain),
+                                    ),
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
@@ -1665,7 +1604,7 @@ class _PosScreenState extends State<PosScreen> {
                                     ),
                                   ),
                                   Text(
-                                    '$accountName • $accountNumber',
+                                    '$accountName\n$accountNumber',
                                     style: const TextStyle(
                                       fontSize: 11,
                                       color: AppColors.textVariant,
@@ -1702,7 +1641,7 @@ class _PosScreenState extends State<PosScreen> {
                                       children: [
                                         const Icon(
                                           Icons.tag,
-                                          color: Color(0xFF0284C7),
+                                          color: AppColors.primarySky,
                                           size: 20,
                                         ),
                                         const SizedBox(width: 8),
@@ -1735,282 +1674,189 @@ class _PosScreenState extends State<PosScreen> {
                                     ),
                                   ),
                                 ],
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  _sectionCard(
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Order Summary',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textMain,
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceContainerLow,
-                                borderRadius: BorderRadius.circular(100),
-                              ),
-                              child: Text(
-                                '$_totalItems Item${_totalItems == 1 ? '' : 's'}',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.textVariant,
-                                  letterSpacing: 0.6,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _orderBreakdown,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.textVariant,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              '₱${_subtotal.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textMain,
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (_deliveryMode && _deliveryFee > 0) ...[
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Delivery Fee',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.textVariant,
-                                ),
-                              ),
-                              Text(
-                                '₱${_deliveryFee.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.textMain,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          child: Divider(
-                            height: 1,
-                            color: AppColors.surfaceContainer,
-                          ),
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Grand Total',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textMain,
-                                letterSpacing: -0.17,
-                              ),
-                            ),
-                            Text(
-                              '₱${_tot.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontSize: 30,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF0284C7),
-                                letterSpacing: -0.9,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: (_isCheckingOut || _resolvingDeliveryFee)
-                          ? null
-                          : (_deliveryMode ? _submitDelivery : _triggerCheckout),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0284C7),
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                        elevation: 10,
-                        shadowColor:
-                        const Color(0xFF0284C7).withValues(alpha: 0.4),
-                      ),
-                      child: (_isCheckingOut || _resolvingDeliveryFee)
-                          ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                          : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            _deliveryMode
-                                ? Icons.local_shipping
-                                : Icons.check_circle,
-                            color: Colors.white,
-                            size: 22,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _deliveryMode
-                                ? 'DISPATCH DELIVERY ORDER'
-                                : 'COMPLETE SALE',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 450),
-            child: Stack(
-              children: [
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOut,
-                  left: 16,
-                  right: 16,
-                  bottom: _showToast ? 100 : -150,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.textMain,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 24,
-                          offset: Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF0284C7),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.check,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                toastIsDelivery
-                                    ? 'Delivery Order Dispatched'
-                                    : 'Sale Successfully Recorded',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              Text(
-                                toastIsDelivery
-                                    ? 'Queued for rider assignment in Dispatch'
-                                    : 'Database record finalized & inventory updated',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                              if (_lastOrderNumber.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: Text(
-                                    _lastOrderNumber,
-                                    style: const TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.cyanElectric,
-                                      letterSpacing: 0.4,
-                                    ),
-                                  ),
-                                ),
-                            ],
+                              );
+                            },
                           ),
                         ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ],
-            ),
+              const SizedBox(height: 12),
+              _sectionCard(
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Order Summary',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textMain,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                          child: Text(
+                            '$_totalItems Item${_totalItems == 1 ? '' : 's'}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textVariant,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _orderBreakdown,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textVariant,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '₱${_subtotal.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textMain,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_deliveryMode && _deliveryFee > 0) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Delivery Fee',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textVariant,
+                            ),
+                          ),
+                          Text(
+                            '₱${_deliveryFee.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textMain,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Divider(
+                        height: 1,
+                        color: AppColors.surfaceContainer,
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Grand Total',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textMain,
+                            letterSpacing: -0.17,
+                          ),
+                        ),
+                        Text(
+                          '₱${_tot.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primarySky,
+                            letterSpacing: -0.9,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: (_isCheckingOut || _resolvingDeliveryFee)
+                      ? null
+                      : (_deliveryMode ? _submitDelivery : _triggerCheckout),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primarySky,
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    elevation: 10,
+                    shadowColor:
+                    AppColors.primarySky.withValues(alpha: 0.4),
+                  ),
+                  child: (_isCheckingOut || _resolvingDeliveryFee)
+                      ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                      : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _deliveryMode
+                            ? Icons.local_shipping
+                            : Icons.check_circle,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _deliveryMode
+                            ? 'DISPATCH DELIVERY ORDER'
+                            : 'COMPLETE SALE',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -2038,7 +1884,7 @@ class _PosScreenState extends State<PosScreen> {
             Icon(
               icon,
               size: 16,
-              color: selected ? const Color(0xFF0284C7) : AppColors.textVariant,
+              color: selected ? AppColors.primarySky : AppColors.textVariant,
             ),
             const SizedBox(width: 6),
             Text(
@@ -2046,7 +1892,7 @@ class _PosScreenState extends State<PosScreen> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
-                color: selected ? const Color(0xFF0284C7) : AppColors.textVariant,
+                color: selected ? AppColors.primarySky : AppColors.textVariant,
               ),
             ),
           ],
@@ -2072,7 +1918,7 @@ class _PosScreenState extends State<PosScreen> {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: selected
-              ? const Color(0xFF0284C7).withValues(alpha: 0.4)
+              ? AppColors.primarySky.withValues(alpha: 0.4)
               : AppColors.surfaceContainerHigh.withValues(alpha: 0.8),
           width: selected ? 2 : 1,
         ),
@@ -2105,7 +1951,7 @@ class _PosScreenState extends State<PosScreen> {
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: const Color(0xFF0284C7).withValues(alpha: 0.2),
+                color: AppColors.primarySky.withValues(alpha: 0.2),
               ),
               boxShadow: [
                 BoxShadow(
@@ -2114,7 +1960,7 @@ class _PosScreenState extends State<PosScreen> {
                 ),
               ],
             ),
-            child: Icon(icon, color: const Color(0xFF0284C7), size: 24),
+            child: Icon(icon, color: AppColors.primarySky, size: 24),
           ),
           const SizedBox(height: 12),
           Text(
@@ -2142,7 +1988,7 @@ class _PosScreenState extends State<PosScreen> {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0284C7),
+                  color: AppColors.primarySky,
                   letterSpacing: -0.16,
                 ),
               ),
@@ -2173,7 +2019,7 @@ class _PosScreenState extends State<PosScreen> {
                         child: const Icon(
                           Icons.remove,
                           size: 16,
-                          color: Color(0xFF0284C7),
+                          color: AppColors.primarySky,
                         ),
                       ),
                     ),
@@ -2196,7 +2042,7 @@ class _PosScreenState extends State<PosScreen> {
                         width: 26,
                         height: 26,
                         decoration: const BoxDecoration(
-                          color: Color(0xFF0284C7),
+                          color: AppColors.primarySky,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(color: Colors.black12, blurRadius: 2),
@@ -2230,7 +2076,7 @@ class _PosScreenState extends State<PosScreen> {
             color: AppColors.surfaceIce,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: const Color(0xFF0284C7).withValues(alpha: 0.2),
+              color: AppColors.primarySky.withValues(alpha: 0.2),
             ),
             boxShadow: [
               BoxShadow(
@@ -2245,7 +2091,7 @@ class _PosScreenState extends State<PosScreen> {
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF0284C7),
+              color: AppColors.primarySky,
             ),
           ),
         ),

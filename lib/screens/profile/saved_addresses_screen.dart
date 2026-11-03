@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/layout_constants.dart';
 import '../../core/constants/zones.dart';
 import '../../core/utils/app_toast.dart';
 import '../../models/saved_address_model.dart';
@@ -29,10 +28,6 @@ class _NewAddress {
 }
 
 InputDecoration _fieldDecoration({String? hint, double vertical = 10, String? errorText}) {
-  OutlineInputBorder border(Color color) => OutlineInputBorder(
-    borderRadius: BorderRadius.circular(12),
-    borderSide: BorderSide(color: color),
-  );
   return InputDecoration(
     hintText: hint,
     hintStyle: const TextStyle(
@@ -45,18 +40,13 @@ InputDecoration _fieldDecoration({String? hint, double vertical = 10, String? er
     fillColor: AppColors.surfaceCanvas,
     isDense: true,
     contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: vertical),
-    border: border(AppColors.slate200),
-    enabledBorder: border(errorText != null ? AppColors.error : AppColors.slate200),
-    focusedBorder: border(errorText != null ? AppColors.error : AppColors.primarySky),
-    errorBorder: border(AppColors.error),
-    focusedErrorBorder: border(AppColors.error),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: errorText != null ? AppColors.coralAlert : AppColors.slate200)),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: errorText != null ? AppColors.coralAlert : AppColors.primarySky)),
+    errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.coralAlert)),
+    focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.coralAlert, width: 1.5)),
     errorText: errorText,
-    errorStyle: const TextStyle(
-      fontFamily: _font,
-      fontSize: 11,
-      fontWeight: FontWeight.w500,
-      color: AppColors.error,
-    ),
+    errorStyle: const TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.coralAlert),
   );
 }
 
@@ -74,10 +64,11 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
   bool _isPrimary = false;
   String? _barangayError;
   String? _streetError;
+
   final TextEditingController _streetCtrl = TextEditingController();
   final TextEditingController _landmarkCtrl = TextEditingController();
-  final TextEditingController _contactCtrl = TextEditingController(text: 'Juan Dela Cruz');
-  final TextEditingController _phoneCtrl = TextEditingController(text: '0917 123 4567');
+  final TextEditingController _contactCtrl = TextEditingController();
+  final TextEditingController _phoneCtrl = TextEditingController();
   final TextEditingController _barangayFreeTextCtrl = TextEditingController();
 
   @override
@@ -111,18 +102,6 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
     );
   }
 
-  Widget _label(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontFamily: _font,
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
-        color: AppColors.textLight,
-      ),
-    );
-  }
-
   Widget _tagPill(String tag, IconData icon) {
     final bool active = _tag == tag;
     return Expanded(
@@ -130,24 +109,24 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
         onTap: () => setState(() => _tag = tag),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 12),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: active ? AppColors.surfaceFrost : Colors.white,
-            borderRadius: BorderRadius.circular(9999),
+            color: active ? const Color(0xFFE0F2FE) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(color: active ? AppColors.primarySky : AppColors.slate200),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 16, color: active ? AppColors.primarySky : AppColors.textSecondary),
+              Icon(icon, size: 16, color: active ? AppColors.primarySky : AppColors.slate500),
               const SizedBox(width: 6),
               Text(
                 tag,
                 style: TextStyle(
                   fontFamily: _font,
                   fontSize: 12,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                  color: active ? AppColors.primarySky : AppColors.textSecondary,
+                  fontWeight: active ? FontWeight.bold : FontWeight.w500,
+                  color: active ? AppColors.primarySky : AppColors.slate600,
                 ),
               ),
             ],
@@ -157,418 +136,242 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.slate100)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.slate300,
-              borderRadius: BorderRadius.circular(9999),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle),
-                    child: const Icon(Icons.add_location_alt_outlined, size: 18, color: AppColors.primarySky),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Add Delivery Address',
-                    style: TextStyle(
-                      fontFamily: _font,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textLight,
-                    ),
-                  ),
-                ],
-              ),
-              InkWell(
-                customBorder: const CircleBorder(),
-                onTap: () => Navigator.pop(context),
-                child: const SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: Icon(Icons.close, size: 20, color: AppColors.slate400),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
 
-  Widget _buildForm() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _label('Address Label'),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              _tagPill('Home', Icons.home_outlined),
-              const SizedBox(width: 8),
-              _tagPill('Work', Icons.apartment),
-              const SizedBox(width: 8),
-              _tagPill('Other', Icons.pin_drop_outlined),
-            ],
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 800, // Standard 800px width
+          maxHeight: media.size.height * 0.88,
+        ),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          const SizedBox(height: 16),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text.rich(
-                TextSpan(
+              // Header
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: AppColors.slate100)),
+                ),
+                child: Row(
                   children: [
-                    TextSpan(text: 'Barangay '),
-                    TextSpan(text: '*', style: TextStyle(color: AppColors.error)),
-                  ],
-                ),
-                style: TextStyle(
-                  fontFamily: _font,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textLight,
-                ),
-              ),
-              Text(
-                'San Pablo City, Laguna',
-                style: TextStyle(
-                  fontFamily: _font,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w400,
-                  color: AppColors.slate400,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          StreamBuilder<bool>(
-            stream: _firestoreService.getServiceAreaRestrictedStream(),
-            builder: (context, snapshot) {
-              final restricted = snapshot.data ?? true;
-              if (!restricted) {
-                return TextField(
-                  controller: _barangayFreeTextCtrl,
-                  style: const TextStyle(
-                    fontFamily: _font,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textLight,
-                  ),
-                  decoration: _fieldDecoration(hint: 'Enter city/barangay...', errorText: _barangayError),
-                  onChanged: (v) => setState(() {
-                    _barangay = v.trim().isEmpty ? null : v.trim();
-                    _barangayError = null;
-                  }),
-                );
-              }
-              return SizedBox(
-                width: double.infinity,
-                child: DropdownMenu<String>(
-                  initialSelection: _barangay,
-                  menuHeight: 320,
-                  enableFilter: true,
-                  requestFocusOnTap: true,
-                  hintText: 'Search barangay...',
-                  textStyle: const TextStyle(
-                    fontFamily: _font,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textLight,
-                  ),
-                  inputDecorationTheme: InputDecorationTheme(
-                    hintStyle: const TextStyle(
-                      fontFamily: _font,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.slate400,
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
+                      child: const Icon(Icons.add_location_alt_outlined, size: 20, color: AppColors.primarySky),
                     ),
-                    filled: true,
-                    fillColor: AppColors.surfaceCanvas,
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primarySky)),
-                  ),
-                  dropdownMenuEntries: sanPabloBarangays
-                      .map((b) => DropdownMenuEntry<String>(value: b, label: b))
-                      .toList(),
-                  onSelected: (v) => setState(() {
-                    _barangay = v;
-                    _barangayError = null;
-                  }),
-                ),
-              );
-            },
-          ),
-          if (_barangayError != null)
-            Padding(
-              padding: const EdgeInsets.only(left: 4, top: 4),
-              child: Text(
-                _barangayError!,
-                style: const TextStyle(fontFamily: _font, fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.error),
-              ),
-            ),
-          const SizedBox(height: 16),
-          const Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(text: 'Street Address / House / Unit No. '),
-                TextSpan(text: '*', style: TextStyle(color: AppColors.error)),
-              ],
-            ),
-            style: TextStyle(
-              fontFamily: _font,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textLight,
-            ),
-          ),
-          const SizedBox(height: 6),
-          TextField(
-            controller: _streetCtrl,
-            onChanged: (_) {
-              if (_streetError != null) setState(() => _streetError = null);
-            },
-            style: const TextStyle(
-              fontFamily: _font,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textLight,
-            ),
-            decoration: _fieldDecoration(
-              hint: 'e.g. Block 8 Lot 14, Villa Antonio Subdivision',
-              errorText: _streetError,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _label('Landmark & Dispatch Instructions'),
-              const Text(
-                'Help rider locate',
-                style: TextStyle(
-                  fontFamily: _font,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w400,
-                  color: AppColors.slate400,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          TextField(
-            controller: _landmarkCtrl,
-            maxLines: 2,
-            style: const TextStyle(
-              fontFamily: _font,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textLight,
-            ),
-            decoration: _fieldDecoration(
-              hint: "e.g. Yellow gate across Aling Nena's sari-sari store, press doorbell twice",
-              vertical: 8,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Contact Name'),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _contactCtrl,
-                      style: const TextStyle(
-                        fontFamily: _font,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textLight,
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Add Delivery Address',
+                        style: TextStyle(fontFamily: _font, fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textLight),
                       ),
-                      decoration: _fieldDecoration(vertical: 8),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20, color: AppColors.slate500),
+                      onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Phone Number'),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _phoneCtrl,
-                      keyboardType: TextInputType.phone,
-                      style: const TextStyle(
-                        fontFamily: _font,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textLight,
-                      ),
-                      decoration: _fieldDecoration(vertical: 8),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: AppColors.slate100)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Expanded(
+
+              // Form Body
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + media.viewInsets.bottom),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Set as Primary Address',
-                        style: TextStyle(
-                          fontFamily: _font,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textLight,
+                      const Text('Address Label', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _tagPill('Home', Icons.home_outlined),
+                          const SizedBox(width: 8),
+                          _tagPill('Work', Icons.apartment),
+                          const SizedBox(width: 8),
+                          _tagPill('Other', Icons.pin_drop_outlined),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      const Text('Barangay (San Pablo City) *', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                      const SizedBox(height: 6),
+                      StreamBuilder<bool>(
+                        stream: _firestoreService.getServiceAreaRestrictedStream(),
+                        builder: (context, snapshot) {
+                          final restricted = snapshot.data ?? true;
+                          if (!restricted) {
+                            return TextField(
+                              controller: _barangayFreeTextCtrl,
+                              style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
+                              decoration: _fieldDecoration(hint: 'Enter barangay/city...', errorText: _barangayError),
+                              onChanged: (v) => setState(() {
+                                _barangay = v.trim().isEmpty ? null : v.trim();
+                                _barangayError = null;
+                              }),
+                            );
+                          }
+                          return SizedBox(
+                            width: double.infinity,
+                            child: DropdownMenu<String>(
+                              initialSelection: _barangay,
+                              menuHeight: 300,
+                              enableFilter: true,
+                              requestFocusOnTap: true,
+                              hintText: 'Search or select barangay...',
+                              textStyle: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
+                              inputDecorationTheme: InputDecorationTheme(
+                                filled: true,
+                                fillColor: AppColors.surfaceCanvas,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primarySky)),
+                              ),
+                              dropdownMenuEntries: sanPabloBarangays
+                                  .map((b) => DropdownMenuEntry<String>(value: b, label: b))
+                                  .toList(),
+                              onSelected: (v) => setState(() {
+                                _barangay = v;
+                                _barangayError = null;
+                              }),
+                            ),
+                          );
+                        },
+                      ),
+                      if (_barangayError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4, top: 4),
+                          child: Text(_barangayError!, style: const TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.coralAlert)),
+                        ),
+                      const SizedBox(height: 16),
+
+                      const Text('Street Address / House / Unit No. *', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _streetCtrl,
+                        onChanged: (_) {
+                          if (_streetError != null) setState(() => _streetError = null);
+                        },
+                        style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
+                        decoration: _fieldDecoration(
+                          hint: 'e.g. Block 8 Lot 14, Villa Antonio Subdivision',
+                          errorText: _streetError,
                         ),
                       ),
-                      Text(
-                        'Default route for quick refills & telemetry',
-                        style: TextStyle(
-                          fontFamily: _font,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.slate400,
+                      const SizedBox(height: 16),
+
+                      const Text('Landmark & Delivery Instructions (Optional)', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _landmarkCtrl,
+                        maxLines: 2,
+                        style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
+                        decoration: _fieldDecoration(
+                          hint: 'e.g. Near yellow gate across sari-sari store',
+                          vertical: 10,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Recipient Name', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                                const SizedBox(height: 6),
+                                TextField(
+                                  controller: _contactCtrl,
+                                  style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
+                                  decoration: _fieldDecoration(hint: 'Contact person', vertical: 10),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Contact Number', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                                const SizedBox(height: 6),
+                                TextField(
+                                  controller: _phoneCtrl,
+                                  keyboardType: TextInputType.phone,
+                                  style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
+                                  decoration: _fieldDecoration(hint: '09XX XXX XXXX', vertical: 10),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.slate100))),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Set as Primary Address', style: TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textLight)),
+                                  Text('Use as default location for water deliveries', style: TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.textSecondary)),
+                                ],
+                              ),
+                            ),
+                            Switch(
+                              value: _isPrimary,
+                              activeThumbColor: AppColors.primarySky,
+                              onChanged: (v) => setState(() => _isPrimary = v),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: _submit,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primarySky,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('Save Address', style: TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Center(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel', style: TextStyle(fontFamily: _font, color: AppColors.slate500)),
                         ),
                       ),
                     ],
                   ),
                 ),
-                Switch(
-                  value: _isPrimary,
-                  onChanged: (v) => setState(() => _isPrimary = v),
-                  thumbColor: WidgetStateProperty.all(Colors.white),
-                  trackColor: WidgetStateProperty.resolveWith(
-                        (states) => states.contains(WidgetState.selected) ? AppColors.primarySky : AppColors.slate200,
-                  ),
-                  trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          Container(
-            height: 48,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: AppColors.primarySky,
-              borderRadius: BorderRadius.circular(9999),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primarySky.withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(9999),
-                splashColor: AppColors.primarySkyDark.withValues(alpha: 0.4),
-                onTap: _submit,
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.check_circle_outline, size: 19, color: Colors.white),
-                    SizedBox(width: 8),
-                    Text(
-                      'Save Address',
-                      style: TextStyle(
-                        fontFamily: _font,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 40,
-            width: double.infinity,
-            child: TextButton(
-              onPressed: () => Navigator.pop(context),
-              style: TextButton.styleFrom(
-                backgroundColor: AppColors.surfaceBackground,
-                foregroundColor: AppColors.slate500,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
-              ),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
-                  fontFamily: _font,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.slate500,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    return Padding(
-      padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: media.size.height * 0.88),
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-            border: Border(top: BorderSide(color: AppColors.slate100)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildHeader(),
-              Flexible(child: _buildForm()),
             ],
           ),
         ),
@@ -594,11 +397,12 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      barrierColor: const Color(0x660F172A),
-      constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+      barrierColor: Colors.black.withValues(alpha: 0.4),
       builder: (sheetContext) => const _AddAddressSheet(),
     );
+
     if (result == null || !mounted) return;
+
     try {
       await _firestoreService.addSavedAddress(
         uid: uid,
@@ -610,7 +414,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
         isPrimary: result.isPrimary,
       );
       if (mounted) {
-        AppToast.showSuccess(context, 'Address added to San Pablo dispatch routes!');
+        AppToast.showSuccess(context, 'Delivery address saved successfully!');
       }
     } catch (e) {
       if (mounted) {
@@ -620,790 +424,333 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
   }
 
   void _showEditAddressLabelDialog(String uid, SavedAddressModel address) {
-    final labelCtrl = TextEditingController();
+    final labelCtrl = TextEditingController(text: address.label);
+
     showDialog(
       context: context,
-      barrierColor: const Color(0x730F172A),
       builder: (dialogContext) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          elevation: 0,
-          child: Center(
-            child: Container(
-              width: double.infinity,
-              constraints: const BoxConstraints(maxWidth: 360),
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: AppColors.slate100),
-                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 24, offset: Offset(0, 10))],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Edit Tag",
-                    style: TextStyle(
-                      fontFamily: _font,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.backgroundDark,
-                      height: 1.2,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        const TextSpan(text: 'Current tag: '),
-                        TextSpan(
-                          text: address.label,
-                          style: const TextStyle(
-                            fontFamily: _font,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.borderDark,
-                          ),
-                        ),
-                      ],
-                    ),
-                    style: const TextStyle(
-                      fontFamily: _font,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.slate500,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    "New Tag Name:",
-                    style: TextStyle(
-                      fontFamily: _font,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.borderDark,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceCanvas,
-                      border: Border.all(color: AppColors.slate200.withValues(alpha: 0.8)),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: TextFormField(
-                      controller: labelCtrl,
-                      style: const TextStyle(
-                        fontFamily: _font,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.backgroundDark,
-                      ),
-                      decoration: const InputDecoration(
-                        hintText: 'Enter tag name',
-                        hintStyle: TextStyle(
-                          fontFamily: _font,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.slate400,
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(vertical: 12),
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          onPressed: () => Navigator.pop(dialogContext),
-                          style: TextButton.styleFrom(
-                            backgroundColor: AppColors.buttonSecondary,
-                            foregroundColor: AppColors.slate600,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                          ),
-                          child: const Text(
-                            "Cancel",
-                            style: TextStyle(
-                              fontFamily: _font,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            final label = labelCtrl.text.trim();
-                            if (label.isEmpty) return;
-                            Navigator.pop(dialogContext);
-                            try {
-                              await _firestoreService.updateSavedAddressLabel(
-                                uid: uid,
-                                addressId: address.id,
-                                label: label,
-                              );
-                            } catch (e) {
-                              if (mounted) {
-                                AppToast.showError(context, 'Failed to update tag: $e');
-                              }
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primarySky,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shadowColor: AppColors.primarySky.withValues(alpha: 0.35),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                          ).copyWith(
-                            elevation: WidgetStateProperty.resolveWith((states) => 4),
-                          ),
-                          child: const Text(
-                            "Save",
-                            style: TextStyle(
-                              fontFamily: _font,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+        return AlertDialog(
+          backgroundColor: AppColors.surfaceCanvas,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Edit Address Label', style: TextStyle(fontFamily: _font, fontSize: 16, fontWeight: FontWeight.bold)),
+          content: TextField(
+            controller: labelCtrl,
+            style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
+            decoration: InputDecoration(
+              hintText: 'e.g. Home, Work, Apartment',
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
             ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                final label = labelCtrl.text.trim();
+                if (label.isEmpty) return;
+                Navigator.pop(dialogContext);
+                try {
+                  await _firestoreService.updateSavedAddressLabel(uid: uid, addressId: address.id, label: label);
+                } catch (e) {
+                  if (mounted) AppToast.showError(context, 'Failed to update label: $e');
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primarySky, foregroundColor: Colors.white),
+              child: const Text('Save'),
+            ),
+          ],
         );
       },
     );
   }
 
-  Future<void> _deleteAddress(String uid, SavedAddressModel address) async {
-    try {
-      await _firestoreService.deleteSavedAddress(
-        uid: uid,
-        addressId: address.id,
-      );
-      if (mounted) {
-        AppToast.showInfo(context, 'Address removed');
-      }
-    } catch (e) {
-      if (mounted) {
-        AppToast.showError(context, 'Failed to delete address: $e');
-      }
-    }
-  }
-
-  IconData _iconFor(SavedAddressModel address, bool isPrimary) {
-    final label = address.label.toLowerCase();
-    if (label.contains('home')) return Icons.home;
-    if (label.contains('work') || label.contains('office') || label.contains('branch')) {
-      return Icons.apartment;
-    }
-    return isPrimary ? Icons.home : Icons.pin_drop;
-  }
-
-  Widget _buildHeader({String title = 'Saved Addresses', Color backIconColor = AppColors.textLight}) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceBackground.withValues(alpha: 0.85),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 1),
+  void _confirmDelete(String uid, SavedAddressModel address) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surfaceCanvas,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Remove Address?', style: TextStyle(fontFamily: _font, fontSize: 16, fontWeight: FontWeight.bold)),
+        content: Text(
+          'Are you sure you want to remove "${address.label}" from your delivery addresses?',
+          style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              try {
+                await _firestoreService.deleteSavedAddress(uid: uid, addressId: address.id);
+                if (mounted) AppToast.showInfo(context, 'Address removed');
+              } catch (e) {
+                if (mounted) AppToast.showError(context, 'Failed to delete: $e');
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.coralAlert, foregroundColor: Colors.white),
+            child: const Text('Remove'),
           ),
         ],
       ),
-      child: SafeArea(
-        bottom: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
-            child: SizedBox(
-              height: 64,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  children: [
-                    InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: () => Navigator.maybePop(context),
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: Icon(Icons.arrow_back, size: 24, color: backIconColor),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: _font,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.17,
-                          color: AppColors.textLight,
-                        ),
-                      ),
-                    ),
-                  ],
+    );
+  }
+
+  Widget _header(double topInset) {
+    return Container(
+      height: 64 + topInset,
+      width: double.infinity,
+      padding: EdgeInsets.only(top: topInset, left: 16, right: 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppColors.slate200)),
+      ),
+      child: Row(
+        children: [
+          Material(
+            color: AppColors.surfaceCanvas,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => Navigator.maybePop(context),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.slate200),
                 ),
+                child: const Icon(Icons.arrow_back, size: 20, color: AppColors.textLight),
               ),
             ),
           ),
-        ),
+          const SizedBox(width: 12),
+          const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Saved Addresses',
+                style: TextStyle(fontFamily: _font, fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textLight),
+              ),
+              SizedBox(height: 2),
+              Text(
+                'Delivery drop-off locations',
+                style: TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildAddressCard(String uid, SavedAddressModel address, bool isPrimary) {
     final String note = address.note ?? '';
+
     return Container(
-      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isPrimary ? 0.08 : 0.05),
-            blurRadius: isPrimary ? 8 : 3,
-            offset: Offset(0, isPrimary ? 4 : 1),
-          ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isPrimary ? AppColors.primarySky : AppColors.slate200, width: isPrimary ? 1.5 : 1),
+        boxShadow: const [
+          BoxShadow(color: Color(0x06000000), blurRadius: 4, offset: Offset(0, 1)),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: isPrimary ? AppColors.surfaceFrost : AppColors.surfaceContainer,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 2,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          _iconFor(address, isPrimary),
-                          size: 20,
-                          color: isPrimary ? AppColors.primarySky : AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    address.label,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontFamily: _font,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.2,
-                                      color: AppColors.textLight,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: isPrimary
-                                        ? AppColors.secondaryContainer
-                                        : AppColors.surfaceContainerHigh,
-                                    borderRadius: BorderRadius.circular(9999),
-                                  ),
-                                  child: Text(
-                                    isPrimary ? 'PRIMARY' : 'SECONDARY',
-                                    style: TextStyle(
-                                      fontFamily: _font,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.5,
-                                      color: isPrimary
-                                          ? AppColors.onSecondaryContainer
-                                          : AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                if (isPrimary) ...[
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.cyanElectric,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                ],
-                                Flexible(
-                                  child: Text(
-                                    isPrimary
-                                        ? 'Quick Refill Dispatch Route'
-                                        : 'Delivery Drop-off Point',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontFamily: _font,
-                                      fontSize: 11,
-                                      fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w500,
-                                      color: isPrimary ? AppColors.cyanElectric : AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: () => _deleteAddress(uid, address),
-                        child: SizedBox(
-                          width: 32,
-                          height: 32,
-                          child: Icon(
-                            Icons.delete_outline,
-                            size: 19,
-                            color: AppColors.textSecondary.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceCanvas,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          address.addressText,
-                          style: const TextStyle(
-                            fontFamily: _font,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            height: 1.35,
-                            color: AppColors.textLight,
-                          ),
-                        ),
-                        if (note.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              const Icon(Icons.explore_outlined, size: 15, color: AppColors.cyanElectric),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  note,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontFamily: _font,
-                                    fontSize: 11,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                        if (isPrimary) ...[
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.tealAccent,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              const Flexible(
-                                child: Text(
-                                  'OPTIMAL FLOW CERTIFIED',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontFamily: _font,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.4,
-                                    color: AppColors.secondary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(9999),
-                      onTap: () => _showEditAddressLabelDialog(uid, address),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Edit Tag',
-                              style: TextStyle(
-                                fontFamily: _font,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.2,
-                                color: AppColors.primarySky,
-                              ),
-                            ),
-                            Icon(Icons.chevron_right, size: 16, color: AppColors.primarySky),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 6,
-              child: Container(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: isPrimary ? AppColors.primarySky : AppColors.accentBlueSoft,
-                  borderRadius: const BorderRadius.horizontal(right: Radius.circular(9999)),
+                  color: isPrimary ? const Color(0xFFE0F2FE) : AppColors.surfaceCanvas,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  address.label.toLowerCase().contains('work') ? Icons.apartment : Icons.home_outlined,
+                  size: 18,
+                  color: isPrimary ? AppColors.primarySky : AppColors.slate500,
                 ),
               ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Row(
+                  children: [
+                    Text(
+                      address.label,
+                      style: const TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textLight),
+                    ),
+                    if (isPrimary) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(color: const Color(0xFFE0F2FE), borderRadius: BorderRadius.circular(100)),
+                        child: const Text('Primary', style: TextStyle(fontFamily: _font, fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0369A1))),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, size: 20, color: AppColors.slate400),
+                onSelected: (val) {
+                  if (val == 'edit') _showEditAddressLabelDialog(uid, address);
+                  if (val == 'delete') _confirmDelete(uid, address);
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'edit', child: Text('Edit Label', style: TextStyle(fontFamily: _font, fontSize: 13))),
+                  PopupMenuItem(value: 'delete', child: Text('Remove', style: TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.coralAlert))),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            address.addressText,
+            style: const TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textLight),
+          ),
+          if (note.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.info_outline, size: 14, color: AppColors.slate400),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    note,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.textSecondary),
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildFleetSnapshot() {
+  Widget _buildDeliveryCoverageCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surfaceFrost.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
-          ),
-        ],
+        color: const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBBF7D0)),
       ),
-      child: Row(
+      child: const Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 2,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            child: const Icon(Icons.local_shipping_outlined, size: 22, color: AppColors.primarySky),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
+          Icon(Icons.local_shipping_outlined, size: 20, color: Color(0xFF16A34A)),
+          SizedBox(width: 10),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Standard Fleet Geofence',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: _font,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                    color: AppColors.textLight,
-                  ),
+                  'Delivery Service Coverage',
+                  style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
                 ),
-                SizedBox(height: 2),
                 Text(
-                  'Active real-time dispatch telemetry enabled',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: _font,
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
+                  'San Pablo City, Laguna • Covered for fast refill dispatch',
+                  style: TextStyle(fontFamily: _font, fontSize: 11, color: Color(0xFF166534)),
                 ),
               ],
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildPrimaryActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      height: 56,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.primarySky,
-        borderRadius: BorderRadius.circular(9999),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primarySky.withValues(alpha: 0.38),
-            blurRadius: 24,
-            spreadRadius: -2,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(9999),
-          splashColor: AppColors.primarySkyDark.withValues(alpha: 0.4),
-          onTap: onTap,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontFamily: _font,
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.3,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAddButton(String uid) {
-    return _buildPrimaryActionButton(
-      icon: Icons.add_location_alt_outlined,
-      label: 'Add New Address',
-      onTap: () => _openAddAddressSheet(uid),
-    );
-  }
-
-  Widget _buildAddressList(String uid) {
-    return StreamBuilder<List<SavedAddressModel>>(
-      stream: _firestoreService.getSavedAddressesStream(uid),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        final addresses = snapshot.data!;
-        if (addresses.isEmpty) {
-          return Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 3,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            child: const Text(
-              'No saved addresses yet.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: _font,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          );
-        }
-        final hasExplicitPrimary = addresses.any((a) => a.isPrimary);
-        return Column(
-          children: [
-            for (int i = 0; i < addresses.length; i++) ...[
-              _buildAddressCard(uid, addresses[i], hasExplicitPrimary ? addresses[i].isPrimary : i == 0),
-              if (i != addresses.length - 1) const SizedBox(height: 12),
-            ],
-          ],
-        );
-      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final uid = widget.uid;
+    final topInset = MediaQuery.of(context).padding.top;
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceBackground,
-      body: Column(
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(16, 4, 16, 32 + bottomInset),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceFrost,
-                            borderRadius: BorderRadius.circular(9999),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 2,
-                                offset: const Offset(0, 1),
+      backgroundColor: AppColors.surfaceCanvas, // #F8FAFC
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800), // Standard 800px width
+          child: Column(
+            children: [
+              _header(topInset),
+              Expanded(
+                child: StreamBuilder<List<SavedAddressModel>>(
+                  stream: _firestoreService.getSavedAddressesStream(uid),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final addresses = snapshot.data!;
+
+                    return SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: EdgeInsets.fromLTRB(16, 16, 16, 24 + bottomInset),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildDeliveryCoverageCard(),
+                          const SizedBox(height: 16),
+                          if (addresses.isEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: AppColors.slate200),
                               ),
-                            ],
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.pin_drop, size: 13, color: AppColors.primarySky),
-                              SizedBox(width: 6),
-                              Text(
-                                'AQUA LOGISTICS NETWORK',
-                                style: TextStyle(
-                                  fontFamily: _font,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.6,
-                                  color: AppColors.primarySky,
-                                ),
+                              child: const Column(
+                                children: [
+                                  Icon(Icons.location_off_outlined, size: 40, color: AppColors.slate400),
+                                  SizedBox(height: 10),
+                                  Text(
+                                    'No Saved Addresses Yet',
+                                    style: TextStyle(fontFamily: _font, fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textLight),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Add your delivery locations for faster refilling checkout.',
+                                    style: TextStyle(fontFamily: _font, fontSize: 12, color: AppColors.textSecondary),
+                                  ),
+                                ],
                               ),
-                            ],
+                            )
+                          else
+                            ...addresses.map((a) => _buildAddressCard(uid, a, a.isPrimary)),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            height: 48,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _openAddAddressSheet(uid),
+                              icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+                              label: const Text('Add New Address', style: TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primarySky,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Saved Delivery Addresses',
-                          style: TextStyle(
-                            fontFamily: _font,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            height: 28 / 22,
-                            letterSpacing: -0.44,
-                            color: AppColors.textLight,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'Manage frequent drop-off locations and telematic routes',
-                          style: TextStyle(
-                            fontFamily: _font,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            height: 18 / 13,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _buildAddressList(uid),
-                        const SizedBox(height: 12),
-                        _buildFleetSnapshot(),
-                        const SizedBox(height: 12),
-                        _buildAddButton(uid),
-                      ],
-                    ),
-                  ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

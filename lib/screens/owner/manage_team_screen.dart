@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/layout_constants.dart';
 import '../../core/utils/validators.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 
 const String _font = 'Plus Jakarta Sans';
-const double _sidePadding = 16;
 
 class ManageTeamScreen extends StatefulWidget {
   const ManageTeamScreen({super.key});
@@ -40,8 +38,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      barrierColor: const Color(0x66283044),
-      constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+      barrierColor: Colors.black.withValues(alpha: 0.4),
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheetState) {
           Future<void> submit() async {
@@ -85,7 +82,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
               );
               if (!sheetContext.mounted) return;
               Navigator.pop(sheetContext);
-              messenger.showSnackBar(SnackBar(content: Text('$name added as ${selectedRole.name}.'), backgroundColor: AppColors.primaryLight));
+              messenger.showSnackBar(SnackBar(content: Text('$name added as ${selectedRole.name}.'), backgroundColor: AppColors.primarySky));
             } catch (e) {
               if (!sheetContext.mounted) return;
               setSheetState(() {
@@ -95,247 +92,168 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
             }
           }
 
-          return Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(sheetContext).padding.bottom),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-                boxShadow: [
-                  BoxShadow(color: Color(0x40000000), blurRadius: 50, offset: Offset(0, 25)),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+          return Align(
+            alignment: Alignment.bottomCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800), // Standard 800px width
+              child: Container(
+                padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + MediaQuery.of(sheetContext).viewInsets.bottom),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle),
-                        child: const Icon(Icons.group_add, size: 20, color: AppColors.primarySky),
-                      ),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Add Team Member',
-                          style: TextStyle(
-                            fontFamily: _font,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            height: 28 / 22,
-                            letterSpacing: -0.44,
-                            color: AppColors.textLight,
+                      Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
+                            child: const Icon(Icons.person_add_alt_1, size: 20, color: AppColors.primarySky),
                           ),
-                        ),
-                      ),
-                      InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: isSaving ? null : () => Navigator.pop(sheetContext),
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: const BoxDecoration(color: AppColors.surfaceContainer, shape: BoxShape.circle),
-                          child: const Icon(Icons.close, size: 18, color: AppColors.textSecondary),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Select Role',
-                    style: TextStyle(
-                      fontFamily: _font,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      height: 14 / 11,
-                      letterSpacing: 0.22,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(color: AppColors.surfaceContainerLow, borderRadius: BorderRadius.circular(12)),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildRoleOption(
-                            label: 'Staff',
-                            icon: Icons.point_of_sale,
-                            selected: selectedRole == UserRole.staff,
-                            selectedColor: AppColors.primarySky,
-                            onTap: () => setSheetState(() => selectedRole = UserRole.staff),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: _buildRoleOption(
-                            label: 'Rider',
-                            icon: Icons.two_wheeler,
-                            selected: selectedRole == UserRole.rider,
-                            selectedColor: AppColors.primarySky,
-                            onTap: () => setSheetState(() => selectedRole = UserRole.rider),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Flexible(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 442),
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.only(right: 2),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _SheetField(
-                              label: 'FULL NAME',
-                              icon: Icons.badge_outlined,
-                              iconColor: AppColors.outline,
-                              controller: nameCtrl,
-                              hint: 'e.g. Maria Santos',
-                              keyboardType: TextInputType.name,
-                              errorText: nameError,
-                              onChanged: () {
-                                if (nameError != null) setSheetState(() => nameError = null);
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                            _SheetField(
-                              label: 'EMAIL ADDRESS',
-                              icon: Icons.mail_outline,
-                              iconColor: AppColors.outline,
-                              controller: emailCtrl,
-                              hint: 'name@aquaops.com',
-                              keyboardType: TextInputType.emailAddress,
-                              errorText: emailError,
-                              onChanged: () {
-                                if (emailError != null) setSheetState(() => emailError = null);
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                            _SheetField(
-                              label: 'TEMPORARY PASSWORD',
-                              icon: Icons.key_outlined,
-                              iconColor: AppColors.outline,
-                              controller: passwordCtrl,
-                              hint: 'Min. 8 characters',
-                              obscure: true,
-                              errorText: passwordError,
-                              onChanged: () {
-                                if (passwordError != null) setSheetState(() => passwordError = null);
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                            _SheetField(
-                              label: 'PHONE NUMBER',
-                              icon: Icons.call_outlined,
-                              iconColor: AppColors.outline,
-                              controller: phoneCtrl,
-                              hint: '09000000000',
-                              keyboardType: TextInputType.phone,
-                              errorText: phoneError,
-                              onChanged: () {
-                                if (phoneError != null) setSheetState(() => phoneError = null);
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                            _SheetField(
-                              label: 'ASSIGNED AREA (DELIVERY ZONE)',
-                              icon: Icons.explore_outlined,
-                              iconColor: AppColors.primarySky,
-                              controller: areaCtrl,
-                              hint: 'e.g. Barangay San Antonio (Zone A)',
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (errorText != null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      errorText!,
-                      style: const TextStyle(
-                        fontFamily: _font,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.error,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      InkWell(
-                        borderRadius: BorderRadius.circular(9999),
-                        onTap: isSaving ? null : () => Navigator.pop(sheetContext),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          child: Text(
-                            'Cancel',
-                            style: TextStyle(
-                              fontFamily: _font,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              height: 16 / 13,
-                              letterSpacing: 0.13,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: isSaving ? AppColors.primarySky.withValues(alpha: 0.7) : AppColors.primarySky,
-                          borderRadius: BorderRadius.circular(9999),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 6,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(9999),
-                            onTap: isSaving ? null : submit,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                              child: isSaving
-                                  ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                                  : const Text(
-                                'Create Account',
-                                style: TextStyle(
-                                  fontFamily: _font,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  height: 16 / 13,
-                                  letterSpacing: 0.13,
-                                  color: Colors.white,
-                                ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Add Team Member',
+                              style: TextStyle(
+                                fontFamily: _font,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textLight,
                               ),
                             ),
                           ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 20, color: AppColors.slate500),
+                            onPressed: isSaving ? null : () => Navigator.pop(sheetContext),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      const Text(
+                        'Select Role',
+                        style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textLight),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(12)),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildRoleOption(
+                                label: 'Staff Member',
+                                icon: Icons.point_of_sale,
+                                selected: selectedRole == UserRole.staff,
+                                onTap: () => setSheetState(() => selectedRole = UserRole.staff),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: _buildRoleOption(
+                                label: 'Dispatch Rider',
+                                icon: Icons.two_wheeler,
+                                selected: selectedRole == UserRole.rider,
+                                onTap: () => setSheetState(() => selectedRole = UserRole.rider),
+                              ),
+                            ),
+                          ],
                         ),
+                      ),
+                      const SizedBox(height: 14),
+                      _SheetField(
+                        label: 'FULL NAME',
+                        icon: Icons.badge_outlined,
+                        controller: nameCtrl,
+                        hint: 'e.g. Maria Santos',
+                        keyboardType: TextInputType.name,
+                        errorText: nameError,
+                        onChanged: () {
+                          if (nameError != null) setSheetState(() => nameError = null);
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      _SheetField(
+                        label: 'EMAIL ADDRESS',
+                        icon: Icons.mail_outline,
+                        controller: emailCtrl,
+                        hint: 'name@aquaops.com',
+                        keyboardType: TextInputType.emailAddress,
+                        errorText: emailError,
+                        onChanged: () {
+                          if (emailError != null) setSheetState(() => emailError = null);
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      _SheetField(
+                        label: 'TEMPORARY PASSWORD',
+                        icon: Icons.key_outlined,
+                        controller: passwordCtrl,
+                        hint: 'Min. 8 characters',
+                        obscure: true,
+                        errorText: passwordError,
+                        onChanged: () {
+                          if (passwordError != null) setSheetState(() => passwordError = null);
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      _SheetField(
+                        label: 'PHONE NUMBER',
+                        icon: Icons.call_outlined,
+                        controller: phoneCtrl,
+                        hint: '09000000000',
+                        keyboardType: TextInputType.phone,
+                        errorText: phoneError,
+                        onChanged: () {
+                          if (phoneError != null) setSheetState(() => phoneError = null);
+                        },
+                      ),
+                      if (selectedRole == UserRole.rider) ...[
+                        const SizedBox(height: 10),
+                        _SheetField(
+                          label: 'ASSIGNED AREA (DELIVERY ZONE)',
+                          icon: Icons.explore_outlined,
+                          controller: areaCtrl,
+                          hint: 'e.g. Barangay San Antonio (Zone A)',
+                        ),
+                      ],
+                      if (errorText != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          errorText!,
+                          style: const TextStyle(fontFamily: _font, fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.coralAlert),
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: isSaving ? null : () => Navigator.pop(sheetContext),
+                            child: const Text('Cancel', style: TextStyle(fontFamily: _font, color: AppColors.slate600)),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: isSaving ? null : submit,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primarySky,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: isSaving
+                                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : const Text('Create Account', style: TextStyle(fontFamily: _font, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
           );
@@ -348,43 +266,32 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
     required String label,
     required IconData icon,
     required bool selected,
-    required Color selectedColor,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        height: 36,
+      child: Container(
+        height: 38,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: selected
-              ? [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 2,
-              offset: const Offset(0, 1),
-            ),
-          ]
-              : [],
+          borderRadius: BorderRadius.circular(10),
+          border: selected ? Border.all(color: AppColors.slate200) : null,
+          boxShadow: selected ? const [BoxShadow(color: Color(0x08000000), blurRadius: 4, offset: Offset(0, 1))] : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: selected ? selectedColor : AppColors.textSecondary),
-            const SizedBox(width: 8),
+            Icon(icon, size: 16, color: selected ? AppColors.primarySky : AppColors.slate500),
+            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 fontFamily: _font,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                height: 16 / 13,
-                letterSpacing: 0.13,
-                color: selected ? selectedColor : AppColors.textSecondary,
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                color: selected ? AppColors.primarySky : AppColors.slate600,
               ),
             ),
           ],
@@ -396,217 +303,40 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
   void _confirmRemoveMember(UserModel member) {
     showDialog<void>(
       context: context,
-      barrierColor: const Color(0x66283044),
       builder: (dialogContext) {
         bool isDeleting = false;
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
-            return Dialog(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              insetPadding: const EdgeInsets.all(16),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 390),
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween<double>(begin: 0.95, end: 1),
-                  duration: const Duration(milliseconds: 200),
-                  builder: (context, value, child) => Transform.scale(scale: value, child: child),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: const [
-                        BoxShadow(color: Color(0x40000000), blurRadius: 50, offset: Offset(0, 25)),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: AppColors.errorContainer,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 2,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(Icons.warning_amber_rounded, size: 32, color: AppColors.error),
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Remove Team Member',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: _font,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            height: 28 / 22,
-                            letterSpacing: -0.44,
-                            color: AppColors.textLight,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 320),
-                          child: Text.rich(
-                            TextSpan(
-                              children: [
-                                const TextSpan(text: 'Are you sure you want to remove '),
-                                TextSpan(
-                                  text: member.name,
-                                  style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.textLight),
-                                ),
-                                const TextSpan(
-                                  text: ' from the station workforce? This action will revoke their login access and unassign their active shifts.',
-                                ),
-                              ],
-                            ),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontFamily: _font,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              height: 1.625,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: AppColors.surfaceContainerLow, borderRadius: BorderRadius.circular(16)),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.assignment_late_outlined, size: 18, color: AppColors.coralAlert),
-                              SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  'ACTIVE SHIFTS & LOGIN WILL BE REVOKED',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontFamily: _font,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    height: 12 / 10,
-                                    letterSpacing: 0.6,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: SizedBox(
-                                height: 48,
-                                child: TextButton(
-                                  onPressed: isDeleting ? null : () => Navigator.pop(dialogContext),
-                                  style: TextButton.styleFrom(
-                                    backgroundColor: AppColors.surfaceContainerLow,
-                                    foregroundColor: AppColors.textLight,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
-                                  ),
-                                  child: const Text(
-                                    'Cancel',
-                                    style: TextStyle(
-                                      fontFamily: _font,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      height: 16 / 13,
-                                      letterSpacing: 0.13,
-                                      color: AppColors.textLight,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Container(
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: AppColors.error,
-                                  borderRadius: BorderRadius.circular(9999),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.1),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(9999),
-                                    onTap: isDeleting
-                                        ? null
-                                        : () async {
-                                      final messenger = ScaffoldMessenger.of(context);
-                                      setDialogState(() => isDeleting = true);
-                                      await Future.delayed(const Duration(milliseconds: 500));
-                                      if (!mounted || !dialogContext.mounted) return;
-                                      setState(() => _removingIds.add(member.id));
-                                      Navigator.pop(dialogContext);
-                                      try {
-                                        await _firestoreService.deleteUserProfile(member.id);
-                                      } catch (e) {
-                                        if (mounted) setState(() => _removingIds.remove(member.id));
-                                        messenger.showSnackBar(
-                                          SnackBar(content: Text('Failed to remove: $e'), backgroundColor: AppColors.error),
-                                        );
-                                      }
-                                    },
-                                    child: Center(
-                                      child: isDeleting
-                                          ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                      )
-                                          : const Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.delete_outline, size: 18, color: Colors.white),
-                                          SizedBox(width: 4),
-                                          Text(
-                                            'Remove',
-                                            style: TextStyle(
-                                              fontFamily: _font,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w700,
-                                              height: 16 / 13,
-                                              letterSpacing: 0.13,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+            return AlertDialog(
+              backgroundColor: AppColors.surfaceCanvas,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Remove Team Member', style: TextStyle(fontFamily: _font, fontSize: 16, fontWeight: FontWeight.bold)),
+              content: Text(
+                'Are you sure you want to remove ${member.name} from the station workforce? Their login access will be revoked.',
+                style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textSecondary),
               ),
+              actions: [
+                TextButton(onPressed: isDeleting ? null : () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+                ElevatedButton(
+                  onPressed: isDeleting
+                      ? null
+                      : () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    setDialogState(() => isDeleting = true);
+                    setState(() => _removingIds.add(member.id));
+                    Navigator.pop(dialogContext);
+                    try {
+                      await _firestoreService.deleteUserProfile(member.id);
+                      messenger.showSnackBar(SnackBar(content: Text('Removed ${member.name}.')));
+                    } catch (e) {
+                      if (mounted) setState(() => _removingIds.remove(member.id));
+                      messenger.showSnackBar(SnackBar(content: Text('Failed to remove: $e'), backgroundColor: AppColors.coralAlert));
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.coralAlert, foregroundColor: Colors.white),
+                  child: const Text('Confirm Remove'),
+                ),
+              ],
             );
           },
         );
@@ -614,124 +344,61 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
     );
   }
 
-  Widget _buildHeader({String title = 'Back to Profile', Color backIconColor = AppColors.primarySky}) {
+  Widget _buildHeader(double topInset) {
     return Container(
+      height: 64 + topInset,
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceBackground.withValues(alpha: 0.85),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 1),
-          ),
-        ],
+      padding: EdgeInsets.only(top: topInset, left: 16, right: 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppColors.slate200)),
       ),
-      child: SafeArea(
-        bottom: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
-            child: SizedBox(
-              height: 64,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  children: [
-                    InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: () => Navigator.maybePop(context),
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: Icon(Icons.arrow_back, size: 24, color: backIconColor),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: _font,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          height: 24 / 17,
-                          letterSpacing: -0.17,
-                          color: AppColors.textLight,
-                        ),
-                      ),
-                    ),
-                  ],
+      child: Row(
+        children: [
+          Material(
+            color: AppColors.surfaceCanvas,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.slate200),
                 ),
+                child: const Icon(Icons.arrow_back, size: 20, color: AppColors.textLight),
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTitleBlock() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceFrost,
-            borderRadius: BorderRadius.circular(9999),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
+          const SizedBox(width: 12),
+          const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.badge, size: 13, color: AppColors.primarySky),
-              SizedBox(width: 6),
               Text(
-                'AQUA LOGISTICS WORKFORCE',
+                'Team Directory',
                 style: TextStyle(
                   fontFamily: _font,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.6,
-                  color: AppColors.primarySky,
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textLight,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                'Staff and rider account management',
+                style: TextStyle(
+                  fontFamily: _font,
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'Team Directory',
-          style: TextStyle(
-            fontFamily: _font,
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            height: 28 / 22,
-            letterSpacing: -0.44,
-            color: AppColors.textLight,
-          ),
-        ),
-        const SizedBox(height: 2),
-        const Text(
-          'Manage active station staff, delivery couriers and assigned zones',
-          style: TextStyle(
-            fontFamily: _font,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            height: 18 / 13,
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -739,255 +406,92 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
     final bool isRider = member.role == UserRole.rider;
     final String area = (member.assignedArea ?? '').trim();
     final String phone = member.phone.trim();
-    final String contact = phone.isEmpty ? member.email : '$phone\n${member.email}';
-    final String headline = isRider ? (area.isEmpty ? 'No delivery zone assigned yet' : area) : 'Station Operations Team';
-    final String subtitle = isRider ? 'Delivery Courier' : 'Station Staff Member';
+    final String headline = isRider ? (area.isEmpty ? 'No delivery zone assigned' : area) : 'Station Operations Team';
     final bool removing = _removingIds.contains(member.id);
 
     return AnimatedOpacity(
       opacity: removing ? 0 : 1,
       duration: const Duration(milliseconds: 300),
-      child: AnimatedScale(
-        scale: removing ? 0.95 : 1,
-        duration: const Duration(milliseconds: 300),
-        child: Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: Stack(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.slate200),
+          boxShadow: const [
+            BoxShadow(color: Color(0x06000000), blurRadius: 4, offset: Offset(0, 1)),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: const BoxDecoration(color: Color(0xFFF0F9FF), shape: BoxShape.circle),
+              child: Icon(isRider ? Icons.two_wheeler : Icons.point_of_sale, size: 20, color: AppColors.primarySky),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 4),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceFrost,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.05),
-                                    blurRadius: 2,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                isRider ? Icons.two_wheeler : Icons.point_of_sale,
-                                size: 20,
-                                color: AppColors.primarySky,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          member.name,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontFamily: _font,
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w700,
-                                            height: 1.2,
-                                            color: AppColors.textLight,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.secondaryContainer,
-                                          borderRadius: BorderRadius.circular(9999),
-                                        ),
-                                        child: Text(
-                                          member.role.name.toUpperCase(),
-                                          style: const TextStyle(
-                                            fontFamily: _font,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w800,
-                                            letterSpacing: 0.5,
-                                            color: AppColors.onSecondaryContainer,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 6,
-                                        height: 6,
-                                        decoration: const BoxDecoration(color: AppColors.primarySky, shape: BoxShape.circle),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Flexible(
-                                        child: Text(
-                                          subtitle,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontFamily: _font,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.primarySky,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            _HoverDeleteButton(
-                              onTap: () => _confirmRemoveMember(member),
-                            ),
-                          ],
+                      Flexible(
+                        child: Text(
+                          member.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: _font,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textLight,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(width: 8),
                       Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(left: 4),
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(16)),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              headline,
-                              style: const TextStyle(
-                                fontFamily: _font,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                height: 1.35,
-                                color: AppColors.textLight,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                Icon(isRider ? Icons.explore_outlined : Icons.storefront_outlined, size: 15, color: AppColors.primarySky),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    contact,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontFamily: _font,
-                                      fontSize: 11,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isRider ? const Color(0xFFE0F2FE) : const Color(0xFFECFDF5),
+                          borderRadius: BorderRadius.circular(100),
+                        ),
+                        child: Text(
+                          member.role.name.toUpperCase(),
+                          style: TextStyle(
+                            fontFamily: _font,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: isRider ? const Color(0xFF0369A1) : const Color(0xFF059669),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: 6,
-                  child: const DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: AppColors.primarySky,
-                      borderRadius: BorderRadius.horizontal(right: Radius.circular(9999)),
-                    ),
+                  const SizedBox(height: 4),
+                  Text(
+                    headline,
+                    style: const TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPrimaryActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      height: 56,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.primarySky,
-        borderRadius: BorderRadius.circular(9999),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primarySky.withValues(alpha: 0.38),
-            blurRadius: 24,
-            spreadRadius: -2,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(9999),
-          onTap: onTap,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontFamily: _font,
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.3,
-                ),
+                  const SizedBox(height: 4),
+                  Text(
+                    phone.isEmpty ? member.email : '$phone • ${member.email}',
+                    style: const TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.slate400),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.coralAlert),
+              onPressed: () => _confirmRemoveMember(member),
+            ),
+          ],
         ),
       ),
-    );
-  }
-
-  Widget _buildAddButton() {
-    return _buildPrimaryActionButton(
-      icon: Icons.person_add_alt_1,
-      label: 'Add Team Member',
-      onTap: _showAddMemberDialog,
     );
   }
 
@@ -997,7 +501,7 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
+            padding: EdgeInsets.symmetric(vertical: 40),
             child: Center(child: CircularProgressIndicator()),
           );
         }
@@ -1005,37 +509,23 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
         if (members.isEmpty) {
           return Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 3,
-                  offset: const Offset(0, 1),
-                ),
-              ],
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.slate200),
             ),
-            child: const Text(
-              'No staff or rider accounts yet. Tap "Add Team Member" to create one.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: _font,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textSecondary,
+            child: const Center(
+              child: Text(
+                'No staff or rider accounts found in system.',
+                style: TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textSecondary),
               ),
             ),
           );
         }
+
         return Column(
-          children: [
-            for (int i = 0; i < members.length; i++) ...[
-              _buildMemberCard(members[i]),
-              if (i != members.length - 1) const SizedBox(height: 12),
-            ],
-          ],
+          children: members.map((m) => _buildMemberCard(m)).toList(),
         );
       },
     );
@@ -1043,48 +533,56 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final topInset = MediaQuery.of(context).padding.top;
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceBackground,
-      body: Column(
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(_sidePadding, 4, _sidePadding, 32 + bottomInset),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildTitleBlock(),
-                        const SizedBox(height: 16),
-                        _buildMemberList(),
-                        const SizedBox(height: 20),
-                        _buildAddButton(),
-                      ],
-                    ),
+      backgroundColor: AppColors.surfaceCanvas, // #F8FAFC
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800), // Standard 800px width
+          child: Column(
+            children: [
+              _buildHeader(topInset),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 24 + bottomInset),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildMemberList(),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 48,
+                        child: ElevatedButton.icon(
+                          onPressed: _showAddMemberDialog,
+                          icon: const Icon(Icons.person_add_alt_1, size: 18),
+                          label: const Text('Add Team Member', style: TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primarySky,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _SheetField extends StatefulWidget {
+class _SheetField extends StatelessWidget {
   final String label;
   final IconData icon;
-  final Color iconColor;
   final TextEditingController controller;
   final String hint;
   final TextInputType keyboardType;
@@ -1095,7 +593,6 @@ class _SheetField extends StatefulWidget {
   const _SheetField({
     required this.label,
     required this.icon,
-    required this.iconColor,
     required this.controller,
     required this.hint,
     this.keyboardType = TextInputType.text,
@@ -1105,138 +602,40 @@ class _SheetField extends StatefulWidget {
   });
 
   @override
-  State<_SheetField> createState() => _SheetFieldState();
-}
-
-class _SheetFieldState extends State<_SheetField> {
-  final FocusNode _focusNode = FocusNode();
-  bool _focused = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _focusNode.addListener(() {
-      if (!mounted) return;
-      setState(() => _focused = _focusNode.hasFocus);
-    });
-  }
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final bool hasError = widget.errorText != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          widget.label,
+          label,
           style: const TextStyle(
             fontFamily: _font,
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            height: 12 / 10,
-            letterSpacing: 0.6,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
             color: AppColors.textSecondary,
           ),
         ),
         const SizedBox(height: 4),
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          height: 42,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: _focused ? AppColors.surfaceFrost : AppColors.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(12),
-            border: hasError ? Border.all(color: AppColors.error, width: 1.5) : null,
-          ),
-          child: Row(
-            children: [
-              Icon(widget.icon, size: 18, color: hasError ? AppColors.error : widget.iconColor),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: widget.controller,
-                  focusNode: _focusNode,
-                  keyboardType: widget.keyboardType,
-                  obscureText: widget.obscure,
-                  onChanged: (_) => widget.onChanged?.call(),
-                  style: const TextStyle(
-                    fontFamily: _font,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textLight,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: widget.hint,
-                    hintStyle: const TextStyle(
-                      fontFamily: _font,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.outline,
-                    ),
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ),
-            ],
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          obscureText: obscure,
+          onChanged: (_) => onChanged?.call(),
+          style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
+          decoration: InputDecoration(
+            prefixIcon: Icon(icon, size: 18, color: AppColors.slate400),
+            hintText: hint,
+            hintStyle: const TextStyle(fontFamily: _font, fontSize: 12, color: AppColors.slate400),
+            filled: true,
+            fillColor: AppColors.surfaceCanvas,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primarySky)),
+            errorText: errorText,
           ),
         ),
-        if (hasError)
-          Padding(
-            padding: const EdgeInsets.only(left: 4, top: 4),
-            child: Text(
-              widget.errorText!,
-              style: const TextStyle(fontFamily: _font, fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.error),
-            ),
-          ),
       ],
-    );
-  }
-}
-
-class _HoverDeleteButton extends StatefulWidget {
-  final VoidCallback onTap;
-
-  const _HoverDeleteButton({required this.onTap});
-
-  @override
-  State<_HoverDeleteButton> createState() => _HoverDeleteButtonState();
-}
-
-class _HoverDeleteButtonState extends State<_HoverDeleteButton> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: _hovered ? AppColors.errorContainer.withValues(alpha: 0.4) : Colors.transparent,
-          ),
-          child: Icon(
-            Icons.delete_outline,
-            size: 19,
-            color: _hovered ? AppColors.error : AppColors.slate400,
-          ),
-        ),
-      ),
     );
   }
 }

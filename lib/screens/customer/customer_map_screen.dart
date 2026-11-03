@@ -4,7 +4,6 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/layout_constants.dart';
 import '../../core/constants/zones.dart';
 import '../../models/order_model.dart';
 import '../../services/firestore_service.dart';
@@ -30,6 +29,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
   final FirestoreService _firestoreService = FirestoreService();
 
   static const LatLng _station = LatLng(stationLat, stationLng);
+  static const String _font = 'Plus Jakarta Sans';
 
   bool _loadingRoute = true;
   String? _routeError;
@@ -124,30 +124,51 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
     final bounds = LatLngBounds.fromPoints(
       _routePoints.isNotEmpty ? _routePoints : [_station, destination],
     );
-    _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(48)));
+    _mapController.fitCamera(
+      CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(48)),
+    );
   }
 
   void _zoomIn() {
-    _mapController.move(_mapController.camera.center, _mapController.camera.zoom + 1);
+    _mapController.move(
+      _mapController.camera.center,
+      _mapController.camera.zoom + 1,
+    );
   }
 
   void _zoomOut() {
-    _mapController.move(_mapController.camera.center, _mapController.camera.zoom - 1);
+    _mapController.move(
+      _mapController.camera.center,
+      _mapController.camera.zoom - 1,
+    );
   }
 
-  Widget _buildMapCardContainer({required Widget child}) {
+  String _getRiderName() {
+    if (widget.order.assignedRiderName != null &&
+        widget.order.assignedRiderName!.trim().isNotEmpty) {
+      return widget.order.assignedRiderName!.trim();
+    }
+    return 'Arnel Bautista';
+  }
+
+  String _getRiderInitials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.length > 1 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    } else if (parts.isNotEmpty && parts[0].isNotEmpty) {
+      return parts[0][0].toUpperCase();
+    }
+    return 'AB';
+  }
+
+  Widget _buildCard({required Widget child, EdgeInsetsGeometry? padding}) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: padding ?? const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            blurRadius: 8,
-          ),
-        ],
+        border: Border.all(color: AppColors.slate200),
       ),
       child: child,
     );
@@ -163,217 +184,27 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
     return Scaffold(
       backgroundColor: AppColors.surfaceBackground,
       body: SafeArea(
-        bottom: false,
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+            constraints: const BoxConstraints(maxWidth: 800),
             child: Column(
               children: [
-                SizedBox(
-                  height: 64,
-                  width: double.infinity,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceBackground.withValues(alpha: 0.96),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x0A000000),
-                          blurRadius: 8,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.arrow_back,
-                            color: AppColors.textLight,
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        const SizedBox(width: 4),
-                        const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Live Order Tracking',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textLight,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                            Text(
-                              'REAL-TIME DELIVERY ROUTE',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primarySky,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                _buildHeader(),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(
-                      top: 24,
-                      left: 24,
-                      right: 24,
-                      bottom: 130,
-                    ),
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildMapCardContainer(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Flexible(
-                                    child: Row(
-                                      children: [
-                                        const Text(
-                                          'ORDER',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.textSecondary,
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Flexible(
-                                          child: Text(
-                                            widget.order.orderNumber,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 17,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.textLight,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.surfaceIce,
-                                      borderRadius:
-                                      BorderRadius.circular(100),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        AnimatedBuilder(
-                                          animation: _pulseController,
-                                          builder: (context, child) {
-                                            return Container(
-                                              width: 8,
-                                              height: 8,
-                                              decoration: BoxDecoration(
-                                                color:
-                                                AppColors.primarySky,
-                                                shape: BoxShape.circle,
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color:
-                                                    AppColors.cyanElectric
-                                                        .withValues(
-                                                      alpha:
-                                                      _pulseController.value,
-                                                    ),
-                                                    blurRadius: 6 *
-                                                        _pulseController.value,
-                                                    spreadRadius: 2 *
-                                                        _pulseController.value,
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          _etaMinutes != null ? '~$_etaMinutes MINS ETA' : '— MINS ETA',
-                                          style: const TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.primarySky,
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceCanvas,
-                                  borderRadius: BorderRadius.circular(100),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 28,
-                                      height: 28,
-                                      decoration: const BoxDecoration(
-                                        color: AppColors.surfaceFrost,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.location_on,
-                                        size: 16,
-                                        color: AppColors.primarySky,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        widget.order.deliveryAddress ??
-                                            'Unknown Address',
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildMap(),
-                        const SizedBox(height: 12),
+                        _buildOrderSummaryCard(),
+                        const SizedBox(height: 14),
+                        _buildMapSection(),
+                        const SizedBox(height: 14),
                         _buildRiderCard(),
-                        const SizedBox(height: 12),
-                        _buildOrderManifest(totalGallons),
+                        const SizedBox(height: 14),
+                        _buildOrderManifestCard(totalGallons),
                       ],
                     ),
                   ),
@@ -386,29 +217,187 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
     );
   }
 
-  Widget _buildMap() {
+  Widget _buildHeader() {
+    return Container(
+      height: 64,
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppColors.slate200)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Material(
+            color: AppColors.sky50,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => Navigator.pop(context),
+              child: const SizedBox(
+                width: 36,
+                height: 36,
+                child: Icon(Icons.arrow_back, size: 20, color: AppColors.primarySky),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Live Order Tracking',
+                  style: TextStyle(
+                    fontFamily: _font,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textLight,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Order #${widget.order.orderNumber} • Real-Time Route',
+                  style: const TextStyle(
+                    fontFamily: _font,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOrderSummaryCard() {
+    return _buildCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: const BoxDecoration(
+                      color: AppColors.sky50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.receipt_long, size: 16, color: AppColors.primarySky),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '#${widget.order.orderNumber}',
+                    style: const TextStyle(
+                      fontFamily: _font,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textLight,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.sky50,
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(color: AppColors.sky200),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedBuilder(
+                      animation: _pulseController,
+                      builder: (context, child) {
+                        return Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: AppColors.primarySky,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.cyanElectric.withValues(
+                                  alpha: _pulseController.value,
+                                ),
+                                blurRadius: 4 * _pulseController.value,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _etaMinutes != null ? '~$_etaMinutes MINS ETA' : 'ETA IN TRANSIT',
+                      style: const TextStyle(
+                        fontFamily: _font,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primarySky,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Divider(height: 1, color: AppColors.slate100),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(Icons.location_on_outlined, size: 16, color: AppColors.primarySky),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  widget.order.deliveryAddress ?? 'Delivery address not provided',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: _font,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMapSection() {
     return LayoutBuilder(
       builder: (context, constraints) {
         final double mapWidth = constraints.maxWidth;
-        final double mapHeight = mapWidth * 0.95;
+        final double mapHeight = (mapWidth * 0.72).clamp(280.0, 420.0);
         final destination = _destination;
 
         return Container(
           width: mapWidth,
           height: mapHeight,
           decoration: BoxDecoration(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0D000000),
-                blurRadius: 8,
-              ),
-            ],
+            border: Border.all(color: AppColors.slate200),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: Stack(
-              clipBehavior: Clip.hardEdge,
               children: [
                 Positioned.fill(
                   child: StreamBuilder<OrderModel?>(
@@ -417,8 +406,8 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                       final liveOrder = liveOrderSnapshot.data;
                       final riderLat = liveOrder?.riderLat;
                       final riderLng = liveOrder?.riderLng;
-                      final hasLiveRiderPosition = riderLat != null && riderLng != null;
-                      final riderPoint = hasLiveRiderPosition ? LatLng(riderLat, riderLng) : null;
+                      final hasLiveRider = riderLat != null && riderLng != null;
+                      final riderPoint = hasLiveRider ? LatLng(riderLat, riderLng) : null;
 
                       return FlutterMap(
                         mapController: _mapController,
@@ -437,7 +426,11 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                           if (_routePoints.isNotEmpty)
                             PolylineLayer(
                               polylines: [
-                                Polyline(points: _routePoints, strokeWidth: 5, color: AppColors.primarySky),
+                                Polyline(
+                                  points: _routePoints,
+                                  strokeWidth: 4.5,
+                                  color: AppColors.primarySky,
+                                ),
                               ],
                             ),
                           MarkerLayer(
@@ -447,7 +440,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                                 width: 90,
                                 height: 70,
                                 child: _buildLocationMarker(
-                                  label: 'Water Station',
+                                  label: 'Station',
                                   icon: Icons.water_drop,
                                   color: AppColors.primarySky,
                                 ),
@@ -458,7 +451,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                                   width: 90,
                                   height: 70,
                                   child: _buildLocationMarker(
-                                    label: 'Client Home',
+                                    label: 'Your Home',
                                     icon: Icons.home,
                                     color: AppColors.secondary,
                                   ),
@@ -466,8 +459,8 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                               if (riderPoint != null)
                                 Marker(
                                   point: riderPoint,
-                                  width: 70,
-                                  height: 70,
+                                  width: 60,
+                                  height: 60,
                                   child: _buildRiderMarker(),
                                 ),
                             ],
@@ -484,85 +477,70 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                     child: const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.primarySky),
-                        SizedBox(height: 10),
-                        Text('Calculating route…', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        CircularProgressIndicator(strokeWidth: 2, color: AppColors.primarySky),
+                        SizedBox(height: 8),
+                        Text(
+                          'Calculating route…',
+                          style: TextStyle(fontFamily: _font, fontSize: 12, color: AppColors.textSecondary),
+                        ),
                       ],
                     ),
                   )
                 else if (_routeError != null)
                   Positioned(
-                    top: 12,
-                    left: 12,
-                    right: 12,
+                    top: 10,
+                    left: 10,
+                    right: 10,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.95),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.slate200),
                       ),
                       child: Text(
                         _routeError!,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                        style: const TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.textSecondary),
                       ),
                     ),
                   ),
+
+                // Controls in Upper Right Stack
                 Positioned(
-                  right: 12,
-                  top: 12,
+                  right: 10,
+                  top: 10,
                   child: Column(
                     children: [
-                      FloatingActionButton.small(
-                        heroTag: 'recenter',
+                      _buildMapIconButton(
+                        icon: Icons.my_location,
                         onPressed: _fitRoute,
-                        backgroundColor:
-                        Colors.white.withValues(alpha: 0.94),
-                        elevation: 4,
-                        child: const Icon(
-                          Icons.my_location,
-                          color: AppColors.primarySky,
-                          size: 20,
-                        ),
+                        color: AppColors.primarySky,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.94),
-                          borderRadius: BorderRadius.circular(100),
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.slate200),
                           boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black26,
-                              blurRadius: 4,
-                            ),
+                            BoxShadow(color: Color(0x140F172A), blurRadius: 6, offset: Offset(0, 2)),
                           ],
                         ),
                         child: Column(
                           children: [
                             IconButton(
                               onPressed: _zoomIn,
-                              icon: const Icon(
-                                Icons.add,
-                                color: AppColors.textLight,
-                                size: 18,
-                              ),
-                              constraints: const BoxConstraints(
-                                minWidth: 44,
-                                minHeight: 40,
-                              ),
+                              icon: const Icon(Icons.add, size: 18, color: AppColors.textLight),
+                              constraints: const BoxConstraints(minWidth: 38, minHeight: 36),
+                              padding: EdgeInsets.zero,
                             ),
+                            Container(width: 24, height: 1, color: AppColors.slate100),
                             IconButton(
                               onPressed: _zoomOut,
-                              icon: const Icon(
-                                Icons.remove,
-                                color: AppColors.textLight,
-                                size: 18,
-                              ),
-                              constraints: const BoxConstraints(
-                                minWidth: 44,
-                                minHeight: 40,
-                              ),
+                              icon: const Icon(Icons.remove, size: 18, color: AppColors.textLight),
+                              constraints: const BoxConstraints(minWidth: 38, minHeight: 36),
+                              padding: EdgeInsets.zero,
                             ),
                           ],
                         ),
@@ -570,47 +548,39 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                     ],
                   ),
                 ),
+
+                // Distance Label in Lower Left
                 Positioned(
-                  left: 12,
-                  bottom: 12,
+                  left: 10,
+                  bottom: 10,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.94),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(100),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 4,
-                        ),
-                      ],
+                      border: Border.all(color: AppColors.slate200),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const SizedBox(
-                          width: 8,
-                          height: 8,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Color(0xFF4EDEA3),
-                              shape: BoxShape.circle,
-                            ),
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: AppColors.emerald600,
+                            shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Text(
                           _distanceKm != null
-                              ? '${_distanceKm!.toStringAsFixed(1)} km route • Order ${widget.order.orderNumber}'
-                              : (_routeError ?? 'Calculating route…'),
+                              ? '${_distanceKm!.toStringAsFixed(1)} km delivery route'
+                              : (_routeError ?? 'Route in progress'),
                           style: const TextStyle(
-                            color: AppColors.textLight,
-                            fontSize: 10,
+                            fontFamily: _font,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
+                            color: AppColors.textLight,
                           ),
                         ),
                       ],
@@ -625,6 +595,30 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
     );
   }
 
+  Widget _buildMapIconButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+    required Color color,
+  }) {
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.slate200),
+        boxShadow: const [
+          BoxShadow(color: Color(0x140F172A), blurRadius: 6, offset: Offset(0, 2)),
+        ],
+      ),
+      child: IconButton(
+        icon: Icon(icon, size: 18, color: color),
+        onPressed: onPressed,
+        padding: EdgeInsets.zero,
+      ),
+    );
+  }
+
   Widget _buildLocationMarker({
     required String label,
     required IconData icon,
@@ -634,217 +628,137 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 3,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: color == AppColors.secondary
-                ? AppColors.secondary
-                : const Color(0xFF283044),
-            borderRadius: BorderRadius.circular(100),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 4,
-              ),
-            ],
+            color: color,
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
             label,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 10,
+              fontSize: 9,
               fontWeight: FontWeight.bold,
             ),
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Container(
-          width: 40,
-          height: 40,
+          width: 34,
+          height: 34,
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 8,
-              ),
-            ],
+            border: Border.all(color: Colors.white, width: 2),
           ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 20,
-          ),
+          child: Icon(icon, color: Colors.white, size: 18),
         ),
       ],
     );
   }
 
   Widget _buildRiderMarker() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    return Stack(
+      alignment: Alignment.center,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 4,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(100),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 8,
-              ),
-            ],
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.bolt,
-                size: 14,
-                color: AppColors.accentTeal,
-              ),
-              SizedBox(width: 4),
-              Text(
-                'On Route',
-                style: TextStyle(
-                  color: AppColors.primarySky,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 6),
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            AnimatedBuilder(
-              animation: _pulseController,
-              builder: (context, child) {
-                final double pulse = _pulseController.value;
-
-                return Container(
-                  width: 48 + (16 * pulse),
-                  height: 48 + (16 * pulse),
-                  decoration: BoxDecoration(
-                    color: AppColors.primarySky.withValues(
-                      alpha: 0.3 * (1 - pulse),
-                    ),
-                    shape: BoxShape.circle,
-                  ),
-                );
-              },
-            ),
-            Container(
-              width: 48,
-              height: 48,
+        AnimatedBuilder(
+          animation: _pulseController,
+          builder: (context, child) {
+            final double pulse = _pulseController.value;
+            return Container(
+              width: 40 + (12 * pulse),
+              height: 40 + (12 * pulse),
               decoration: BoxDecoration(
-                color: AppColors.primarySky,
+                color: AppColors.primarySky.withValues(alpha: 0.3 * (1 - pulse)),
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white,
-                  width: 4,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 12,
-                  ),
-                ],
               ),
-              child: const Icon(
-                Icons.two_wheeler,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
-          ],
+            );
+          },
+        ),
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: AppColors.primarySky,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2.5),
+          ),
+          child: const Icon(Icons.two_wheeler, color: Colors.white, size: 20),
         ),
       ],
     );
   }
 
   Widget _buildRiderCard() {
-    return _buildMapCardContainer(
+    final riderName = _getRiderName();
+    final initials = _getRiderInitials(riderName);
+
+    return _buildCard(
+      padding: const EdgeInsets.all(14),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Flexible(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: const BoxDecoration(
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: const BoxDecoration(
+                      color: AppColors.sky50,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      initials,
+                      style: const TextStyle(
+                        fontFamily: _font,
                         color: AppColors.primarySky,
-                        shape: BoxShape.circle,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
                       ),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        'AB',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        riderName,
+                        style: const TextStyle(
+                          fontFamily: _font,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
+                          color: AppColors.textLight,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Flexible(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Arnel Bautista',
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textLight,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Delivery Rider',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Assigned Delivery Rider',
+                        style: TextStyle(
+                          fontFamily: _font,
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceIce,
-                  borderRadius: BorderRadius.circular(100),
+                  color: AppColors.emerald50,
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Text(
-                  'ACTIVE RUN',
+                  'On Delivery',
                   style: TextStyle(
-                    color: AppColors.primarySky,
+                    fontFamily: _font,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
+                    color: AppColors.emerald700,
                   ),
                 ),
               ),
@@ -853,33 +767,24 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            height: 42,
+            child: OutlinedButton.icon(
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('In-app messaging is coming soon. Please call the station for now.')),
+                  const SnackBar(
+                    content: Text('In-app messaging is coming soon. Please contact the water station for updates.'),
+                  ),
                 );
               },
-              icon: const Icon(
-                Icons.chat_bubble,
-                size: 20,
-                color: Colors.white,
-              ),
+              icon: const Icon(Icons.chat_outlined, size: 16),
               label: const Text(
                 'Send Message',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.bold),
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primarySky,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                elevation: 4,
-                shadowColor: const Color(0x590284C7),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primarySky,
+                side: const BorderSide(color: AppColors.slate200),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ),
@@ -888,168 +793,127 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
     );
   }
 
-  Widget _buildOrderManifest(int totalGallons) {
-    return _buildMapCardContainer(
+  Widget _buildOrderManifestCard(int totalGallons) {
+    return _buildCard(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Flexible(
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.inventory_2,
-                      color: AppColors.primarySky,
-                      size: 20,
-                    ),
-                    SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        'Order Manifest',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textLight,
-                        ),
-                      ),
-                    ),
-                  ],
+              const Text(
+                'Order Manifest',
+                style: TextStyle(
+                  fontFamily: _font,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textLight,
                 ),
               ),
-              const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6FFBBE),
-                  borderRadius: BorderRadius.circular(100),
+                  color: AppColors.slate100,
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   widget.order.paymentMethod == PaymentMethod.gcash
                       ? 'Paid • GCash'
                       : 'Cash on Delivery',
                   style: const TextStyle(
+                    fontFamily: _font,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF002113),
+                    color: AppColors.slate600,
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          ...widget.order.items.map(
-                (item) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceCanvas,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 28,
-                            height: 28,
-                            decoration: const BoxDecoration(
-                              color: AppColors.surfaceFrost,
-                              shape: BoxShape.circle,
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              '${item.quantity}x',
-                              style: const TextStyle(
-                                color: AppColors.primarySky,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              item.name,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppColors.textLight,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '₱${item.totalPrice.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        color: AppColors.textLight,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          if (totalGallons > 0) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
+          ...widget.order.items.map((item) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.surfaceIce,
-                borderRadius: BorderRadius.circular(8),
+                color: AppColors.slate50,
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: const BoxDecoration(
-                      color: AppColors.surfaceFrost,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.swap_horizontal_circle,
-                      size: 18,
-                      color: AppColors.primarySky,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        const Text(
-                          'Container Exchange Ready',
-                          style: TextStyle(
-                            color: AppColors.primarySky,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: AppColors.slate200),
+                          ),
+                          child: Text(
+                            '${item.quantity}x',
+                            style: const TextStyle(
+                              fontFamily: _font,
+                              color: AppColors.primarySky,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                        Text(
-                          '$totalGallons'
-                              'x empty sanitized gallon bottles to surrender',
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 11,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            item.name,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: _font,
+                              color: AppColors.textLight,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '₱${item.totalPrice.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontFamily: _font,
+                      color: AppColors.textLight,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          if (totalGallons > 0) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.sky50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.sky200),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.swap_horizontal_circle, size: 18, color: AppColors.primarySky),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '$totalGallons sanitized empty container(s) to surrender upon delivery.',
+                      style: const TextStyle(
+                        fontFamily: _font,
+                        color: AppColors.primarySky,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -1057,22 +921,27 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
             ),
           ],
           const SizedBox(height: 12),
+          const Divider(height: 1, color: AppColors.slate100),
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Total Amount Due',
+                'Total Amount',
                 style: TextStyle(
+                  fontFamily: _font,
                   color: AppColors.textSecondary,
                   fontSize: 13,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               Text(
                 '₱${widget.order.totalAmount.toStringAsFixed(2)}',
                 style: const TextStyle(
+                  fontFamily: _font,
                   color: AppColors.primarySky,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],

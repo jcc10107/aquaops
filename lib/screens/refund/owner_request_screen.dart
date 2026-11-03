@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/layout_constants.dart'; // Added centralized layout constants
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/app_toast.dart';
 import '../../models/refund_model.dart';
@@ -10,7 +9,6 @@ import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/bottom_sheet_chrome.dart';
 import '../../widgets/proof_of_delivery_dialog.dart';
-import '../../widgets/screen_title_block.dart';
 import 'owner_refund_processing_screen.dart';
 
 class OwnerRequestScreen extends StatefulWidget {
@@ -31,7 +29,7 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
 
   TextStyle _ts({
     required double size,
-    required FontWeight weight,
+    FontWeight weight = FontWeight.w500,
     required Color color,
     double? height,
     double? letterSpacing,
@@ -120,7 +118,7 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
     );
   }
 
-  Future<void> _confirmDecline(RefundModel r) async {
+  Future<void> _confirmDecline(RefundModel r, [StateSetter? setModalState]) async {
     final TextEditingController ctrl = _declineControllerFor(r.id);
     if (ctrl.text.trim().isEmpty) {
       AppToast.showError(context, 'Please provide a mandatory explanation for declining.');
@@ -135,30 +133,27 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
         rejectionReason: ctrl.text.trim(),
       );
       if (!mounted) return;
-      _showDeclineFormIds.remove(r.id);
-      _underReviewIds.remove(r.id);
-      AppToast.showSuccess(context, 'Decline explanation logged to telematics');
+      setState(() {
+        _showDeclineFormIds.remove(r.id);
+        _underReviewIds.remove(r.id);
+      });
+      if (setModalState != null) {
+        setModalState(() {
+          _showDeclineFormIds.remove(r.id);
+        });
+      }
+      Navigator.of(context, rootNavigator: true).pop();
+      AppToast.showSuccess(context, 'Decline explanation logged.');
     } catch (e) {
       if (!mounted) return;
       AppToast.showError(context, 'Failed to log decline: $e');
     }
   }
 
-  Future<void> _openDecisionSheet(RefundModel r) async {
-    final String? choice = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: const Color(0x99020617),
-      constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
-      builder: (ctx) => _buildDecisionSheet(ctx, r),
-    );
-    if (choice != null && mounted) _executeDecision(r, choice);
-  }
-
   Future<void> _executeDecision(RefundModel r, String type) async {
     if (type == 'decline') {
       setState(() => _showDeclineFormIds.add(r.id));
+      _openRefundDetails(r);
       return;
     }
     DateTime? redeliveryScheduledAt;
@@ -186,6 +181,7 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
         redeliveryScheduledAt: redeliveryScheduledAt,
       );
       if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
       if (type == 'refund') {
         AppToast.showSuccess(context, 'Approved! Ready for manual GCash transfer.');
       } else {
@@ -201,6 +197,7 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
   }
 
   Future<void> _processApproved(RefundModel r) async {
+    Navigator.of(context, rootNavigator: true).pop();
     final String? ref = await Navigator.push<String>(
       context,
       MaterialPageRoute(
@@ -235,22 +232,22 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
   void _openEvidence(String title, String subtitle, [String? photoUrl]) {
     showDialog(
       context: context,
-      barrierColor: const Color(0xCC020617),
+      barrierColor: AppColors.backgroundDark.withValues(alpha: 0.6),
       builder: (ctx) => ProofOfDeliveryDialog(
         title: title,
         subtitle: subtitle,
         imageUrl: photoUrl,
         chromeHeight: 210,
         badgeIcon: Icons.emergency,
-        badgeIconColor: const Color(0xFFFB7185),
-        badgeText: 'Impact Damage Detected',
+        badgeIconColor: AppColors.coralAlert,
+        badgeText: 'Damage Evidence Attached',
         detailsChild: RichText(
           text: TextSpan(
             style: _ts(size: 11, weight: FontWeight.w500, color: AppColors.slate600, height: 1.5),
             children: [
-              const TextSpan(text: 'Timestamp: '),
-              TextSpan(text: '10:42 AM Today', style: _ts(size: 11, weight: FontWeight.w700, color: AppColors.surfaceDark)),
-              const TextSpan(text: ' • Geo-verified at customer delivery address.'),
+              const TextSpan(text: 'Audit Log: '),
+              TextSpan(text: 'Filed by customer', style: _ts(size: 11, weight: FontWeight.w700, color: AppColors.textLight)),
+              const TextSpan(text: ' • Geo-verified delivery item proof.'),
             ],
           ),
         ),
@@ -258,287 +255,642 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
     );
   }
 
-  Widget _buildDecisionSheet(BuildContext ctx, RefundModel r) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border(top: BorderSide(color: AppColors.slate100)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const BottomSheetDragHandle(),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.only(bottom: 12),
-                decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.slate100))),
-                child: BottomSheetHeader(
-                  title: 'OWNER REVIEW TERMINAL',
-                  subtitle: 'Order #${r.orderNumber}\n${r.customerName}',
-                  onClose: () => Navigator.pop(ctx),
-                  leading: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle),
-                    child: const Icon(Icons.gavel, size: 18, color: AppColors.primarySky),
+  // ========================================================
+  // PROGRESSIVE DISCLOSURE: FULL DETAILS SHEET
+  // ========================================================
+  void _openRefundDetails(RefundModel r) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: AppColors.backgroundDark.withValues(alpha: 0.45),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final bool underReview = _underReviewIds.contains(r.id);
+            final bool showDecline = _showDeclineFormIds.contains(r.id);
+            final bool isRedelivery = r.resolutionType == 'redelivery';
+
+            return Align(
+              alignment: Alignment.bottomCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 800,
+                  maxHeight: MediaQuery.of(context).size.height * 0.88,
+                ),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 12),
+                      const BottomSheetDragHandle(),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        child: Row(
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Order #${r.orderNumber}',
+                                  style: _ts(size: 17, weight: FontWeight.bold, color: AppColors.textLight),
+                                ),
+                                Text(
+                                  r.customerName,
+                                  style: _ts(size: 12, weight: FontWeight.w500, color: AppColors.textSecondary),
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            _buildStatusBadge(r),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(Icons.close, size: 20, color: AppColors.slate500),
+                              onPressed: () => Navigator.pop(ctx),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1, color: AppColors.slate200),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(20),
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 1. Amount & Summary Bar
+                              Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: AppColors.slate50,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: AppColors.slate200),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('REQUESTED AMOUNT', style: _ts(size: 10, weight: FontWeight.w800, color: AppColors.slate500, letterSpacing: 0.5)),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '₱${r.amount.toStringAsFixed(2)}',
+                                          style: _ts(size: 22, weight: FontWeight.w800, color: AppColors.primarySky),
+                                        ),
+                                      ],
+                                    ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text('ITEMS CLAIMED', style: _ts(size: 10, weight: FontWeight.w800, color: AppColors.slate500, letterSpacing: 0.5)),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          r.itemsSummary.isEmpty ? 'General item' : r.itemsSummary,
+                                          style: _ts(size: 13, weight: FontWeight.w700, color: AppColors.textLight),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+
+                              // 2. Complaint & Customer Description
+                              Text('DISPUTE REASON', style: _ts(size: 11, weight: FontWeight.w800, color: AppColors.slate500, letterSpacing: 0.5)),
+                              const SizedBox(height: 6),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.slate200),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.report_problem, size: 16, color: AppColors.amber600),
+                                        const SizedBox(width: 6),
+                                        Text(r.reason, style: _ts(size: 13, weight: FontWeight.w700, color: AppColors.textLight)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      r.description.isEmpty ? 'No additional comments provided.' : '"${r.description}"',
+                                      style: _ts(size: 12, weight: FontWeight.w500, color: AppColors.textSecondary, height: 1.4),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+
+                              // 3. Evidence / Photo
+                              Text('CUSTOMER EVIDENCE', style: _ts(size: 11, weight: FontWeight.w800, color: AppColors.slate500, letterSpacing: 0.5)),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.slate200),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          width: 44,
+                                          height: 44,
+                                          clipBehavior: Clip.antiAlias,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.slate100,
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: AppColors.slate200),
+                                          ),
+                                          child: r.photoUrl != null
+                                              ? Image.network(
+                                            r.photoUrl!,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.image, color: AppColors.slate400, size: 20),
+                                          )
+                                              : const Icon(Icons.image_not_supported_outlined, color: AppColors.slate400, size: 20),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              r.photoUrl != null ? 'Photo Attached (1 item)' : 'No Photo Uploaded',
+                                              style: _ts(size: 12, weight: FontWeight.w700, color: AppColors.textLight),
+                                            ),
+                                            Text(
+                                              'Delivery claim proof',
+                                              style: _ts(size: 11, weight: FontWeight.w500, color: AppColors.slate500),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    if (r.photoUrl != null)
+                                      OutlinedButton.icon(
+                                        onPressed: () => _openEvidence('${r.reason} Proof', '${r.customerName} (#${r.orderNumber})', r.photoUrl),
+                                        icon: const Icon(Icons.visibility, size: 14),
+                                        label: const Text('Inspect'),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: AppColors.primarySky,
+                                          side: const BorderSide(color: AppColors.sky200),
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          visualDensity: VisualDensity.compact,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+
+                              // 4. Beneficiary GCash Details
+                              Text('GCASH ACCOUNT NUMBER', style: _ts(size: 11, weight: FontWeight.w800, color: AppColors.slate500, letterSpacing: 0.5)),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.slate200),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          r.gcashName.isEmpty ? r.customerName : r.gcashName,
+                                          style: _ts(size: 12, weight: FontWeight.w500, color: AppColors.textSecondary),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          r.gcashNumber.isEmpty ? 'No GCash provided' : r.gcashNumber,
+                                          style: _ts(size: 14, weight: FontWeight.bold, color: AppColors.textLight),
+                                        ),
+                                      ],
+                                    ),
+                                    if (r.gcashNumber.isNotEmpty)
+                                      OutlinedButton.icon(
+                                        onPressed: () => _copy(r.gcashNumber),
+                                        icon: const Icon(Icons.content_copy, size: 13),
+                                        label: const Text('Copy'),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: AppColors.primarySky,
+                                          side: const BorderSide(color: AppColors.slate200),
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          visualDensity: VisualDensity.compact,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+
+                              // 5. Decision & Resolution Controls
+                              if (r.status == RefundStatus.pending) ...[
+                                if (showDecline) ...[
+                                  Text('MANDATORY DECLINE REASON', style: _ts(size: 11, weight: FontWeight.w800, color: AppColors.rose600, letterSpacing: 0.5)),
+                                  const SizedBox(height: 6),
+                                  TextField(
+                                    controller: _declineControllerFor(r.id),
+                                    maxLines: 2,
+                                    style: _ts(size: 13, weight: FontWeight.w500, color: AppColors.textLight),
+                                    decoration: InputDecoration(
+                                      hintText: 'Provide explanation for rejection...',
+                                      hintStyle: _ts(size: 12, weight: FontWeight.w500, color: AppColors.slate400),
+                                      filled: true,
+                                      fillColor: AppColors.slate50,
+                                      contentPadding: const EdgeInsets.all(12),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.rose600)),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: OutlinedButton(
+                                          onPressed: () => setModalState(() => _showDeclineFormIds.remove(r.id)),
+                                          style: OutlinedButton.styleFrom(
+                                            side: const BorderSide(color: AppColors.slate200),
+                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          child: Text('Cancel', style: _ts(size: 12, weight: FontWeight.w600, color: AppColors.slate600)),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: ElevatedButton(
+                                          onPressed: () => _confirmDecline(r, setModalState),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppColors.rose600,
+                                            foregroundColor: Colors.white,
+                                            elevation: 0,
+                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          child: Text('Confirm Decline', style: _ts(size: 12, weight: FontWeight.bold, color: Colors.white)),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ] else ...[
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: OutlinedButton.icon(
+                                          onPressed: () {
+                                            _toggleUnderReview(r.id);
+                                            setModalState(() {});
+                                          },
+                                          icon: Icon(underReview ? Icons.check_circle : Icons.visibility, size: 14),
+                                          label: Text(underReview ? 'Under Review ✓' : 'Mark Review'),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: underReview ? AppColors.emerald700 : AppColors.primarySky,
+                                            side: BorderSide(color: underReview ? AppColors.emerald200 : AppColors.slate200),
+                                            backgroundColor: underReview ? AppColors.emerald50 : Colors.white,
+                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: OutlinedButton(
+                                          onPressed: () => setModalState(() => _showDeclineFormIds.add(r.id)),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: AppColors.rose600,
+                                            side: const BorderSide(color: AppColors.rose200),
+                                            backgroundColor: AppColors.rose50,
+                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          child: const Text('Decline Request', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: OutlinedButton.icon(
+                                          onPressed: () => _executeDecision(r, 'redelivery'),
+                                          icon: const Icon(Icons.local_shipping, size: 15),
+                                          label: const Text('Approve Redelivery', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: AppColors.emerald700,
+                                            side: const BorderSide(color: AppColors.emerald200),
+                                            backgroundColor: AppColors.emerald50,
+                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: ElevatedButton.icon(
+                                          onPressed: () => _executeDecision(r, 'refund'),
+                                          icon: const Icon(Icons.check, size: 15),
+                                          label: const Text('Approve GCash', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppColors.primarySky,
+                                            foregroundColor: Colors.white,
+                                            elevation: 0,
+                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ] else if (r.status == RefundStatus.approved) ...[
+                                if (isRedelivery)
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(color: AppColors.emerald50, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.emerald200)),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.local_shipping, size: 18, color: AppColors.emerald700),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            _redeliveryNoticeText(r.redeliveryScheduledAt),
+                                            style: _ts(size: 12, weight: FontWeight.w600, color: AppColors.emerald800),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                else
+                                  ElevatedButton.icon(
+                                    onPressed: () => _processApproved(r),
+                                    icon: const Icon(Icons.account_balance_wallet, size: 16),
+                                    label: const Text('Process Manual GCash Refund', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primarySky,
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      minimumSize: const Size(double.infinity, 44),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                  ),
+                              ] else if (r.status == RefundStatus.processed) ...[
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(color: AppColors.emerald50, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.emerald200)),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.verified, size: 18, color: AppColors.emerald700),
+                                      const SizedBox(width: 8),
+                                      Text('Settled via GCash: Ref #${r.gcashRefNumber ?? '—'}', style: _ts(size: 12, weight: FontWeight.bold, color: AppColors.emerald800)),
+                                    ],
+                                  ),
+                                ),
+                              ] else if (r.status == RefundStatus.rejected) ...[
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(color: AppColors.rose50, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.rose200)),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.cancel, size: 16, color: AppColors.rose600),
+                                          const SizedBox(width: 6),
+                                          Text('Decline Reason Logged:', style: _ts(size: 12, weight: FontWeight.bold, color: AppColors.rose600)),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        r.rejectionReason ?? 'No reason stated.',
+                                        style: _ts(size: 12, weight: FontWeight.w500, color: AppColors.textLight),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: AppColors.amber50, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.amber200)),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ========================================================
+  // COMPACT SUMMARY LIST CARD
+  // ========================================================
+  Widget _buildCompactRequestCard(RefundModel r) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.slate200),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _openRefundDetails(r),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Padding(
-                      padding: EdgeInsets.only(top: 2),
-                      child: Icon(Icons.report_problem, size: 18, color: AppColors.amber600),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        color: AppColors.sky50,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.receipt_long, size: 16, color: AppColors.primarySky),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(r.reason, style: _ts(size: 12, weight: FontWeight.w700, color: AppColors.amber900)),
-                          const SizedBox(height: 2),
-                          Text(r.description, style: _ts(size: 11, weight: FontWeight.w500, color: AppColors.amber800, height: 1.35)),
+                          Row(
+                            children: [
+                              Text(
+                                '#${r.orderNumber}',
+                                style: _ts(size: 13, weight: FontWeight.w800, color: AppColors.textLight),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  r.customerName,
+                                  style: _ts(size: 13, weight: FontWeight.bold, color: AppColors.textLight),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 6),
+                    _buildStatusBadge(r),
                   ],
                 ),
-              ),
-              const SizedBox(height: 14),
-              Text('SELECT OWNER RESOLUTION', style: _ts(size: 11, weight: FontWeight.w700, color: AppColors.slate500, letterSpacing: 0.5)),
-              const SizedBox(height: 8),
-              _decisionOption(
-                ctx: ctx,
-                value: 'refund',
-                icon: Icons.account_balance_wallet,
-                accent: AppColors.primarySky,
-                bg: AppColors.surfaceIce,
-                border: AppColors.sky200,
-                title: 'Approve Full GCash Refund',
-                subtitle: 'Authorize ₱${r.amount.toStringAsFixed(2)} GCash manual remittance',
-              ),
-              _decisionOption(
-                ctx: ctx,
-                value: 'redelivery',
-                icon: Icons.local_shipping,
-                accent: AppColors.emerald600,
-                bg: AppColors.emerald50,
-                border: AppColors.emerald200,
-                title: 'Approve Priority Redelivery',
-                subtitle: 'Dispatch ${r.itemsSummary.isEmpty ? "replacement item" : r.itemsSummary} free tomorrow',
-              ),
-              _decisionOption(
-                ctx: ctx,
-                value: 'decline',
-                icon: Icons.cancel,
-                accent: AppColors.rose600,
-                bg: AppColors.rose50,
-                border: AppColors.rose200,
-                title: 'Decline Dispute Request',
-                subtitle: 'Provide formal rejection and rider proof',
-              ),
-              const SizedBox(height: 6),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.slate100,
-                  foregroundColor: AppColors.slate600,
-                  elevation: 0,
-                  minimumSize: const Size(double.infinity, 40),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                ),
-                child: Text('Cancel', style: _ts(size: 12, weight: FontWeight.w700, color: AppColors.slate600)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _decisionOption({
-    required BuildContext ctx,
-    required String value,
-    required IconData icon,
-    required Color accent,
-    required Color bg,
-    required Color border,
-    required String title,
-    required String subtitle,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: () => Navigator.pop(ctx, value),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: border)),
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
-                child: Icon(icon, size: 18, color: Colors.white),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 10),
+                Row(
                   children: [
-                    Text(title, style: _ts(size: 12, weight: FontWeight.w700, color: AppColors.backgroundDark)),
-                    const SizedBox(height: 2),
-                    Text(subtitle, style: _ts(size: 10.5, weight: FontWeight.w500, color: AppColors.slate500)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.slate50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.slate200),
+                      ),
+                      child: Text(
+                        r.reason,
+                        style: _ts(size: 11, weight: FontWeight.w600, color: AppColors.slate600),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${r.requestedAt.month}/${r.requestedAt.day}/${r.requestedAt.year}',
+                      style: _ts(size: 11, weight: FontWeight.w500, color: AppColors.textSecondary),
+                    ),
+                    if (r.photoUrl != null) ...[
+                      const Spacer(),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.attach_file, size: 13, color: AppColors.slate400),
+                          const SizedBox(width: 2),
+                          Text('Evidence', style: _ts(size: 11, weight: FontWeight.w600, color: AppColors.slate500)),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
-              ),
-              Icon(Icons.arrow_forward, size: 18, color: accent),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _pill({required Color bg, Color? border, required Widget leading, required String text, required Color fg}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg, border: border == null ? null : Border.all(color: border), borderRadius: BorderRadius.circular(999)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          leading,
-          const SizedBox(width: 4),
-          Text(text, style: _ts(size: 10, weight: FontWeight.w700, color: fg)),
-        ],
-      ),
-    );
-  }
-
-  Widget _dot(Color color) {
-    return Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle));
-  }
-
-  Widget _settledPill() {
-    return _pill(
-      bg: AppColors.emerald50,
-      border: AppColors.emerald200,
-      leading: const Icon(Icons.check_circle, size: 12, color: AppColors.emerald700),
-      text: 'Settled • GCash Remitted',
-      fg: AppColors.emerald700,
-    );
-  }
-
-  Widget _settledBox(String ref) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: AppColors.emerald50, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.emerald200)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Flexible(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.verified, size: 16, color: AppColors.emerald600),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: RichText(
-                    overflow: TextOverflow.ellipsis,
-                    text: TextSpan(
-                      style: _ts(size: 12, weight: FontWeight.w500, color: AppColors.emerald800),
+                const SizedBox(height: 10),
+                const Divider(height: 1, color: AppColors.slate100),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '₱${r.amount.toStringAsFixed(2)} ',
+                            style: _ts(size: 16, weight: FontWeight.bold, color: AppColors.textLight),
+                          ),
+                          TextSpan(
+                            text: r.status == RefundStatus.processed ? 'settled' : 'requested',
+                            style: _ts(size: 11, weight: FontWeight.w500, color: AppColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const TextSpan(text: 'Settled Ref: '),
-                        TextSpan(text: ref, style: _ts(size: 12, weight: FontWeight.w700, color: AppColors.emerald800)),
+                        Text(
+                          'View Details',
+                          style: _ts(size: 12, weight: FontWeight.bold, color: AppColors.primarySky),
+                        ),
+                        const SizedBox(width: 2),
+                        const Icon(Icons.chevron_right, size: 16, color: AppColors.primarySky),
                       ],
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Text('Store #41 Logged', style: _ts(size: 10, weight: FontWeight.w700, color: AppColors.emerald600)),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _noticeBox(String text, IconData icon, Color bg, Color border, Color fg) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: border)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(child: Text(text, style: _ts(size: 12, weight: FontWeight.w600, color: fg))),
-          const SizedBox(width: 8),
-          Icon(icon, size: 16, color: fg),
-        ],
-      ),
-    );
+  Widget _buildStatusBadge(RefundModel r) {
+    final bool underReview = _underReviewIds.contains(r.id);
+    if (r.status == RefundStatus.rejected) {
+      return _statusPill(bg: AppColors.rose50, border: AppColors.rose200, fg: AppColors.rose600, label: 'Declined');
+    }
+    if (r.status == RefundStatus.processed) {
+      return _statusPill(bg: AppColors.emerald50, border: AppColors.emerald200, fg: AppColors.emerald700, label: 'Settled');
+    }
+    if (r.status == RefundStatus.approved) {
+      return r.resolutionType == 'redelivery'
+          ? _statusPill(bg: AppColors.emerald50, border: AppColors.emerald200, fg: AppColors.emerald700, label: 'Redelivery')
+          : _statusPill(bg: AppColors.sky50, border: AppColors.sky200, fg: AppColors.primarySky, label: 'Approved');
+    }
+    if (underReview) {
+      return _statusPill(bg: AppColors.sky50, border: AppColors.sky200, fg: AppColors.primarySky, label: 'Under Review');
+    }
+    return _statusPill(bg: AppColors.amber50, border: AppColors.amber200, fg: AppColors.amber700, label: 'Pending');
   }
 
-  Widget _buildRequestCardShell({
-    required RefundModel refund,
-    required Color amountColor,
-    required Widget badge,
-    required List<Widget> children,
-  }) {
+  Widget _statusPill({required Color bg, required Color border, required Color fg, required String label}) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.slate100),
-        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 4, offset: Offset(0, 1))],
+        color: bg,
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildCardHeader('₱${refund.amount.toStringAsFixed(2)}', amountColor),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(refund.customerName, style: _ts(size: 15, weight: FontWeight.w700, color: AppColors.backgroundDark)),
-                      const SizedBox(width: 8),
-                      Text('#${refund.orderNumber}', style: _ts(size: 11, weight: FontWeight.w600, color: AppColors.slate400)),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(refund.itemsSummary.isEmpty ? '—' : refund.itemsSummary, style: _ts(size: 11, weight: FontWeight.w500, color: AppColors.slate500)),
-                ],
-              ),
-              badge,
-            ],
-          ),
-          ...children,
-        ],
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: fg),
       ),
     );
   }
 
+  String _redeliveryNoticeText(DateTime? scheduledAt) {
+    if (scheduledAt == null) return 'Priority Redelivery scheduled';
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final hour24 = scheduledAt.hour;
+    final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+    final minute = scheduledAt.minute.toString().padLeft(2, '0');
+    final ampm = hour24 < 12 ? 'AM' : 'PM';
+    final dateStr = '${months[scheduledAt.month - 1]} ${scheduledAt.day}, ${scheduledAt.year}';
+    return 'Priority Redelivery for $dateStr at $hour12:$minute $ampm';
+  }
+
+  // ========================================================
+  // MAIN BUILD
+  // ========================================================
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
@@ -548,7 +900,6 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
       builder: (context, snapshot) {
         final List<RefundModel> refunds = snapshot.data ?? [];
         final List<RefundModel> visible = refunds.where(_visible).toList();
-        final List<Widget> cards = visible.map(_buildCardFor).toList();
 
         return Scaffold(
           backgroundColor: AppColors.surfaceBackground,
@@ -557,23 +908,82 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
             child: Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+                constraints: const BoxConstraints(maxWidth: 800),
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 16, 16, 130 + bottomInset),
+                  padding: EdgeInsets.fromLTRB(16, 24, 16, 130 + bottomInset),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildTitleBlock(),
-                      const SizedBox(height: 16),
+                      // Clean Header without redundant eyebrow text
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(
+                              color: AppColors.sky50,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.assignment_late,
+                              color: AppColors.primarySky,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Complaints & Refunds',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textLight,
+                                height: 1.1,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Metrics Summary
                       _buildMetricsBar(refunds),
-                      const SizedBox(height: 14),
-                      _buildFilterRail(refunds),
                       const SizedBox(height: 16),
-                      if (cards.isEmpty) _buildEmptyState(),
-                      for (int i = 0; i < cards.length; i++) ...[
-                        if (i > 0) const SizedBox(height: 14),
-                        cards[i],
-                      ],
+
+                      // Filter Rail
+                      _buildFilterRail(refunds),
+                      const SizedBox(height: 20),
+
+                      // Section Title
+                      Row(
+                        children: [
+                          const Text(
+                            'Dispute Requests',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textLight),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.slate100,
+                              borderRadius: BorderRadius.circular(100),
+                            ),
+                            child: Text(
+                              '${visible.length}',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.slate600),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Cards List or Empty State
+                      if (visible.isEmpty)
+                        _buildEmptyState()
+                      else
+                        ...visible.map((r) => _buildCompactRequestCard(r)),
+
                       const SizedBox(height: 16),
                       _buildAuditFootnote(),
                     ],
@@ -587,44 +997,28 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
     );
   }
 
-  Widget _buildCardFor(RefundModel r) {
-    if (r.status == RefundStatus.rejected) return _buildDeclinedCard(r);
-    if (r.status == RefundStatus.approved || r.status == RefundStatus.processed) return _buildApprovedCard(r);
-    if (_showDeclineFormIds.contains(r.id)) return _buildDeclineFormCard(r);
-    return _buildPendingCard(r);
-  }
-
-  Widget _buildTitleBlock() {
-    return const ScreenTitleBlock(
-      badgeText: 'OWNER DISPUTE HUB',
-      title: 'Owner Complaints & Refunds',
-      icon: Icons.assignment_late,
-    );
-  }
-
   Widget _buildMetricsBar(List<RefundModel> refunds) {
     final int pending = _count(refunds, 'pending') + _count(refunds, 'under_review');
     final double settled = _settledAmount(refunds);
     return Row(
       children: [
-        _buildMetricBox('Pending', Icons.hourglass_top, '$pending', 'Needs Action', AppColors.amber600, AppColors.amber700, AppColors.amber50),
+        _buildMetricBox('Pending', Icons.hourglass_top, '$pending', 'Needs Action', AppColors.amber700, AppColors.amber50),
         const SizedBox(width: 10),
-        _buildMetricBox('Awaiting', Icons.account_balance_wallet, '${_awaitingCount(refunds)}', 'Ready GCash', AppColors.primarySky, AppColors.primarySky, AppColors.surfaceFrost),
+        _buildMetricBox('Awaiting', Icons.account_balance_wallet, '${_awaitingCount(refunds)}', 'Ready GCash', AppColors.primarySky, AppColors.sky50),
         const SizedBox(width: 10),
-        _buildMetricBox('Settled', Icons.check_circle, '₱${settled.toStringAsFixed(2)}', 'This Cycle', AppColors.emerald600, AppColors.emerald700, AppColors.emerald50),
+        _buildMetricBox('Settled', Icons.check_circle, '₱${settled.toStringAsFixed(0)}', 'Remitted', AppColors.emerald700, AppColors.emerald50),
       ],
     );
   }
 
-  Widget _buildMetricBox(String title, IconData icon, String value, String pill, Color titleColor, Color valColor, Color pillBg) {
+  Widget _buildMetricBox(String title, IconData icon, String value, String pill, Color valColor, Color pillBg) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.slate100),
-          boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 4, offset: Offset(0, 1))],
+          border: Border.all(color: AppColors.slate200),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -632,12 +1026,12 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(title.toUpperCase(), style: _ts(size: 10.5, weight: FontWeight.w700, color: AppColors.slate500, letterSpacing: 0.5)),
-                Icon(icon, size: 15, color: titleColor),
+                Text(title.toUpperCase(), style: _ts(size: 10, weight: FontWeight.w700, color: AppColors.slate500, letterSpacing: 0.5)),
+                Icon(icon, size: 15, color: valColor),
               ],
             ),
             const SizedBox(height: 8),
-            Text(value, style: _ts(size: 20, weight: FontWeight.w800, color: valColor), maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(value, style: _ts(size: 18, weight: FontWeight.w800, color: valColor), maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 4),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -659,57 +1053,52 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
       {'key': 'declined', 'label': 'Declined'},
     ];
 
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.slate100,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.slate200.withValues(alpha: 0.7)),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: filters.map((f) {
-            final isActive = _activeFilter == f['key'];
-            return Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: GestureDetector(
-                onTap: () => setState(() => _activeFilter = f['key']!),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isActive ? AppColors.primarySky : Colors.transparent,
-                    borderRadius: BorderRadius.circular(999),
-                    boxShadow: isActive ? const [BoxShadow(color: Color(0x1A000000), blurRadius: 2, offset: Offset(0, 1))] : null,
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        f['label']!,
-                        style: _ts(size: 12, weight: isActive ? FontWeight.w700 : FontWeight.w600, color: isActive ? Colors.white : AppColors.slate600),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: filters.map((f) {
+          final isActive = _activeFilter == f['key'];
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => setState(() => _activeFilter = f['key']!),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: isActive ? AppColors.primarySky : Colors.white,
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(color: isActive ? AppColors.primarySky : AppColors.slate200),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      f['label']!,
+                      style: _ts(
+                        size: 12,
+                        weight: isActive ? FontWeight.bold : FontWeight.w600,
+                        color: isActive ? Colors.white : AppColors.slate600,
                       ),
-                      const SizedBox(width: 6),
-                      Container(
-                        width: 16,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          color: isActive ? Colors.white.withValues(alpha: 0.25) : AppColors.slate200,
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '${_count(refunds, f['key']!)}',
-                          style: _ts(size: 10, weight: FontWeight.w700, color: isActive ? Colors.white : AppColors.slate600),
-                        ),
-                      )
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: isActive ? Colors.white.withValues(alpha: 0.25) : AppColors.slate100,
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: Text(
+                        '${_count(refunds, f['key']!)}',
+                        style: _ts(size: 10, weight: FontWeight.w700, color: isActive ? Colors.white : AppColors.slate600),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            );
-          }).toList(),
-        ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -717,478 +1106,24 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
   Widget _buildEmptyState() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.slate100),
-        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 4, offset: Offset(0, 1))],
+        border: Border.all(color: AppColors.slate200),
       ),
       child: Column(
         children: [
           Container(
             width: 48,
             height: 48,
-            decoration: const BoxDecoration(color: AppColors.surfaceIce, shape: BoxShape.circle),
-            child: const Icon(Icons.inbox, size: 26, color: AppColors.primarySky),
+            decoration: const BoxDecoration(color: AppColors.sky50, shape: BoxShape.circle),
+            child: const Icon(Icons.inbox, size: 24, color: AppColors.primarySky),
           ),
-          const SizedBox(height: 8),
-          Text('No Dispute Items', style: _ts(size: 14, weight: FontWeight.w700, color: AppColors.surfaceDark)),
+          const SizedBox(height: 10),
+          Text('No Dispute Items', style: _ts(size: 14, weight: FontWeight.w700, color: AppColors.textLight)),
           const SizedBox(height: 4),
-          Text('There are no records matching this category.', style: _ts(size: 12, weight: FontWeight.w400, color: AppColors.slate400)),
-        ],
-      ),
-    );
-  }
-
-  Widget _claimReasonChip(RefundModel r) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-      decoration: BoxDecoration(color: AppColors.rose50, border: Border.all(color: AppColors.rose200.withValues(alpha: 0.7)), borderRadius: BorderRadius.circular(999)),
-      child: Row(
-        children: [
-          const Icon(Icons.broken_image, size: 13, color: AppColors.rose600),
-          const SizedBox(width: 4),
-          Text(r.reason, style: _ts(size: 10.5, weight: FontWeight.w700, color: AppColors.rose600)),
-        ],
-      ),
-    );
-  }
-
-  String _redeliveryNoticeText(DateTime? scheduledAt) {
-    if (scheduledAt == null) return 'Priority Redelivery scheduled';
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    final hour24 = scheduledAt.hour;
-    final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
-    final minute = scheduledAt.minute.toString().padLeft(2, '0');
-    final ampm = hour24 < 12 ? 'AM' : 'PM';
-    final dateStr = '${months[scheduledAt.month - 1]} ${scheduledAt.day}, ${scheduledAt.year}';
-    return 'Priority Redelivery dispatched for $dateStr at $hour12:$minute $ampm';
-  }
-
-  Widget _buildApprovedCard(RefundModel r) {
-    final bool isRedelivery = r.resolutionType == 'redelivery';
-    final Widget badge = isRedelivery
-        ? _pill(bg: AppColors.emerald50, border: AppColors.emerald200, leading: const Icon(Icons.local_shipping, size: 12, color: AppColors.emerald700), text: 'Redelivery Queued', fg: AppColors.emerald700)
-        : (r.status == RefundStatus.processed
-        ? _settledPill()
-        : _pill(bg: AppColors.surfaceFrost, leading: _dot(AppColors.primarySky), text: 'Approved • Ready GCash', fg: AppColors.primarySky));
-
-    return _buildRequestCardShell(
-      refund: r,
-      amountColor: AppColors.primarySky,
-      badge: badge,
-      children: [
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Claim Reason', style: _ts(size: 11, weight: FontWeight.w600, color: AppColors.slate400)),
-            _claimReasonChip(r),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.slate100)),
-          child: Text('"${r.description}"', style: _ts(size: 12, weight: FontWeight.w500, color: AppColors.borderDark, height: 1.4)),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: AppColors.surfaceIce.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.surfaceFrost)),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  InkWell(
-                    onTap: () => _openEvidence('${r.reason} Proof', '${r.customerName} (#${r.orderNumber})', r.photoUrl),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      clipBehavior: Clip.antiAlias,
-                      decoration: BoxDecoration(color: AppColors.slate100, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.sky200.withValues(alpha: 0.6))),
-                      child: r.photoUrl != null
-                          ? Image.network(
-                        r.photoUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.image, color: AppColors.slate400, size: 20),
-                      )
-                          : const Icon(Icons.image, color: AppColors.slate400, size: 20),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.verified, size: 14, color: AppColors.emerald600),
-                          const SizedBox(width: 4),
-                          Text('Evidence Verified', style: _ts(size: 11, weight: FontWeight.w700, color: AppColors.surfaceDark)),
-                        ],
-                      ),
-                      Text('Claim Proof (1 Photo)', style: _ts(size: 10, weight: FontWeight.w500, color: AppColors.slate500)),
-                    ],
-                  ),
-                ],
-              ),
-              InkWell(
-                onTap: () => _openEvidence('${r.reason} Proof', '${r.customerName} (#${r.orderNumber})', r.photoUrl),
-                borderRadius: BorderRadius.circular(999),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999), border: Border.all(color: AppColors.sky200)),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.visibility, size: 14, color: AppColors.primarySky),
-                      const SizedBox(width: 4),
-                      Text('View', style: _ts(size: 12, weight: FontWeight.w700, color: AppColors.primarySky)),
-                    ],
-                  ),
-                ),
-              )
-            ],
-          ),
-        ),
-        if (!isRedelivery) ...[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.slate200.withValues(alpha: 0.7))),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(width: 6, height: 14, decoration: BoxDecoration(color: AppColors.primarySky, borderRadius: BorderRadius.circular(999))),
-                        const SizedBox(width: 6),
-                        Text('BENEFICIARY ACCOUNT', style: _ts(size: 10, weight: FontWeight.w700, color: AppColors.borderDark, letterSpacing: 0.5)),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: AppColors.emerald50, borderRadius: BorderRadius.circular(999), border: Border.all(color: AppColors.emerald200)),
-                      child: Text('Manual GCash Transfer', style: _ts(size: 10, weight: FontWeight.w700, color: AppColors.emerald700)),
-                    )
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(r.gcashName.isEmpty ? r.customerName : r.gcashName, style: _ts(size: 12, weight: FontWeight.w500, color: AppColors.slate500)),
-                    Row(
-                      children: [
-                        Text(r.gcashNumber, style: _ts(size: 12, weight: FontWeight.w700, color: AppColors.backgroundDark)),
-                        const SizedBox(width: 6),
-                        InkWell(
-                          onTap: () => _copy(r.gcashNumber),
-                          child: Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: AppColors.slate200)),
-                            child: const Icon(Icons.content_copy, size: 13, color: AppColors.primarySky),
-                          ),
-                        )
-                      ],
-                    )
-                  ],
-                )
-              ],
-            ),
-          ),
-        ],
-        const SizedBox(height: 12),
-        if (isRedelivery)
-          _noticeBox(_redeliveryNoticeText(r.redeliveryScheduledAt), Icons.check_circle, AppColors.emerald50, AppColors.emerald200, AppColors.emerald800)
-        else if (r.status == RefundStatus.processed)
-          _settledBox(r.gcashRefNumber ?? '')
-        else
-          ElevatedButton(
-            onPressed: () => _processApproved(r),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primarySky,
-              foregroundColor: Colors.white,
-              elevation: 4,
-              shadowColor: const Color(0x330284C7),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              minimumSize: const Size(double.infinity, 44),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.payments, size: 18),
-                const SizedBox(width: 8),
-                Text('Process Manual GCash Refund', style: _ts(size: 12, weight: FontWeight.w700, color: Colors.white)),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildPendingCard(RefundModel r) {
-    final bool underReview = _underReviewIds.contains(r.id);
-    final Widget badge = underReview
-        ? _pill(bg: AppColors.surfaceIce, border: AppColors.sky200, leading: _dot(AppColors.primarySky), text: 'Under Review', fg: AppColors.primarySky)
-        : _pill(bg: AppColors.amber50, border: AppColors.amber200.withValues(alpha: 0.8), leading: _dot(AppColors.amber500), text: 'Pending Review', fg: AppColors.amber700);
-
-    return _buildRequestCardShell(
-      refund: r,
-      amountColor: AppColors.amber700,
-      badge: badge,
-      children: [
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Claim Reason', style: _ts(size: 11, weight: FontWeight.w600, color: AppColors.slate400)),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-              decoration: BoxDecoration(color: AppColors.amber50, border: Border.all(color: AppColors.amber200.withValues(alpha: 0.7)), borderRadius: BorderRadius.circular(999)),
-              child: Row(
-                children: [
-                  const Icon(Icons.swap_horiz, size: 13, color: AppColors.amber700),
-                  const SizedBox(width: 4),
-                  Text(r.reason, style: _ts(size: 10.5, weight: FontWeight.w700, color: AppColors.amber700)),
-                ],
-              ),
-            )
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.slate100)),
-          child: Text('"${r.description}"', style: _ts(size: 12, weight: FontWeight.w500, color: AppColors.borderDark, height: 1.4)),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.slate200.withValues(alpha: 0.7))),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.phone_iphone, size: 16, color: AppColors.primarySky),
-                  const SizedBox(width: 8),
-                  Text('GCash: ${r.gcashName.isEmpty ? r.customerName : r.gcashName}', style: _ts(size: 12, weight: FontWeight.w500, color: AppColors.slate600)),
-                ],
-              ),
-              Text(r.gcashNumber, style: _ts(size: 12, weight: FontWeight.w700, color: AppColors.backgroundDark)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () => _toggleUnderReview(r.id),
-                icon: const Icon(Icons.visibility, size: 15),
-                label: Text(underReview ? 'Under Review ✓' : 'Mark Under Review'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: underReview ? AppColors.emerald50 : AppColors.surfaceIce,
-                  foregroundColor: underReview ? AppColors.emerald700 : AppColors.primarySky,
-                  elevation: 0,
-                  side: BorderSide(color: underReview ? AppColors.emerald200 : AppColors.sky200),
-                  textStyle: _ts(size: 12, weight: FontWeight.w700, color: underReview ? AppColors.emerald700 : AppColors.primarySky),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () => _openDecisionSheet(r),
-                icon: const Icon(Icons.gavel, size: 15),
-                label: const Text('Review & Decide'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primarySky,
-                  foregroundColor: Colors.white,
-                  elevation: 2,
-                  textStyle: _ts(size: 12, weight: FontWeight.w700, color: Colors.white),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDeclineFormCard(RefundModel r) {
-    final TextEditingController ctrl = _declineControllerFor(r.id);
-    final Widget badge = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: AppColors.rose50, border: Border.all(color: AppColors.rose200), borderRadius: BorderRadius.circular(999)),
-      child: Row(
-        children: [
-          const Icon(Icons.cancel, size: 13, color: AppColors.rose600),
-          const SizedBox(width: 4),
-          Text('Decline Workspace', style: _ts(size: 10, weight: FontWeight.w700, color: AppColors.rose600)),
-        ],
-      ),
-    );
-
-    return _buildRequestCardShell(
-      refund: r,
-      amountColor: AppColors.backgroundDark,
-      badge: badge,
-      children: [
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.slate100)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('CLAIM: ${r.reason.toUpperCase()}', style: _ts(size: 11, weight: FontWeight.w700, color: AppColors.slate500, letterSpacing: 0.5)),
-              const SizedBox(height: 4),
-              Text(r.description, style: _ts(size: 12, weight: FontWeight.w500, color: AppColors.slate600, height: 1.4)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            const Icon(Icons.edit_note, size: 14, color: AppColors.rose600),
-            const SizedBox(width: 4),
-            Text('MANDATORY EXPLANATION', style: _ts(size: 11, weight: FontWeight.w700, color: AppColors.rose600, letterSpacing: 0.5)),
-          ],
-        ),
-        const SizedBox(height: 6),
-        TextField(
-          controller: ctrl,
-          maxLines: 2,
-          style: _ts(size: 12, weight: FontWeight.w500, color: AppColors.backgroundDark),
-          decoration: InputDecoration(
-            hintText: 'E.g., Delivery attempted 3x with rider call logs...',
-            hintStyle: _ts(size: 12, weight: FontWeight.w500, color: AppColors.slate400),
-            filled: true,
-            fillColor: AppColors.surfaceCanvas,
-            contentPadding: const EdgeInsets.all(10),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primarySky)),
-          ),
-        ),
-        const SizedBox(height: 12),
-        ElevatedButton.icon(
-          onPressed: () => _confirmDecline(r),
-          icon: const Icon(Icons.block, size: 16),
-          label: const Text('Confirm Decline'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.rose600,
-            foregroundColor: Colors.white,
-            elevation: 1,
-            textStyle: _ts(size: 12, weight: FontWeight.w700, color: Colors.white),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            minimumSize: const Size(double.infinity, 40),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDeclinedCard(RefundModel r) {
-    final Widget badge = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: AppColors.rose50, border: Border.all(color: AppColors.rose200), borderRadius: BorderRadius.circular(999)),
-      child: Row(
-        children: [
-          const Icon(Icons.cancel, size: 13, color: AppColors.rose600),
-          const SizedBox(width: 4),
-          Text('Declined', style: _ts(size: 10, weight: FontWeight.w700, color: AppColors.rose600)),
-        ],
-      ),
-    );
-
-    return _buildRequestCardShell(
-      refund: r,
-      amountColor: AppColors.backgroundDark,
-      badge: badge,
-      children: [
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.slate100)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('CLAIM: ${r.reason.toUpperCase()}', style: _ts(size: 11, weight: FontWeight.w700, color: AppColors.slate500, letterSpacing: 0.5)),
-              const SizedBox(height: 4),
-              Text(r.description, style: _ts(size: 12, weight: FontWeight.w500, color: AppColors.slate600, height: 1.4)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            const Icon(Icons.edit_note, size: 14, color: AppColors.rose600),
-            const SizedBox(width: 4),
-            Text('MANDATORY EXPLANATION', style: _ts(size: 11, weight: FontWeight.w700, color: AppColors.rose600, letterSpacing: 0.5)),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.slate200)),
-          child: Text(
-            r.rejectionReason ?? '—',
-            style: _ts(size: 12, weight: FontWeight.w500, color: AppColors.backgroundDark),
-          ),
-        ),
-        const SizedBox(height: 12),
-        ElevatedButton.icon(
-          onPressed: null,
-          icon: const Icon(Icons.done_all, size: 16),
-          label: const Text('Decline Audit Updated'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.surfaceDark,
-            disabledBackgroundColor: AppColors.surfaceDark,
-            foregroundColor: Colors.white,
-            disabledForegroundColor: Colors.white,
-            elevation: 1,
-            textStyle: _ts(size: 12, weight: FontWeight.w700, color: Colors.white),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            minimumSize: const Size(double.infinity, 40),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCardHeader(String amount, Color amountColor) {
-    return Container(
-      padding: const EdgeInsets.only(bottom: 10),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.slate100))),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.receipt_long, size: 18, color: AppColors.primarySky),
-              const SizedBox(width: 6),
-              Text('ORDER DETAILS', style: _ts(size: 11, weight: FontWeight.w800, color: AppColors.primarySky, letterSpacing: 0.5)),
-            ],
-          ),
-          Text(amount, style: _ts(size: 20, weight: FontWeight.w800, color: amountColor, letterSpacing: -0.5)),
+          Text('There are no requests matching this filter.', style: _ts(size: 12, weight: FontWeight.w400, color: AppColors.slate400)),
         ],
       ),
     );
@@ -1198,11 +1133,11 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(Icons.lock, size: 14, color: AppColors.slate400),
+        const Icon(Icons.lock, size: 13, color: AppColors.slate400),
         const SizedBox(width: 6),
         Flexible(
           child: Text(
-            'Encrypted AquaOps Telematics audit entry logged to Store #41',
+            'AquaOps encrypted telematics audit entry logged to Store #41',
             textAlign: TextAlign.center,
             style: _ts(size: 10, weight: FontWeight.w500, color: AppColors.slate400),
           ),

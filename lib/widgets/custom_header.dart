@@ -1,12 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
-import '../core/utils/string_utils.dart'; // TASK 2.2: Shared string utility import
 import '../models/user_model.dart';
 import '../screens/profile/profile_screen.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
-import 'aqua_logo.dart';
+import 'messaging/messages_button.dart';
 import 'notification_bell.dart';
 
 class CustomHeader extends StatefulWidget implements PreferredSizeWidget {
@@ -53,6 +52,11 @@ class _CustomHeaderState extends State<CustomHeader> {
     }
   }
 
+  String _getSingleInitial(String? name) {
+    if (name == null || name.trim().isEmpty) return 'U';
+    return name.trim()[0].toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
@@ -60,19 +64,18 @@ class _CustomHeaderState extends State<CustomHeader> {
     return StreamBuilder<UserModel?>(
       stream: _userStream,
       builder: (context, snapshot) {
-        // TASK 2.2: Replaced local method with shared getInitials utility
-        final String initials = getInitials(snapshot.data?.name ?? 'User');
-        return _buildHeader(context, isDark, initials);
+        final String initial = _getSingleInitial(snapshot.data?.name);
+        return _buildHeader(context, isDark, initial);
       },
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isDark, String initials) {
+  Widget _buildHeader(BuildContext context, bool isDark, String initial) {
     final double topInset = MediaQuery.of(context).padding.top;
 
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 450),
+        constraints: const BoxConstraints(maxWidth: 800),
         child: ClipRect(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
@@ -81,45 +84,35 @@ class _CustomHeaderState extends State<CustomHeader> {
               padding: EdgeInsets.fromLTRB(16, topInset, 16, 0),
               decoration: BoxDecoration(
                 color: isDark
-                    ? AppColors.surfaceDark.withValues(alpha: 0.85)
-                    : AppColors.surfaceLowest.withValues(alpha: 0.85),
+                    ? AppColors.surfaceDark.withValues(alpha: 0.92)
+                    : Colors.white.withValues(alpha: 0.95),
                 border: Border(
                   bottom: BorderSide(
                     color: isDark
-                        ? Colors.white.withValues(alpha: 0.1)
-                        : AppColors.borderLight.withValues(alpha: 0.4),
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : AppColors.slate200,
                   ),
                 ),
-                boxShadow: isDark
-                    ? const []
-                    : const [
-                  BoxShadow(
-                    color: Color(0x0F0F172A),
-                    blurRadius: 20,
-                    offset: Offset(0, 4),
-                  ),
-                ],
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Flexible(
-                    child: Row(
-                      children: [
-                        _buildLogo(),
-                        const SizedBox(width: 12),
-                        Flexible(child: _buildTitleBlock(isDark)),
-                      ],
-                    ),
+                  Expanded(
+                    child: _buildWordmarkAndLocation(isDark),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      NotificationBell(isDark: isDark),
+                      // Real-time Chat Messages Button
+                      MessagesButton(isDark: isDark),
                       const SizedBox(width: 8),
-                      _buildAvatar(context, initials),
+                      // Notifications Bell
+                      NotificationBell(isDark: isDark),
+                      const SizedBox(width: 10),
+                      // Profile Avatar
+                      _buildAvatar(context, isDark, initial),
                     ],
                   ),
                 ],
@@ -131,86 +124,46 @@ class _CustomHeaderState extends State<CustomHeader> {
     );
   }
 
-  Widget _buildLogo() {
-    return const AquaLogo(size: 44);
-  }
-
-  Widget _buildTitleBlock(bool isDark) {
+  Widget _buildWordmarkAndLocation(bool isDark) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RichText(
-              text: TextSpan(
-                style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
-                  fontSize: 19,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                  color: isDark ? Colors.white : AppColors.textMain,
-                ),
-                children: const [
-                  TextSpan(text: 'Aqua'),
-                  TextSpan(
-                    text: 'Ops',
-                    style: TextStyle(color: Color(0xFF0077B6)),
-                  ),
-                ],
-              ),
+        RichText(
+          text: TextSpan(
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              color: isDark ? Colors.white : AppColors.textLight,
             ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppColors.cyan50,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: AppColors.cyan200.withValues(alpha: 0.6),
-                ),
+            children: const [
+              TextSpan(text: 'Aqua'),
+              TextSpan(
+                text: 'Ops',
+                style: TextStyle(color: AppColors.primarySky),
               ),
-              child: const Text(
-                'HQ',
-                style: TextStyle(
-                  color: AppColors.primaryLight,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 2),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: AppColors.accentTeal,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.accentTeal.withValues(alpha: 0.8),
-                    blurRadius: 8,
-                  ),
-                ],
-              ),
+            const Icon(
+              Icons.location_on_outlined,
+              size: 13,
+              color: AppColors.primarySky,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 4),
             Flexible(
               child: Text(
                 widget.hubName,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: isDark ? Colors.grey[400] : AppColors.textVariant,
+                  color: isDark ? Colors.grey[400] : AppColors.textSecondary,
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.2,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
@@ -220,64 +173,35 @@ class _CustomHeaderState extends State<CustomHeader> {
     );
   }
 
-  Widget _buildAvatar(BuildContext context, String initials) {
+  Widget _buildAvatar(BuildContext context, bool isDark, String initial) {
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         onTap: () => _navigateToProfile(context),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppColors.primarySky,
-                    Color(0xFF0099E5),
-                    Color(0xFF00B4D8),
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF0099E5).withValues(alpha: 0.35),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  initials,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    letterSpacing: 1,
-                  ),
-                ),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceDark : AppColors.surfaceFrost,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.15)
+                  : AppColors.slate200,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              initial,
+              style: const TextStyle(
+                color: AppColors.primarySky,
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
               ),
             ),
-            Positioned(
-              bottom: -2,
-              right: -2,
-              child: Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: AppColors.accentTeal,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

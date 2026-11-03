@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/layout_constants.dart'; // Added centralized layout constants
 import '../../widgets/aqua_bottom_nav.dart';
 import '../../widgets/bottom_sheet_chrome.dart';
 import '../../widgets/custom_header.dart';
@@ -237,7 +236,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
           builder: (context, setSheetState) => Align(
             alignment: Alignment.bottomCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+              constraints: const BoxConstraints(maxWidth: 800), // Adjusted to 800
               child: Container(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
                 decoration: const BoxDecoration(
@@ -475,7 +474,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+          constraints: const BoxConstraints(maxWidth: 800), // Adjusted to 800 matching POS screen!
           child: _isCheckoutView
               ? _buildCheckoutStream(isDark)
               : Stack(
@@ -618,7 +617,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+      constraints: const BoxConstraints(maxWidth: 800), // Adjusted to 800 matching POS screen!
       height: 56,
       decoration: BoxDecoration(
         color: AppColors.primarySky,

@@ -8,10 +8,6 @@ class OrderItem {
   final int quantity;
   final double unitPrice;
   final bool requiresPackaging;
-  // Maps this line item straight to its Firestore inventory doc id (e.g.
-  // 'inv_water_round'), so stock deduction doesn't have to guess from the
-  // item's display name. Null for legacy/customer-app items, which fall
-  // back to name-matching at deduction time.
   final String? productKey;
 
   OrderItem({
@@ -54,8 +50,6 @@ class OrderModel {
   final String? barangayDisplayName;
   final List<OrderItem> items;
   final double totalAmount;
-  // Tracked separately from totalAmount purely for display/reporting
-  // transparency — totalAmount already includes this, it's not added on top.
   final double deliveryFee;
   final OrderStatus status;
   final PaymentMethod paymentMethod;
@@ -71,33 +65,21 @@ class OrderModel {
   final String? gcashScreenshotUrl;
   final double? deliveryLat;
   final double? deliveryLng;
-  // The rider's live GPS position while this order is out for delivery,
-  // broadcast periodically by RiderLocationService. Null until the assigned
-  // rider's device has sent at least one update (e.g. order not yet out for
-  // delivery, or the rider hasn't granted location permission).
   final double? riderLat;
   final double? riderLng;
   final String? lastTransferReason;
-  // Who actually collected payment: 'counter' (settled at the register
-  // before dispatch) or 'rider' (collected COD at the doorstep). Null for
-  // legacy orders — read as 'counter' if the order number starts with
-  // 'POS-', otherwise 'rider' (see paymentCollectedByOrDefault).
   final String? paymentCollectedBy;
-  // When payment was actually realized — distinct from deliveredAt, since a
-  // counter-paid order is settled before the delivery even happens.
   final DateTime? paidAt;
-  // Where this order was created: 'customer_app' or 'pos'. Null for legacy
-  // orders predating this field.
   final String? orderSource;
-  // Set once fulfillDelivery's stock-deduction transaction has actually run
-  // for this order — guards against a double-tap deducting inventory twice.
   final DateTime? stockDeductedAt;
-  // True if fulfillDelivery had to clamp an inventory decrement at 0
-  // because there wasn't enough stock. A dispatcher-facing warning flag —
-  // never blocks the rider from completing the delivery.
   final bool stockShortfall;
   final DateTime createdAt;
   final DateTime? deliveredAt;
+
+  // Dedicated independent delivery and receipt confirmations
+  final bool riderConfirmedDelivery;
+  final bool customerConfirmedReceipt;
+  final DateTime? customerReceivedAt;
 
   OrderModel({
     required this.id,
@@ -135,12 +117,21 @@ class OrderModel {
     this.stockShortfall = false,
     required this.createdAt,
     this.deliveredAt,
+    this.riderConfirmedDelivery = false,
+    this.customerConfirmedReceipt = false,
+    this.customerReceivedAt,
   });
 
   factory OrderModel.fromMap(Map<String, dynamic> data, String id) {
     final itemsData = (data['items'] as List<dynamic>?) ?? [];
     final createdAtRaw = data['createdAt'];
     final deliveredAtRaw = data['deliveredAt'];
+    final customerReceivedAtRaw = data['customerReceivedAt'];
+
+    final status = OrderStatus.values.firstWhere(
+          (s) => s.name == data['status'],
+      orElse: () => OrderStatus.pending,
+    );
 
     return OrderModel(
       id: id,
@@ -156,10 +147,7 @@ class OrderModel {
           .toList(),
       totalAmount: (data['totalAmount'] ?? 0).toDouble(),
       deliveryFee: (data['deliveryFee'] as num?)?.toDouble() ?? 0,
-      status: OrderStatus.values.firstWhere(
-            (s) => s.name == data['status'],
-        orElse: () => OrderStatus.pending,
-      ),
+      status: status,
       paymentMethod: PaymentMethod.values.firstWhere(
             (p) => p.name == data['paymentMethod'],
         orElse: () => PaymentMethod.cash,
@@ -186,21 +174,15 @@ class OrderModel {
       stockShortfall: data['stockShortfall'] ?? false,
       createdAt: createdAtRaw is Timestamp ? createdAtRaw.toDate() : DateTime.now(),
       deliveredAt: deliveredAtRaw is Timestamp ? deliveredAtRaw.toDate() : null,
+      riderConfirmedDelivery: (data['riderConfirmedDelivery'] as bool?) ?? (status == OrderStatus.delivered),
+      customerConfirmedReceipt: (data['customerConfirmedReceipt'] as bool?) ?? false,
+      customerReceivedAt: customerReceivedAtRaw is Timestamp ? customerReceivedAtRaw.toDate() : null,
     );
   }
 
-  // The moment this order's payment was actually realized: when it was
-  // dropped off for deliveries, or immediately at creation for walk-in sales.
   DateTime get revenueDate => deliveredAt ?? createdAt;
-
-  // paidAt if we have it, else the legacy fallback (createdAt) — used by
-  // closeShift so a counter-paid order counts in the shift it was actually
-  // paid in, not the one it happens to be delivered in.
   DateTime get paidDate => paidAt ?? createdAt;
 
-  // Legacy orders (predating paymentCollectedBy) are read as: a 'POS-'
-  // order number means it was settled at the counter, anything else means
-  // a rider collected it.
   String get paymentCollectedByOrDefault =>
       paymentCollectedBy ?? (orderNumber.startsWith('POS-') ? 'counter' : 'rider');
 
@@ -234,15 +216,13 @@ class OrderModel {
       'paymentCollectedBy': paymentCollectedBy,
       'orderSource': orderSource,
       'stockShortfall': stockShortfall,
+      'riderConfirmedDelivery': riderConfirmedDelivery,
+      'customerConfirmedReceipt': customerConfirmedReceipt,
       'createdAt': createdAt.toIso8601String(),
     };
   }
 }
 
-// Summary numbers for a rider's cash-out, computed the same way whether
-// it's a live UI preview (rider_cash_out_modal.dart) or the real close
-// (FirestoreService.closeRiderCashOut) — kept as one shared function so the
-// two can never drift out of sync again.
 class RiderCashOutSummary {
   final int stopsCompleted;
   final int gallonsDelivered;
@@ -260,10 +240,6 @@ class RiderCashOutSummary {
 }
 
 RiderCashOutSummary summarizeRiderCashOut(List<OrderModel> orders) {
-  // Stops/gallons/empties count every delivery this rider physically made,
-  // including counter-paid ones. Cash/GCash totals only count money the
-  // RIDER actually collected at the door — a counter-paid order was already
-  // settled at the register, so it must not inflate what the rider owes.
   final riderCollected = orders.where((o) => o.paymentCollectedByOrDefault != 'counter');
   return RiderCashOutSummary(
     stopsCompleted: orders.length,

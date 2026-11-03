@@ -3,6 +3,8 @@ import '../../core/constants/app_colors.dart';
 import '../../main.dart';
 import '../../models/user_model.dart';
 import '../../screens/messaging/messages_inbox_screen.dart';
+import '../../screens/messaging/rider_messages_screen.dart';
+import '../../screens/messaging/support_inbox_screen.dart';
 import '../../services/auth_service.dart';
 import '../../services/messaging_service.dart';
 
@@ -54,12 +56,28 @@ class MessagesButton extends StatelessWidget {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12),
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const MessagesInboxScreen(),
-                            ),
-                          );
+                          if (role == UserRole.rider) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const RiderMessagesScreen(),
+                              ),
+                            );
+                          } else if (role == UserRole.staff || role == UserRole.owner) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const SupportInboxScreen(),
+                              ),
+                            );
+                          } else {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const MessagesInboxScreen(),
+                              ),
+                            );
+                          }
                         },
                         child: Center(
                           child: Icon(

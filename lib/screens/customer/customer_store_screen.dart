@@ -28,13 +28,13 @@ class CustomerStoreScreen extends StatelessWidget {
   IconData _iconFor(String id) {
     switch (id) {
       case 'r_slim':
-        return Icons.water_drop;
+        return Icons.water_drop_outlined;
       case 'r_round':
-        return Icons.local_drink;
+        return Icons.local_drink_outlined;
       case 'n_slim':
-        return Icons.propane_tank;
+        return Icons.propane_tank_outlined;
       default:
-        return Icons.inventory_2;
+        return Icons.inventory_2_outlined;
     }
   }
 
@@ -53,10 +53,9 @@ class CustomerStoreScreen extends StatelessWidget {
               style: const TextStyle(
                 fontFamily: _font,
                 fontSize: 22,
-                height: 28 / 22,
-                letterSpacing: -0.44,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textLight,
+                letterSpacing: -0.4,
               ),
             );
           },
@@ -67,20 +66,21 @@ class CustomerStoreScreen extends StatelessWidget {
           style: TextStyle(
             fontFamily: _font,
             fontSize: 13,
-            height: 18 / 13,
             fontWeight: FontWeight.w500,
             color: AppColors.textSecondary,
           ),
         ),
         const SizedBox(height: 12),
+        // Clean Rectangular Address Card
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(100),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.slate200),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x0F0284C7),
+                color: Color(0x080F172A),
                 blurRadius: 8,
                 offset: Offset(0, 2),
               ),
@@ -88,48 +88,50 @@ class CustomerStoreScreen extends StatelessWidget {
           ),
           child: Material(
             color: Colors.transparent,
-            borderRadius: BorderRadius.circular(100),
+            borderRadius: BorderRadius.circular(14),
             child: InkWell(
-              borderRadius: BorderRadius.circular(100),
+              borderRadius: BorderRadius.circular(14),
               onTap: onAddressTap,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 child: Row(
                   children: [
                     Container(
-                      width: 28,
-                      height: 28,
+                      width: 32,
+                      height: 32,
                       decoration: const BoxDecoration(
-                        color: AppColors.surfaceFrost,
+                        color: AppColors.sky50,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.location_on, size: 18, color: AppColors.primarySky),
+                      child: const Icon(
+                        Icons.location_on,
+                        size: 18,
+                        color: AppColors.primarySky,
+                      ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Deliver to',
+                            'DELIVER TO',
                             style: TextStyle(
                               fontFamily: _font,
                               fontSize: 10,
-                              height: 12 / 10,
-                              letterSpacing: 0.6,
                               fontWeight: FontWeight.w800,
-                              color: AppColors.textSecondary,
+                              color: AppColors.primarySky,
+                              letterSpacing: 0.6,
                             ),
                           ),
+                          const SizedBox(height: 1),
                           Text(
-                            currentAddress,
+                            currentAddress.isEmpty ? 'Tap to select delivery location' : currentAddress,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontFamily: _font,
                               fontSize: 13,
-                              height: 16 / 13,
-                              letterSpacing: 0.13,
                               fontWeight: FontWeight.w700,
                               color: AppColors.textLight,
                             ),
@@ -137,7 +139,7 @@ class CustomerStoreScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const Icon(Icons.expand_more, size: 20, color: AppColors.textSecondary),
+                    const Icon(Icons.expand_more, size: 20, color: AppColors.slate400),
                   ],
                 ),
               ),
@@ -155,261 +157,152 @@ class CustomerStoreScreen extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppColors.primary, AppColors.primaryContainer, AppColors.cyanElectric],
+          colors: [
+            AppColors.primary,
+            AppColors.primarySky,
+          ],
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
           BoxShadow(
-            color: AppColors.primaryContainer.withValues(alpha: 0.3),
-            blurRadius: 20,
-            spreadRadius: -4,
-            offset: const Offset(0, 8),
+            color: Color(0x1F0284C7),
+            blurRadius: 16,
+            offset: Offset(0, 6),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          children: [
-            Positioned(
-              right: -24,
-              bottom: -32,
-              child: Container(
-                width: 144,
-                height: 144,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.white.withValues(alpha: 0.1),
-                      Colors.white.withValues(alpha: 0.0),
-                    ],
-                  ),
-                ),
-              ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: 8,
+            bottom: -6,
+            child: Icon(
+              Icons.water_drop,
+              size: 110,
+              color: Colors.white.withValues(alpha: 0.12),
             ),
-            Positioned(
-              right: 12,
-              top: 12,
-              child: Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.cyanHighlight.withValues(alpha: 0.2),
-                      AppColors.cyanHighlight.withValues(alpha: 0.0),
-                    ],
+          ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(100),
                   ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(100),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.verified, size: 13, color: Colors.white),
-                              SizedBox(width: 6),
-                              Text(
-                                'DOH APPROVED',
-                                style: TextStyle(
-                                  fontFamily: _font,
-                                  fontSize: 10,
-                                  height: 12 / 10,
-                                  letterSpacing: 0.6,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Drink 8 Purified Water',
-                          style: TextStyle(
-                            fontFamily: _font,
-                            fontSize: 22,
-                            height: 28 / 22,
-                            letterSpacing: -0.44,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Safe, multi-filtered, and 100% clean direct to your home.',
-                          style: TextStyle(
-                            fontFamily: _font,
-                            fontSize: 11,
-                            height: 16 / 11,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.surfaceFrost.withValues(alpha: 0.95),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(100),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x1A000000),
-                                    blurRadius: 6,
-                                    spreadRadius: -1,
-                                    offset: Offset(0, 4),
-                                  ),
-                                  BoxShadow(
-                                    color: Color(0x1A000000),
-                                    blurRadius: 4,
-                                    spreadRadius: -2,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Material(
-                                color: Colors.transparent,
-                                borderRadius: BorderRadius.circular(100),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(100),
-                                  onTap: () => onAddToCart('r_slim'),
-                                  child: const Padding(
-                                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          'Quick Reorder',
-                                          style: TextStyle(
-                                            fontFamily: _font,
-                                            fontSize: 13,
-                                            height: 16 / 13,
-                                            letterSpacing: 0.13,
-                                            fontWeight: FontWeight.w700,
-                                            color: AppColors.primarySky,
-                                          ),
-                                        ),
-                                        SizedBox(width: 6),
-                                        Icon(Icons.arrow_forward, size: 16, color: AppColors.primarySky),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              '₱35 / 5-Gal',
-                              style: TextStyle(
-                                fontFamily: _font,
-                                fontSize: 13,
-                                height: 16 / 13,
-                                letterSpacing: -0.13,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                shadows: [
-                                  Shadow(
-                                    color: Color(0x26000000),
-                                    blurRadius: 2,
-                                    offset: Offset(0, 1),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              right: 8,
-              bottom: 12,
-              child: IgnorePointer(
-                child: SizedBox(
-                  width: 112,
-                  height: 112,
-                  child: Stack(
-                    alignment: Alignment.center,
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.water_drop,
-                        size: 100,
-                        color: Colors.white.withValues(alpha: 0.25),
-                      ),
-                      const Icon(
-                        Icons.water_drop,
-                        size: 48,
-                        color: Colors.white,
-                        shadows: [
-                          Shadow(
-                            color: Color(0x26000000),
-                            blurRadius: 12,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
+                      Icon(Icons.verified, size: 12, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        'DOH APPROVED',
+                        style: TextStyle(
+                          fontFamily: _font,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Drink 8 Purified Water',
+                  style: TextStyle(
+                    fontFamily: _font,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Multi-filtered and safe purified water delivered straight to your door.',
+                  style: TextStyle(
+                    fontFamily: _font,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white.withValues(alpha: 0.9),
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => onAddToCart('r_slim'),
+                      icon: const Icon(Icons.flash_on, size: 15, color: AppColors.primarySky),
+                      label: const Text(
+                        'Quick Reorder',
+                        style: TextStyle(
+                          fontFamily: _font,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primarySky,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.primarySky,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      '₱35 / 5-Gal',
+                      style: TextStyle(
+                        fontFamily: _font,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildCatalogHeader() {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         const Text(
           'Water & Containers',
           style: TextStyle(
             fontFamily: _font,
-            fontSize: 17,
-            height: 24 / 17,
-            letterSpacing: -0.17,
-            fontWeight: FontWeight.w700,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
             color: AppColors.textLight,
           ),
         ),
-        const SizedBox(width: 8),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
-            color: AppColors.secondaryContainer.withValues(alpha: 0.5),
+            color: AppColors.slate100,
             borderRadius: BorderRadius.circular(100),
           ),
           child: Text(
-            '${products.length} Items',
+            '${products.length} Products',
             style: const TextStyle(
               fontFamily: _font,
-              fontSize: 10,
-              height: 12 / 10,
-              letterSpacing: 0.6,
-              fontWeight: FontWeight.w800,
-              color: AppColors.onSecondaryContainer,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: AppColors.slate600,
             ),
           ),
         ),
@@ -427,90 +320,63 @@ class CustomerStoreScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.slate200),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0F0284C7),
-            blurRadius: 16,
-            spreadRadius: -2,
-            offset: Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Color(0x080F172A),
-            blurRadius: 6,
+            color: Color(0x060F172A),
+            blurRadius: 8,
             offset: Offset(0, 2),
           ),
         ],
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 width: double.infinity,
-                height: 96,
-                margin: const EdgeInsets.only(bottom: 8),
+                height: 88,
+                margin: const EdgeInsets.only(bottom: 10),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      AppColors.surfaceIce,
-                      AppColors.surfaceFrost.withValues(alpha: 0.5),
-                    ],
-                  ),
+                  color: AppColors.surfaceIce,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Positioned(
-                        top: 6,
-                        left: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isRefill ? Colors.white : AppColors.secondary,
-                            borderRadius: BorderRadius.circular(100),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x0D000000),
-                                blurRadius: 2,
-                                offset: Offset(0, 1),
-                              ),
-                            ],
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isRefill ? Colors.white : AppColors.primarySky,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: isRefill ? AppColors.sky200 : AppColors.primarySky,
                           ),
-                          child: Text(
-                            isRefill ? 'REFILL' : 'NEW',
-                            style: TextStyle(
-                              fontFamily: _font,
-                              fontSize: 9,
-                              height: 12 / 9,
-                              letterSpacing: 0.54,
-                              fontWeight: FontWeight.w800,
-                              color: isRefill ? AppColors.primarySky : Colors.white,
-                            ),
+                        ),
+                        child: Text(
+                          isRefill ? 'REFILL' : 'NEW JUG',
+                          style: TextStyle(
+                            fontFamily: _font,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: isRefill ? AppColors.primarySky : Colors.white,
+                            letterSpacing: 0.4,
                           ),
                         ),
                       ),
-                      Icon(
-                        _iconFor(id),
-                        size: 42,
-                        color: AppColors.primarySky,
-                        shadows: const [
-                          Shadow(
-                            color: Color(0x1A000000),
-                            blurRadius: 2,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    ),
+                    Icon(
+                      _iconFor(id),
+                      size: 40,
+                      color: inStock ? AppColors.primarySky : AppColors.slate400,
+                    ),
+                  ],
                 ),
               ),
               Text(
@@ -519,10 +385,8 @@ class CustomerStoreScreen extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontFamily: _font,
-                  fontSize: 15,
-                  height: 22 / 15,
-                  letterSpacing: -0.15,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
                   color: AppColors.textLight,
                 ),
               ),
@@ -533,48 +397,44 @@ class CustomerStoreScreen extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontFamily: _font,
-                  fontSize: 10,
-                  height: 14 / 10,
-                  fontWeight: FontWeight.w400,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.textSecondary,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 '₱${(p['price'] as double).toStringAsFixed(2)}',
                 style: const TextStyle(
                   fontFamily: _font,
-                  fontSize: 17,
-                  height: 24 / 17,
-                  letterSpacing: -0.17,
+                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textLight,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+
+          // Add to cart / Quantity controller
           if (qty > 0)
             Container(
-              padding: const EdgeInsets.all(4),
+              height: 36,
               decoration: BoxDecoration(
-                color: AppColors.surfaceFrost.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(100),
+                color: AppColors.sky50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.sky200),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Material(
-                    color: Colors.white,
-                    shape: const CircleBorder(),
-                    elevation: 1,
-                    shadowColor: Colors.black12,
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: () => onRemoveFromCart(id),
-                      child: const SizedBox(
-                        width: 28,
-                        height: 28,
+                  InkWell(
+                    onTap: () => onRemoveFromCart(id),
+                    borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
+                    child: const SizedBox(
+                      width: 32,
+                      height: 36,
+                      child: Center(
                         child: Icon(Icons.remove, size: 16, color: AppColors.primarySky),
                       ),
                     ),
@@ -583,25 +443,19 @@ class CustomerStoreScreen extends StatelessWidget {
                     '$qty',
                     style: const TextStyle(
                       fontFamily: _font,
-                      fontSize: 13,
-                      height: 16 / 13,
-                      letterSpacing: 0.13,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
                       color: AppColors.primarySky,
                     ),
                   ),
-                  Material(
-                    color: inStock ? AppColors.primarySky : AppColors.borderLight,
-                    shape: const CircleBorder(),
-                    elevation: 1,
-                    shadowColor: Colors.black12,
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: inStock ? () => onAddToCart(id) : null,
-                      child: const SizedBox(
-                        width: 28,
-                        height: 28,
-                        child: Icon(Icons.add, size: 16, color: Colors.white),
+                  InkWell(
+                    onTap: inStock ? () => onAddToCart(id) : null,
+                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
+                    child: const SizedBox(
+                      width: 32,
+                      height: 36,
+                      child: Center(
+                        child: Icon(Icons.add, size: 16, color: AppColors.primarySky),
                       ),
                     ),
                   ),
@@ -609,49 +463,26 @@ class CustomerStoreScreen extends StatelessWidget {
               ),
             )
           else
-            Container(
+            SizedBox(
               width: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: inStock
-                    ? const [
-                  BoxShadow(
-                    color: Color(0x1A000000),
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
+              height: 36,
+              child: ElevatedButton.icon(
+                onPressed: inStock ? () => onAddToCart(id) : null,
+                icon: Icon(inStock ? Icons.add_shopping_cart : Icons.block, size: 14),
+                label: Text(
+                  inStock ? 'Add to Cart' : 'Out of Stock',
+                  style: const TextStyle(
+                    fontFamily: _font,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
                   ),
-                ]
-                    : null,
-              ),
-              child: Material(
-                color: inStock ? AppColors.primarySky : AppColors.slate200,
-                borderRadius: BorderRadius.circular(100),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(100),
-                  onTap: inStock ? () => onAddToCart(id) : null,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(inStock ? Icons.add : Icons.block,
-                            size: 16,
-                            color: inStock ? Colors.white : AppColors.textSecondary),
-                        const SizedBox(width: 4),
-                        Text(
-                          inStock ? 'Add to Cart' : 'Out of Stock',
-                          style: TextStyle(
-                            fontFamily: _font,
-                            fontSize: 11,
-                            height: 14 / 11,
-                            letterSpacing: 0.22,
-                            fontWeight: FontWeight.w700,
-                            color: inStock ? Colors.white : AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: inStock ? AppColors.primarySky : AppColors.slate200,
+                  foregroundColor: inStock ? Colors.white : AppColors.slate500,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ),
@@ -664,38 +495,45 @@ class CustomerStoreScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final double topInset = MediaQuery.of(context).padding.top;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(
-        top: topInset + CustomHeader.contentHeight + 12,
-        bottom: 120,
-        left: 16,
-        right: 16,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildGreeting(),
-          const SizedBox(height: 16),
-          _buildHero(),
-          const SizedBox(height: 24),
-          _buildCatalogHeader(),
-          const SizedBox(height: 12),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: products.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.68,
-            ),
-            itemBuilder: (context, index) {
-              final p = products[index];
-              return _buildProductCard(p, cart[p['id']] ?? 0);
-            },
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 800), // Exactly matches POS screen constraints
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.only(
+            top: topInset + CustomHeader.contentHeight + 14,
+            bottom: 130, // Matches POS screen bottom padding
+            left: 16,
+            right: 16,
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildGreeting(),
+              const SizedBox(height: 18),
+              _buildHero(),
+              const SizedBox(height: 24),
+              _buildCatalogHeader(),
+              const SizedBox(height: 14),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: products.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.68,
+                ),
+                itemBuilder: (context, index) {
+                  final p = products[index];
+                  return _buildProductCard(p, cart[p['id']] ?? 0);
+                },
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/layout_constants.dart';
 import '../../core/utils/validators.dart';
 import '../../services/firestore_service.dart';
-import '../profile/terms_privacy_screen.dart' show fallbackEffectiveDate, fallbackJurisdiction, fallbackContactEmail, fallbackTermsClauses, fallbackPrivacyClauses;
+import '../profile/terms_privacy_screen.dart'
+    show fallbackEffectiveDate, fallbackJurisdiction, fallbackContactEmail, fallbackTermsClauses, fallbackPrivacyClauses;
 
 const String _font = 'Plus Jakarta Sans';
 
@@ -32,6 +32,7 @@ class _TermsPrivacyEditorScreenState extends State<TermsPrivacyEditorScreen> {
   final TextEditingController _effectiveDateCtrl = TextEditingController();
   final TextEditingController _jurisdictionCtrl = TextEditingController();
   final TextEditingController _contactEmailCtrl = TextEditingController();
+
   List<_ClauseEntry> _termsClauses = [];
   List<_ClauseEntry> _privacyClauses = [];
   bool _loading = true;
@@ -109,43 +110,92 @@ class _TermsPrivacyEditorScreenState extends State<TermsPrivacyEditorScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      messenger.showSnackBar(SnackBar(content: Text('Failed to save: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('Failed to save: $e'), backgroundColor: AppColors.coralAlert));
     }
   }
 
+  Widget _header(double topInset) {
+    return Container(
+      height: 64 + topInset,
+      width: double.infinity,
+      padding: EdgeInsets.only(top: topInset, left: 16, right: 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppColors.slate200)),
+      ),
+      child: Row(
+        children: [
+          Material(
+            color: AppColors.surfaceCanvas,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.slate200),
+                ),
+                child: const Icon(Icons.arrow_back, size: 20, color: AppColors.textLight),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Edit Terms & Privacy',
+                style: TextStyle(
+                  fontFamily: _font,
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textLight,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                'Station policies and legal disclosures',
+                style: TextStyle(
+                  fontFamily: _font,
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _field(String label, TextEditingController controller, {int maxLines = 1, String? errorText, VoidCallback? onChanged}) {
-    final bool hasError = errorText != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label.toUpperCase(),
-          style: const TextStyle(fontFamily: _font, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: AppColors.textSecondary),
+          style: const TextStyle(fontFamily: _font, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 4),
-        Container(
-          width: double.infinity,
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: maxLines > 1 ? 10 : 0),
-          height: maxLines > 1 ? null : 42,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(12),
-            border: hasError ? Border.all(color: AppColors.coralAlert, width: 1.5) : null,
-          ),
-          alignment: maxLines > 1 ? null : Alignment.centerLeft,
-          child: TextField(
-            controller: controller,
-            maxLines: maxLines,
-            onChanged: (_) => onChanged?.call(),
-            style: const TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textLight),
-            decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          onChanged: (_) => onChanged?.call(),
+          style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: AppColors.surfaceCanvas,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primarySky)),
+            errorText: errorText,
           ),
         ),
-        if (hasError)
-          Padding(
-            padding: const EdgeInsets.only(left: 4, top: 4),
-            child: Text(errorText, style: const TextStyle(fontFamily: _font, fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.coralAlert)),
-          ),
       ],
     );
   }
@@ -156,7 +206,7 @@ class _TermsPrivacyEditorScreenState extends State<TermsPrivacyEditorScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.slate200),
       ),
       child: Column(
@@ -164,22 +214,16 @@ class _TermsPrivacyEditorScreenState extends State<TermsPrivacyEditorScreen> {
         children: [
           Row(
             children: [
-              Expanded(child: _field('Title', entry.title)),
+              Expanded(child: _field('Clause Title', entry.title)),
               const SizedBox(width: 8),
-              InkWell(
-                customBorder: const CircleBorder(),
-                onTap: onRemove,
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(color: AppColors.coralAlert.withValues(alpha: 0.1), shape: BoxShape.circle),
-                  child: const Icon(Icons.delete_outline, size: 17, color: AppColors.coralAlert),
-                ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.coralAlert),
+                onPressed: onRemove,
               ),
             ],
           ),
           const SizedBox(height: 8),
-          _field('Body', entry.body, maxLines: 4),
+          _field('Clause Body', entry.body, maxLines: 4),
         ],
       ),
     );
@@ -190,7 +234,7 @@ class _TermsPrivacyEditorScreenState extends State<TermsPrivacyEditorScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surfaceCanvas,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.slate200),
       ),
@@ -199,30 +243,19 @@ class _TermsPrivacyEditorScreenState extends State<TermsPrivacyEditorScreen> {
         children: [
           Row(
             children: [
-              Container(width: 6, height: 16, decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(999))),
+              Container(width: 4, height: 16, decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(100))),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(title, style: const TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textLight)),
+                child: Text(title, style: const TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textLight)),
               ),
-              InkWell(
-                onTap: onAdd,
-                borderRadius: BorderRadius.circular(999),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(color: AppColors.surfaceFrost, borderRadius: BorderRadius.circular(999)),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add, size: 14, color: AppColors.primarySky),
-                      SizedBox(width: 4),
-                      Text('Add Clause', style: TextStyle(fontFamily: _font, fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primarySky)),
-                    ],
-                  ),
-                ),
+              TextButton.icon(
+                onPressed: onAdd,
+                icon: const Icon(Icons.add, size: 16, color: AppColors.primarySky),
+                label: const Text('Add Clause', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primarySky)),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           for (int i = 0; i < clauses.length; i++)
             _clauseCard(clauses[i], () => setState(() {
               clauses[i].dispose();
@@ -235,82 +268,90 @@ class _TermsPrivacyEditorScreenState extends State<TermsPrivacyEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final topInset = MediaQuery.of(context).padding.top;
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
-      backgroundColor: AppColors.surfaceBackground,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceBackground,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        leading: IconButton(icon: const Icon(Icons.arrow_back, color: AppColors.textLight), onPressed: () => Navigator.maybePop(context)),
-        title: const Text('Edit Terms & Privacy', style: TextStyle(fontFamily: _font, fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textLight)),
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.slate200)),
+      backgroundColor: AppColors.surfaceCanvas, // #F8FAFC
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800), // Standard 800px width
+          child: Column(
+            children: [
+              _header(topInset),
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 24 + bottomInset),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _field(
-                        'Effective Date',
-                        _effectiveDateCtrl,
-                        errorText: _effectiveDateError,
-                        onChanged: () {
-                          if (_effectiveDateError != null) setState(() => _effectiveDateError = null);
-                        },
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.slate200),
+                        ),
+                        child: Column(
+                          children: [
+                            _field(
+                              'Effective Date',
+                              _effectiveDateCtrl,
+                              errorText: _effectiveDateError,
+                              onChanged: () {
+                                if (_effectiveDateError != null) setState(() => _effectiveDateError = null);
+                              },
+                            ),
+                            const SizedBox(height: 10),
+                            _field(
+                              'Jurisdiction',
+                              _jurisdictionCtrl,
+                              errorText: _jurisdictionError,
+                              onChanged: () {
+                                if (_jurisdictionError != null) setState(() => _jurisdictionError = null);
+                              },
+                            ),
+                            const SizedBox(height: 10),
+                            _field(
+                              'Contact Email',
+                              _contactEmailCtrl,
+                              errorText: _contactEmailError,
+                              onChanged: () {
+                                if (_contactEmailError != null) setState(() => _contactEmailError = null);
+                              },
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 10),
-                      _field(
-                        'Jurisdiction',
-                        _jurisdictionCtrl,
-                        errorText: _jurisdictionError,
-                        onChanged: () {
-                          if (_jurisdictionError != null) setState(() => _jurisdictionError = null);
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      _field(
-                        'Contact Email',
-                        _contactEmailCtrl,
-                        errorText: _contactEmailError,
-                        onChanged: () {
-                          if (_contactEmailError != null) setState(() => _contactEmailError = null);
-                        },
+                      const SizedBox(height: 16),
+                      _section('Part 1: Terms of Service', AppColors.primarySky, _termsClauses, () => setState(() => _termsClauses.add(_ClauseEntry()))),
+                      const SizedBox(height: 16),
+                      _section('Part 2: Privacy Policy', const Color(0xFF059669), _privacyClauses, () => setState(() => _privacyClauses.add(_ClauseEntry()))),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: _saving ? null : _save,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primarySky,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: _saving
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Text('Save Changes', style: TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.bold)),
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                _section('Part 1: Terms of Service', AppColors.primarySky, _termsClauses, () => setState(() => _termsClauses.add(_ClauseEntry()))),
-                const SizedBox(height: 16),
-                _section('Part 2: Privacy Policy', AppColors.teal600, _privacyClauses, () => setState(() => _privacyClauses.add(_ClauseEntry()))),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _saving ? null : _save,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primarySky,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                    ),
-                    child: _saving
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Text('Save Changes', style: TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.w700)),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

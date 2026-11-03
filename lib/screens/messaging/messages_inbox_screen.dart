@@ -4,10 +4,10 @@ import '../../main.dart';
 import '../../models/chat_conversation_model.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
-import '../../services/firestore_service.dart';
 import '../../services/messaging_service.dart';
 import '../../widgets/messaging/conversation_tile.dart';
 import 'chat_conversation_screen.dart';
+import 'support_request_screen.dart';
 
 const String _font = 'Plus Jakarta Sans';
 
@@ -20,98 +20,7 @@ class MessagesInboxScreen extends StatefulWidget {
 
 class _MessagesInboxScreenState extends State<MessagesInboxScreen> {
   final MessagingService _messagingService = MessagingService();
-  final FirestoreService _firestoreService = FirestoreService();
-
-  String _filter = 'all'; // 'all' | 'delivery' | 'support' | 'unread'
-
-  void _showNewSupportDialog(BuildContext context, String uid) {
-    final topicCtrl = TextEditingController();
-    bool isCreating = false;
-
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.surfaceCanvas,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.headset_mic_outlined, color: AppColors.primarySky, size: 22),
-              SizedBox(width: 8),
-              Text(
-                'Contact Support',
-                style: TextStyle(fontFamily: _font, fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'What do you need assistance with?',
-                style: TextStyle(fontFamily: _font, fontSize: 12, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: topicCtrl,
-                style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
-                decoration: InputDecoration(
-                  hintText: 'e.g., Damaged Container, Refill Inquiry...',
-                  hintStyle: const TextStyle(fontFamily: _font, fontSize: 12, color: AppColors.slate400),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.slate200),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: isCreating ? null : () => Navigator.pop(dialogCtx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: isCreating
-                  ? null
-                  : () async {
-                final topic = topicCtrl.text.trim();
-                if (topic.isEmpty) return;
-
-                setDialogState(() => isCreating = true);
-                try {
-                  final profile = await _firestoreService.getUser(uid);
-                  final convo = await _messagingService.createOrReopenSupportConversation(
-                    customerId: uid,
-                    customerName: profile?.name ?? 'Customer',
-                    topic: topic,
-                  );
-                  if (!context.mounted) return;
-                  Navigator.pop(dialogCtx);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ChatConversationScreen(conversation: convo),
-                    ),
-                  );
-                } catch (e) {
-                  setDialogState(() => isCreating = false);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primarySky,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Start Chat'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  String _filter = 'all';
 
   Widget _buildFilterChips() {
     Widget chip(String key, String label) {
@@ -330,7 +239,12 @@ class _MessagesInboxScreenState extends State<MessagesInboxScreen> {
       ),
       floatingActionButton: isCustomer
           ? FloatingActionButton.extended(
-        onPressed: () => _showNewSupportDialog(context, uid),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const SupportRequestScreen()),
+          );
+        },
         backgroundColor: AppColors.primarySky,
         elevation: 2,
         icon: const Icon(Icons.support_agent, color: Colors.white),

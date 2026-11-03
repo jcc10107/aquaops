@@ -1,18 +1,19 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/user_model.dart';
-import '../models/order_model.dart';
+import '../core/constants/zones.dart';
+import '../models/branch_model.dart';
+import '../models/emergency_request_model.dart';
 import '../models/inventory_model.dart';
-import '../models/shift_model.dart';
+import '../models/order_model.dart';
+import '../models/refund_model.dart';
 import '../models/rider_cash_out_model.dart';
 import '../models/saved_address_model.dart';
-import '../models/refund_model.dart';
-import '../models/branch_model.dart';
-import '../core/constants/zones.dart';
+import '../models/shift_model.dart';
+import '../models/user_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // Collection Constants
+  // ── Collection names ──────────────────────────────────────────────
   static const String _colInventory = 'inventory';
   static const String _colMaintenanceAlerts = 'maintenance_alerts';
   static const String _colOrders = 'orders';
@@ -23,31 +24,31 @@ class FirestoreService {
   static const String _colRefundRequests = 'refund_requests';
   static const String _colSettings = 'settings';
   static const String _colBranches = 'branches';
+  static const String _colEmergencyRequests = 'emergency_requests';
 
-  // Inventory Document ID Constants
+  // ── Inventory doc IDs ─────────────────────────────────────────────
   static const String _invWaterRound = 'inv_water_round';
   static const String _invWaterSlim = 'inv_water_slim';
   static const String _invPkgCaps = 'inv_pkg_caps';
   static const String _invPkgSeals = 'inv_pkg_seals';
 
-  // Settings Document ID Constants
+  // ── Settings doc IDs ──────────────────────────────────────────────
   static const String _docTermsPrivacy = 'terms_privacy';
   static const String _docServiceArea = 'service_area';
   static const String _docDeliveryFee = 'delivery_fee';
   static const String _docGcashAccount = 'gcash_account';
 
-  // Path Helpers
+  // ── Helpers ───────────────────────────────────────────────────────
+
   CollectionReference<Map<String, dynamic>> _userAddressRef(String uid) {
     return _db.collection(_colUsers).doc(uid).collection(_colAddresses);
   }
 
-  // Helper for Order ID Generation
   String _generateOrderNumber(String prefix) {
     final docId = _db.collection(_colOrders).doc().id;
     return '$prefix-${docId.substring(0, 6).toUpperCase()}';
   }
 
-  // Pure Helper for Stock Clamping & Shortfall Calculation
   ({int actualDeduction, bool shortfall}) _calculateStockAdjustment(
       int currentStock,
       int requestedQuantity,
@@ -60,7 +61,8 @@ class FirestoreService {
     return (actualDeduction: actual, shortfall: shortfall);
   }
 
-  // Stream of all inventory items, ordered by category then name
+  // ── Inventory ─────────────────────────────────────────────────────
+
   Stream<List<InventoryModel>> getInventoryStream() {
     return _db.collection(_colInventory).snapshots().map((snapshot) {
       final items = snapshot.docs
@@ -77,13 +79,12 @@ class FirestoreService {
   Future<void> restockItem(String itemId, int quantityToAdd) async {
     await _db.collection(_colInventory).doc(itemId).update({
       'currentStock': FieldValue.increment(quantityToAdd),
-      // Clears the low-stock push-notification flag so a future dip below
-      // threshold notifies again instead of staying silently suppressed.
       'notifiedLowStock': false,
     });
   }
 
-  // Stream of maintenance/machinery alerts, most urgent & soonest due first.
+  // ── Maintenance ───────────────────────────────────────────────────
+
   Stream<List<MaintenanceAlertModel>> getMaintenanceAlertsStream() {
     return _db.collection(_colMaintenanceAlerts).snapshots().map((snapshot) {
       final alerts = snapshot.docs
@@ -107,7 +108,8 @@ class FirestoreService {
     await _db.collection(_colMaintenanceAlerts).doc(alertId).update({'isCompleted': isCompleted});
   }
 
-  // Records a walk-in POS sale and atomically deducts the water/packaging it consumed.
+  // ── Orders ────────────────────────────────────────────────────────
+
   Future<String> recordWalkInSale({
     required List<OrderItem> items,
     required double totalAmount,
@@ -170,7 +172,6 @@ class FirestoreService {
     return OrderModel.fromMap(data, id);
   }
 
-  // Stream of active (not yet delivered/cancelled) orders, newest first.
   Stream<List<OrderModel>> getActiveOrdersStream() {
     return _db.collection(_colOrders).snapshots().map((snapshot) {
       final orders = snapshot.docs
@@ -182,14 +183,12 @@ class FirestoreService {
     });
   }
 
-  // Stream of every order, regardless of status — used for revenue/reporting.
   Stream<List<OrderModel>> getAllOrdersStream() {
     return _db.collection(_colOrders).snapshots().map(
           (snapshot) => snapshot.docs.map(_orderFromDoc).toList(),
     );
   }
 
-  // Stream of a single customer's own orders, newest first.
   Stream<List<OrderModel>> getOrdersForCustomerStream(String customerId) {
     return _db
         .collection(_colOrders)
@@ -202,7 +201,6 @@ class FirestoreService {
     });
   }
 
-  // Places a customer-initiated delivery order.
   Future<String> placeOrder({
     required String customerId,
     required String customerName,
@@ -249,9 +247,6 @@ class FirestoreService {
     return orderNumber;
   }
 
-  // Places a staff-initiated delivery order from the POS counter — a
-  // walk-in customer (possibly a guest with no account) who wants their
-  // order delivered instead of handed over on the spot.
   Future<String> placeCounterDeliveryOrder({
     required String customerName,
     required String customerPhone,
@@ -259,8 +254,8 @@ class FirestoreService {
     required String zone,
     required List<OrderItem> items,
     required double totalAmount,
-    required String paymentChoice, // 'counter' or 'rider'
-    String? paymentMethod, // cash/gcash, only meaningful when paymentChoice == 'counter'
+    required String paymentChoice,
+    String? paymentMethod,
     String? gcashReference,
     double deliveryFee = 0,
   }) async {
@@ -292,7 +287,6 @@ class FirestoreService {
     return orderNumber;
   }
 
-  // Cancelling is status-guarded: a delivered order can never be cancelled.
   Future<void> cancelOrder(String orderId) async {
     final orderRef = _db.collection(_colOrders).doc(orderId);
     await _db.runTransaction((transaction) async {
@@ -305,8 +299,30 @@ class FirestoreService {
     });
   }
 
-  // Resolves which inventory doc (if any) an order item's quantity should
-  // be deducted from.
+  Future<void> confirmOrderReceived({
+    required String orderId,
+    required String customerId,
+  }) async {
+    try {
+      await _db.collection(_colOrders).doc(orderId).update({
+        'customerConfirmedReceived': true,
+        'customerReceivedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        if (customerId.isNotEmpty) {
+          await _db.collection(_colUsers).doc(customerId).collection('confirmed_receipts').doc(orderId).set({
+            'orderId': orderId,
+            'customerConfirmedReceived': true,
+            'confirmedAt': FieldValue.serverTimestamp(),
+          });
+          return;
+        }
+      }
+      rethrow;
+    }
+  }
+
   String? _waterInventoryKeyFor(OrderItem item) {
     if (item.productKey != null) {
       return (item.productKey == _invWaterRound || item.productKey == _invWaterSlim)
@@ -321,7 +337,6 @@ class FirestoreService {
     return null;
   }
 
-  // Fulfill drop-off: deducts water/caps/seals exactly once in a transaction.
   Future<void> fulfillDelivery({
     required String orderId,
     required String customerId,
@@ -361,7 +376,6 @@ class FirestoreService {
         }
       }
 
-      // 1. READ STEP: Gather every inventory doc's current stock first.
       final Map<String, int> waterCurrentStock = {};
       for (final entry in waterNeeded.entries) {
         if (entry.value <= 0) continue;
@@ -377,7 +391,6 @@ class FirestoreService {
         }
       }
 
-      // 2. CALCULATION STEP: Calculate decrements and shortfall using pure helper.
       final Map<String, int> decrements = {};
       bool shortfall = false;
 
@@ -398,7 +411,6 @@ class FirestoreService {
         }
       }
 
-      // 3. WRITE STEP: Execute all updates after reads are complete.
       for (final entry in decrements.entries) {
         if (entry.value <= 0) continue;
         transaction.update(_db.collection(_colInventory).doc(entry.key), {
@@ -409,6 +421,7 @@ class FirestoreService {
       final unreturnedDiff = gallonsDelivered - emptyReturned;
       final orderUpdate = <String, dynamic>{
         'status': 'delivered',
+        'riderConfirmedDelivery': true,
         'gallonsDelivered': gallonsDelivered,
         'emptyGallonsReturned': emptyReturned,
         'unreturnedDiff': unreturnedDiff,
@@ -435,7 +448,8 @@ class FirestoreService {
     });
   }
 
-  // Stream of Staff and Rider accounts.
+  // ── Team ──────────────────────────────────────────────────────────
+
   Stream<List<UserModel>> getTeamMembersStream() {
     return _db.collection(_colUsers).where('role', whereIn: ['staff', 'rider']).snapshots().map((snapshot) {
       final members = snapshot.docs.map((doc) => UserModel.fromMap(doc.data(), doc.id)).toList();
@@ -444,7 +458,6 @@ class FirestoreService {
     });
   }
 
-  // Stream of all rider accounts.
   Stream<List<UserModel>> getRidersStream() {
     return _db.collection(_colUsers).where('role', isEqualTo: 'rider').snapshots().map(
           (snapshot) => snapshot.docs.map((doc) => UserModel.fromMap(doc.data(), doc.id)).toList(),
@@ -462,6 +475,8 @@ class FirestoreService {
       'status': 'outForDelivery',
     });
   }
+
+  // ── Users ─────────────────────────────────────────────────────────
 
   Future<UserModel?> getUser(String uid) async {
     final doc = await _db.collection(_colUsers).doc(uid).get();
@@ -506,7 +521,8 @@ class FirestoreService {
     await _db.collection(_colUsers).doc(uid).update({'notificationsEnabled': enabled});
   }
 
-  // Helper mapping for Shift snapshots
+  // ── Shifts ────────────────────────────────────────────────────────
+
   ShiftModel? _mapShiftSnapshot(QuerySnapshot<Map<String, dynamic>> snapshot) {
     return snapshot.docs.isEmpty
         ? null
@@ -573,6 +589,8 @@ class FirestoreService {
     return discrepancy;
   }
 
+  // ── Rider Cash-Outs (Connected Rider + Owner Workflow) ────────────
+
   Stream<RiderCashOutModel?> getLatestRiderCashOutStream(String riderId) {
     return _db
         .collection(_colRiderCashouts)
@@ -580,9 +598,145 @@ class FirestoreService {
         .snapshots()
         .map((snapshot) {
       if (snapshot.docs.isEmpty) return null;
-      final cashOuts = snapshot.docs.map((d) => RiderCashOutModel.fromMap(d.data(), d.id)).toList();
+      // Filter by status on the raw map to avoid undefined getter on model
+      final completedDocs = snapshot.docs.where((d) {
+        final st = d.data()['status'] as String?;
+        return st == null || st == 'completed';
+      }).toList();
+      if (completedDocs.isEmpty) return null;
+
+      final cashOuts = completedDocs
+          .map((d) => RiderCashOutModel.fromMap(d.data(), d.id))
+          .toList();
       cashOuts.sort((a, b) => b.closedAt.compareTo(a.closedAt));
       return cashOuts.first;
+    });
+  }
+
+  Stream<Map<String, dynamic>?> getActiveRiderPendingCashOutStream(String riderId) {
+    return _db
+        .collection(_colRiderCashouts)
+        .where('riderId', isEqualTo: riderId)
+        .where('status', isEqualTo: 'pending')
+        .limit(1)
+        .snapshots()
+        .map((snap) {
+      if (snap.docs.isEmpty) return null;
+      final data = snap.docs.first.data();
+      data['id'] = snap.docs.first.id;
+      return data;
+    });
+  }
+
+  Stream<List<Map<String, dynamic>>> getPendingRiderCashOutsStream() {
+    return _db
+        .collection(_colRiderCashouts)
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snapshot) {
+      final list = snapshot.docs.map((d) {
+        final data = d.data();
+        data['id'] = d.id;
+        return data;
+      }).toList();
+      return list;
+    });
+  }
+
+  Future<String> submitRiderCashOutRequest({
+    required String riderId,
+    required String riderName,
+    required double reportedCash,
+    required double expectedCash,
+    required double gcashCollected,
+    required int stopsCompleted,
+    required int gallonsDelivered,
+    required int emptiesReturned,
+    required List<String> orderIds,
+    required DateTime since,
+  }) async {
+    final existingPending = await _db
+        .collection(_colRiderCashouts)
+        .where('riderId', isEqualTo: riderId)
+        .where('status', isEqualTo: 'pending')
+        .limit(1)
+        .get();
+
+    if (existingPending.docs.isNotEmpty) {
+      throw StateError('You already have a cash-out turnover pending dispatch verification.');
+    }
+
+    final docRef = _db.collection(_colRiderCashouts).doc();
+    await docRef.set({
+      'riderId': riderId,
+      'riderName': riderName,
+      'reportedCash': reportedCash,
+      'cashCollected': expectedCash,
+      'gcashCollected': gcashCollected,
+      'stopsCompleted': stopsCompleted,
+      'gallonsDelivered': gallonsDelivered,
+      'emptiesReturned': emptiesReturned,
+      'orderIds': orderIds,
+      'since': Timestamp.fromDate(since),
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+      'closedAt': FieldValue.serverTimestamp(),
+    });
+
+    return docRef.id;
+  }
+
+  Future<void> cancelRiderCashOutRequest(String cashOutId, String riderId) async {
+    final docRef = _db.collection(_colRiderCashouts).doc(cashOutId);
+    final snap = await docRef.get();
+    if (!snap.exists) throw StateError('Cash-out request not found.');
+    final data = snap.data()!;
+    if (data['riderId'] != riderId) throw StateError('Unauthorized.');
+    if (data['status'] != 'pending') throw StateError('Only pending requests can be cancelled.');
+
+    await docRef.delete();
+  }
+
+  Future<double> verifyAndCloseRiderCashOut({
+    required String cashOutId,
+    required double actualCashReceived,
+    required String verifiedByName,
+    required String verifiedById,
+  }) async {
+    final docRef = _db.collection(_colRiderCashouts).doc(cashOutId);
+    final snap = await docRef.get();
+    if (!snap.exists) throw StateError('Cash-out request not found.');
+    final data = snap.data()!;
+    if (data['status'] == 'completed') throw StateError('This cash-out has already been verified.');
+
+    final expectedCash = (data['cashCollected'] as num?)?.toDouble() ?? 0.0;
+    final discrepancy = actualCashReceived - expectedCash;
+
+    await docRef.update({
+      'status': 'completed',
+      'cashHandedOver': actualCashReceived,
+      'discrepancy': discrepancy,
+      'verifiedByName': verifiedByName,
+      'verifiedById': verifiedById,
+      'closedAt': FieldValue.serverTimestamp(),
+      'verifiedAt': FieldValue.serverTimestamp(),
+    });
+
+    return discrepancy;
+  }
+
+  Future<void> rejectRiderCashOut({
+    required String cashOutId,
+    required String rejectionReason,
+    required String rejectedByName,
+  }) async {
+    if (rejectionReason.trim().isEmpty) throw ArgumentError('Rejection reason required.');
+    final docRef = _db.collection(_colRiderCashouts).doc(cashOutId);
+    await docRef.update({
+      'status': 'rejected',
+      'rejectionReason': rejectionReason.trim(),
+      'rejectedByName': rejectedByName,
+      'rejectedAt': FieldValue.serverTimestamp(),
     });
   }
 
@@ -599,13 +753,19 @@ class FirestoreService {
         .where('status', isEqualTo: 'delivered')
         .get();
 
-    final orders = snapshot.docs.map(_orderFromDoc).where((o) => o.revenueDate.isAfter(since)).toList();
+    final orders = snapshot.docs
+        .map(_orderFromDoc)
+        .where((o) => o.revenueDate.isAfter(since))
+        .toList();
+
     final summary = summarizeRiderCashOut(orders);
     final discrepancy = cashHandedOver - summary.cashCollected;
+    final docRef = _db.collection(_colRiderCashouts).doc();
 
-    await _db.collection(_colRiderCashouts).add({
+    await docRef.set({
       'riderId': riderId,
       'riderName': riderName,
+      'status': 'completed',
       'stopsCompleted': summary.stopsCompleted,
       'gallonsDelivered': summary.gallonsDelivered,
       'emptiesReturned': summary.emptiesReturned,
@@ -614,7 +774,9 @@ class FirestoreService {
       'cashHandedOver': cashHandedOver,
       'discrepancy': discrepancy,
       'verifiedByName': verifiedByName,
+      'orderIds': orders.map((o) => o.id).toList(),
       'closedAt': FieldValue.serverTimestamp(),
+      'verifiedAt': FieldValue.serverTimestamp(),
     });
 
     return discrepancy;
@@ -625,6 +787,7 @@ class FirestoreService {
     required String toRiderId,
     required String toRiderName,
     required String reason,
+    List<String>? specificOrderIds,
   }) async {
     final snapshot = await _db
         .collection(_colOrders)
@@ -635,17 +798,199 @@ class FirestoreService {
     if (snapshot.docs.isEmpty) return 0;
 
     final batch = _db.batch();
+    int count = 0;
     for (final doc in snapshot.docs) {
+      if (specificOrderIds != null && !specificOrderIds.contains(doc.id)) {
+        continue;
+      }
       batch.update(doc.reference, {
         'assignedRiderId': toRiderId,
         'assignedRiderName': toRiderName,
         'lastTransferReason': reason,
         'lastTransferredAt': FieldValue.serverTimestamp(),
       });
+      count++;
     }
     await batch.commit();
-    return snapshot.docs.length;
+    return count;
   }
+
+  // ── Emergency Transfer Requests ───────────────────────────────────
+
+  Future<String> createEmergencyRequest({
+    required String riderId,
+    required String riderName,
+    String? riderPhone,
+    required List<String> affectedOrderIds,
+    required String reason,
+    String? description,
+  }) async {
+    if (affectedOrderIds.isEmpty) {
+      throw ArgumentError('At least one active delivery must be selected.');
+    }
+    if (reason.toLowerCase() == 'other' && (description == null || description.trim().isEmpty)) {
+      throw ArgumentError('Please provide a description when selecting "Other".');
+    }
+
+    final existingPending = await _db
+        .collection(_colEmergencyRequests)
+        .where('riderId', isEqualTo: riderId)
+        .where('status', isEqualTo: EmergencyRequestStatus.pending.name)
+        .limit(1)
+        .get();
+
+    if (existingPending.docs.isNotEmpty) {
+      throw StateError('You already have an active emergency request pending dispatch review.');
+    }
+
+    final docRef = _db.collection(_colEmergencyRequests).doc();
+    final request = EmergencyRequestModel(
+      id: docRef.id,
+      riderId: riderId,
+      riderName: riderName,
+      riderPhone: riderPhone,
+      affectedOrderIds: affectedOrderIds,
+      reason: reason,
+      description: description?.trim(),
+      status: EmergencyRequestStatus.pending,
+      createdAt: DateTime.now(),
+    );
+
+    await docRef.set(request.toMap());
+    return docRef.id;
+  }
+
+  Stream<List<EmergencyRequestModel>> getEmergencyRequestsStream({
+    String? riderId,
+    EmergencyRequestStatus? statusFilter,
+  }) {
+    Query<Map<String, dynamic>> query = _db.collection(_colEmergencyRequests);
+
+    if (riderId != null) {
+      query = query.where('riderId', isEqualTo: riderId);
+    }
+    if (statusFilter != null) {
+      query = query.where('status', isEqualTo: statusFilter.name);
+    }
+
+    return query.snapshots().map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => EmergencyRequestModel.fromFirestore(doc))
+          .toList();
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
+    });
+  }
+
+  Stream<EmergencyRequestModel?> getSingleEmergencyRequestStream(String requestId) {
+    return _db
+        .collection(_colEmergencyRequests)
+        .doc(requestId)
+        .snapshots()
+        .map((doc) => (doc.exists && doc.data() != null) ? EmergencyRequestModel.fromFirestore(doc) : null);
+  }
+
+  Future<void> cancelEmergencyRequest({
+    required String requestId,
+    required String riderId,
+  }) async {
+    final docRef = _db.collection(_colEmergencyRequests).doc(requestId);
+    final snapshot = await docRef.get();
+
+    if (!snapshot.exists) throw StateError('Request not found.');
+    final data = snapshot.data()!;
+
+    if (data['riderId'] != riderId) {
+      throw StateError('Unauthorized.');
+    }
+    if (data['status'] != EmergencyRequestStatus.pending.name) {
+      throw StateError('Only pending requests can be cancelled.');
+    }
+
+    await docRef.update({
+      'status': EmergencyRequestStatus.cancelled.name,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> declineEmergencyRequest({
+    required String requestId,
+    required String declineReason,
+  }) async {
+    if (declineReason.trim().isEmpty) {
+      throw ArgumentError('A decline reason is required.');
+    }
+
+    final docRef = _db.collection(_colEmergencyRequests).doc(requestId);
+    final snapshot = await docRef.get();
+
+    if (!snapshot.exists) throw StateError('Request not found.');
+    final data = snapshot.data()!;
+
+    if (data['status'] != EmergencyRequestStatus.pending.name) {
+      throw StateError('This request has already been reviewed or resolved.');
+    }
+
+    await docRef.update({
+      'status': EmergencyRequestStatus.declined.name,
+      'declineReason': declineReason.trim(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<int> resolveEmergencyRequestAndTransfer({
+    required String requestId,
+    required String fromRiderId,
+    required String toRiderId,
+    required String toRiderName,
+    List<String>? specificOrderIds,
+    required String reason,
+  }) async {
+    final reqRef = _db.collection(_colEmergencyRequests).doc(requestId);
+    final reqSnap = await reqRef.get();
+
+    if (!reqSnap.exists) throw StateError('Request not found.');
+    final reqData = reqSnap.data()!;
+
+    if (reqData['status'] == EmergencyRequestStatus.resolved.name) {
+      throw StateError('This emergency request has already been resolved.');
+    }
+
+    final snapshot = await _db
+        .collection(_colOrders)
+        .where('assignedRiderId', isEqualTo: fromRiderId)
+        .where('status', isEqualTo: 'outForDelivery')
+        .get();
+
+    final batch = _db.batch();
+    int count = 0;
+
+    for (final doc in snapshot.docs) {
+      if (specificOrderIds != null && !specificOrderIds.contains(doc.id)) {
+        continue;
+      }
+      batch.update(doc.reference, {
+        'assignedRiderId': toRiderId,
+        'assignedRiderName': toRiderName,
+        'lastTransferReason': reason,
+        'lastTransferredAt': FieldValue.serverTimestamp(),
+      });
+      count++;
+    }
+
+    batch.update(reqRef, {
+      'status': EmergencyRequestStatus.resolved.name,
+      'replacementRiderId': toRiderId,
+      'replacementRiderName': toRiderName,
+      'resolvedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+    return count;
+  }
+
+  // ── Saved addresses ───────────────────────────────────────────────
 
   Stream<List<SavedAddressModel>> getSavedAddressesStream(String uid) {
     return _userAddressRef(uid)
@@ -700,7 +1045,8 @@ class FirestoreService {
     await _userAddressRef(uid).doc(addressId).delete();
   }
 
-  // Helper mapping for Refund Request snapshots
+  // ── Refunds ───────────────────────────────────────────────────────
+
   List<RefundModel> _mapRefundRequestsSnapshot(QuerySnapshot<Map<String, dynamic>> snapshot) {
     final refunds = snapshot.docs.map((doc) => RefundModel.fromMap(doc.data(), doc.id)).toList();
     refunds.sort((a, b) => b.requestedAt.compareTo(a.requestedAt));
@@ -708,10 +1054,7 @@ class FirestoreService {
   }
 
   Stream<List<RefundModel>> getRefundRequestsStream() {
-    return _db
-        .collection(_colRefundRequests)
-        .snapshots()
-        .map(_mapRefundRequestsSnapshot);
+    return _db.collection(_colRefundRequests).snapshots().map(_mapRefundRequestsSnapshot);
   }
 
   Stream<List<RefundModel>> getRefundRequestsForCustomerStream(String customerId) {
@@ -771,6 +1114,8 @@ class FirestoreService {
       if (rejectionReason != null) 'rejectionReason': rejectionReason,
     });
   }
+
+  // ── Settings ──────────────────────────────────────────────────────
 
   Stream<Map<String, dynamic>?> getTermsPrivacyStream() {
     return _db.collection(_colSettings).doc(_docTermsPrivacy).snapshots().map((doc) => doc.data());
@@ -839,6 +1184,8 @@ class FirestoreService {
     });
   }
 
+  // ── Branches ──────────────────────────────────────────────────────
+
   Stream<List<BranchModel>> getBranchesStream() {
     return _db.collection(_colBranches).orderBy('createdAt').snapshots().map(
           (snapshot) => snapshot.docs.map((doc) => BranchModel.fromMap(doc.data(), doc.id)).toList(),
@@ -867,6 +1214,8 @@ class FirestoreService {
   Future<void> deleteBranch(String branchId) async {
     await _db.collection(_colBranches).doc(branchId).delete();
   }
+
+  // ── Live tracking ─────────────────────────────────────────────────
 
   Stream<OrderModel?> watchOrder(String orderId) {
     return _db.collection(_colOrders).doc(orderId).snapshots().map((doc) {

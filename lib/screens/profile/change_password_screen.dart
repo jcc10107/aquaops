@@ -1,7 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/layout_constants.dart';
 import '../../widgets/sub_screen_header.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
@@ -18,6 +17,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final FocusNode _currFocus = FocusNode();
   final FocusNode _newFocus = FocusNode();
   final FocusNode _confirmFocus = FocusNode();
+
   bool _isMatch = false;
   int _strength = 0;
   bool _isSubmitting = false;
@@ -27,7 +27,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   bool _showConfirm = false;
 
   static const String _font = 'Plus Jakarta Sans';
-  static const double _sidePadding = 20;
 
   @override
   void initState() {
@@ -49,6 +48,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
     setState(() => _isSubmitting = true);
     final messenger = ScaffoldMessenger.of(context);
+
     try {
       final credential = EmailAuthProvider.credential(email: user.email!, password: _currPassController.text);
       await user.reauthenticateWithCredential(credential);
@@ -56,7 +56,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
       if (!mounted) return;
       Navigator.pop(context);
-      messenger.showSnackBar(const SnackBar(content: Text('Password updated smoothly!', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: AppColors.secondary, behavior: SnackBarBehavior.floating));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Password updated successfully!'), backgroundColor: Color(0xFF059669)),
+      );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
@@ -66,11 +68,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         'requires-recent-login' => 'Please log out and log back in, then try again.',
         _ => e.message ?? 'Failed to update password.',
       };
-      messenger.showSnackBar(SnackBar(content: Text(message), backgroundColor: AppColors.error));
+      messenger.showSnackBar(SnackBar(content: Text(message), backgroundColor: AppColors.coralAlert));
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      messenger.showSnackBar(SnackBar(content: Text('Failed to update password: $e'), backgroundColor: AppColors.error));
+      messenger.showSnackBar(SnackBar(content: Text('Failed to update password: $e'), backgroundColor: AppColors.coralAlert));
     }
   }
 
@@ -92,62 +94,45 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     if (val.length >= 6) s = 2;
     if (val.length >= 8) s = 3;
     if (val.length >= 8 && RegExp(r'[A-Z]').hasMatch(val) && RegExp(r'[0-9]').hasMatch(val)) s = 4;
-    setState(() {
-      _strength = s;
-    });
+    setState(() => _strength = s);
     _validate();
   }
 
   void _validate() {
     setState(() {
-      _isMatch = _newPassController.text.isNotEmpty && _newPassController.text == _confirmPassController.text && _newPassController.text.length >= 6;
+      _isMatch = _newPassController.text.isNotEmpty &&
+          _newPassController.text == _confirmPassController.text &&
+          _newPassController.text.length >= 8;
     });
   }
 
   Widget _buildTitleBlock() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceFrost,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.sky200.withValues(alpha: 0.8), width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          child: const Icon(Icons.verified_user_outlined, size: 32, color: AppColors.primarySky),
+          width: 56,
+          height: 56,
+          decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
+          child: const Icon(Icons.lock_reset, size: 28, color: AppColors.primarySky),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         const Text(
           'Change Password',
-          textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: _font,
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            height: 32 / 24,
-            letterSpacing: -0.6,
-            color: AppColors.backgroundDark,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textLight,
           ),
         ),
         const SizedBox(height: 4),
         const Text(
-          'Update your personal credentials & login info',
+          'Update your account password and security credentials',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: _font,
             fontSize: 12,
-            fontWeight: FontWeight.w500,
-            height: 16 / 12,
-            color: AppColors.slate500,
+            color: AppColors.textSecondary,
           ),
         ),
       ],
@@ -162,112 +147,57 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     required FocusNode focusNode,
     required bool visible,
     required VoidCallback onToggle,
-    bool showForgot = false,
     String? errorText,
   }) {
-    final bool focused = focusNode.hasFocus;
     final bool hasError = errorText != null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontFamily: _font,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  height: 16 / 12,
-                  color: AppColors.slate600,
-                ),
-              ),
-              if (showForgot)
-                const Text(
-                  'Forgot?',
-                  style: TextStyle(
-                    fontFamily: _font,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    height: 16 / 12,
-                    color: AppColors.primarySky,
-                  ),
-                ),
-            ],
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: _font,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textSecondary,
           ),
         ),
         const SizedBox(height: 6),
         Container(
-          height: 50,
+          height: 48,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: hasError ? AppColors.error : (focused ? AppColors.primarySky : AppColors.slate200),
+              color: hasError ? AppColors.coralAlert : (focusNode.hasFocus ? AppColors.primarySky : AppColors.slate200),
               width: hasError ? 1.5 : 1,
             ),
-            boxShadow: focused
-                ? [
-              BoxShadow(
-                color: AppColors.primarySky.withValues(alpha: 0.2),
-                blurRadius: 0,
-                spreadRadius: 2,
-              ),
-            ]
-                : [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
-            ],
           ),
           child: Row(
             children: [
               Padding(
-                padding: const EdgeInsets.only(left: 16, right: 8),
-                child: Icon(icon, size: 20, color: AppColors.primarySky),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Icon(icon, size: 18, color: AppColors.slate400),
               ),
               Expanded(
                 child: TextField(
                   controller: controller,
                   focusNode: focusNode,
                   obscureText: !visible,
-                  style: const TextStyle(
-                    fontFamily: _font,
-                    fontSize: 14,
-                    color: AppColors.surfaceDark,
-                  ),
-                  decoration: const InputDecoration(
+                  style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
+                  decoration: InputDecoration(
                     border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
-                  ).copyWith(
                     hintText: placeholder,
-                    hintStyle: const TextStyle(
-                      fontFamily: _font,
-                      fontSize: 14,
-                      color: AppColors.slate400,
-                    ),
+                    hintStyle: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.slate400),
                   ),
                 ),
               ),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: onToggle,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 8, right: 16),
-                  child: Icon(
-                    visible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                    size: 20,
-                    color: AppColors.slate400,
-                  ),
-                ),
+              IconButton(
+                icon: Icon(visible ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18, color: AppColors.slate400),
+                onPressed: onToggle,
               ),
             ],
           ),
@@ -275,15 +205,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         if (hasError)
           Padding(
             padding: const EdgeInsets.only(left: 4, top: 4),
-            child: Text(
-              errorText,
-              style: const TextStyle(
-                fontFamily: _font,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: AppColors.error,
-              ),
-            ),
+            child: Text(errorText, style: const TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.coralAlert)),
           ),
       ],
     );
@@ -293,212 +215,20 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     Widget segment(int index) {
       return Expanded(
         child: Container(
-          height: 6,
+          height: 4,
+          margin: const EdgeInsets.symmetric(horizontal: 2),
           decoration: BoxDecoration(
             color: _strength > index ? AppColors.primarySky : AppColors.slate200,
-            borderRadius: BorderRadius.circular(9999),
+            borderRadius: BorderRadius.circular(100),
           ),
         ),
       );
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
+      padding: const EdgeInsets.only(top: 8),
       child: Row(
-        children: [
-          segment(0),
-          const SizedBox(width: 6),
-          segment(1),
-          const SizedBox(width: 6),
-          segment(2),
-          const SizedBox(width: 6),
-          segment(3),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHintBanner() {
-    final bool hasConfirm = _confirmPassController.text.isNotEmpty;
-
-    final Color background = _isMatch
-        ? AppColors.secondaryContainer.withValues(alpha: 0.3)
-        : (hasConfirm ? AppColors.errorContainer.withValues(alpha: 0.4) : AppColors.surfaceIce);
-    final Color borderColor = _isMatch
-        ? AppColors.secondary.withValues(alpha: 0.2)
-        : (hasConfirm ? AppColors.error.withValues(alpha: 0.2) : AppColors.surfaceFrost);
-    final Color iconColor = _isMatch ? AppColors.secondary : (hasConfirm ? AppColors.error : AppColors.primarySky);
-    final Color textColor = _isMatch ? AppColors.secondary : (hasConfirm ? AppColors.error : const Color(0xFF075985));
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor, width: 1),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            _isMatch ? Icons.check_circle_outline : (hasConfirm ? Icons.error_outline : Icons.info_outline),
-            size: 16,
-            color: iconColor,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              _isMatch ? 'Passwords match perfectly' : (hasConfirm ? 'Passwords do not match yet' : 'At least 8 characters with letters and numbers'),
-              style: TextStyle(
-                fontFamily: _font,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                height: 1.25,
-                color: textColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildForm() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildInput(
-          label: 'Current Password',
-          placeholder: 'Enter current password',
-          icon: Icons.lock_outline,
-          controller: _currPassController,
-          focusNode: _currFocus,
-          visible: _showCurrent,
-          onToggle: () => setState(() => _showCurrent = !_showCurrent),
-          showForgot: true,
-          errorText: _submitAttempted && _currPassController.text.isEmpty ? 'Current password is required.' : null,
-        ),
-        const SizedBox(height: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildInput(
-              label: 'New Password',
-              placeholder: 'Create strong password',
-              icon: Icons.lock_open_outlined,
-              controller: _newPassController,
-              focusNode: _newFocus,
-              visible: _showNew,
-              onToggle: () => setState(() => _showNew = !_showNew),
-              errorText: _submitAttempted && _newPassController.text.length < 8
-                  ? 'Password must be at least 8 characters.'
-                  : null,
-            ),
-            _buildStrengthMeter(),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _buildInput(
-          label: 'Confirm Password',
-          placeholder: 'Re-enter new password',
-          icon: Icons.lock_outline,
-          controller: _confirmPassController,
-          focusNode: _confirmFocus,
-          visible: _showConfirm,
-          onToggle: () => setState(() => _showConfirm = !_showConfirm),
-          errorText: _submitAttempted && _confirmPassController.text.isNotEmpty && !_isMatch
-              ? 'Passwords do not match.'
-              : null,
-        ),
-        const SizedBox(height: 16),
-        _buildHintBanner(),
-      ],
-    );
-  }
-
-  Widget _buildBottom(bool canSubmit) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 24, bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: canSubmit || _isSubmitting ? AppColors.primarySky : AppColors.primarySky.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(9999),
-              boxShadow: canSubmit
-                  ? [
-                BoxShadow(
-                  color: const Color(0xFF0EA5E9).withValues(alpha: 0.2),
-                  blurRadius: 6,
-                  spreadRadius: -1,
-                  offset: const Offset(0, 4),
-                ),
-                BoxShadow(
-                  color: const Color(0xFF0EA5E9).withValues(alpha: 0.2),
-                  blurRadius: 4,
-                  spreadRadius: -2,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-                  : [],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(9999),
-                onTap: _isSubmitting ? null : _changePassword,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _isSubmitting
-                          ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                          : const Icon(Icons.verified_user_outlined, size: 20, color: Colors.white),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Update Password',
-                        style: TextStyle(
-                          fontFamily: _font,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          height: 1.5,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Center(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.maybePop(context),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 4),
-                child: Text(
-                  'Cancel',
-                  style: TextStyle(
-                    fontFamily: _font,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    height: 20 / 14,
-                    color: AppColors.slate500,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+        children: [segment(0), segment(1), segment(2), segment(3)],
       ),
     );
   }
@@ -509,7 +239,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceBackground,
+      backgroundColor: AppColors.surfaceCanvas, // #F8FAFC
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -519,34 +249,85 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               child: Align(
                 alignment: Alignment.topCenter,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
-                  child: CustomScrollView(
+                  constraints: const BoxConstraints(maxWidth: 800), // Standard 800px width
+                  child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
-                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                    slivers: [
-                      SliverPadding(
-                        padding: EdgeInsets.fromLTRB(_sidePadding, 0, _sidePadding, 24 + bottomInset),
-                        sliver: SliverFillRemaining(
-                          hasScrollBody: false,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 24 + bottomInset),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.slate200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildTitleBlock(),
+                          const SizedBox(height: 24),
+                          _buildInput(
+                            label: 'Current Password',
+                            placeholder: 'Enter your existing password',
+                            icon: Icons.lock_outline,
+                            controller: _currPassController,
+                            focusNode: _currFocus,
+                            visible: _showCurrent,
+                            onToggle: () => setState(() => _showCurrent = !_showCurrent),
+                            errorText: _submitAttempted && _currPassController.text.isEmpty ? 'Current password is required.' : null,
+                          ),
+                          const SizedBox(height: 16),
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  const SizedBox(height: 8),
-                                  _buildTitleBlock(),
-                                  const SizedBox(height: 32),
-                                  _buildForm(),
-                                ],
+                              _buildInput(
+                                label: 'New Password',
+                                placeholder: 'Min. 8 characters with letters & numbers',
+                                icon: Icons.lock_reset,
+                                controller: _newPassController,
+                                focusNode: _newFocus,
+                                visible: _showNew,
+                                onToggle: () => setState(() => _showNew = !_showNew),
+                                errorText: _submitAttempted && _newPassController.text.length < 8
+                                    ? 'Password must be at least 8 characters.'
+                                    : null,
                               ),
-                              _buildBottom(canSubmit),
+                              _buildStrengthMeter(),
                             ],
                           ),
-                        ),
+                          const SizedBox(height: 16),
+                          _buildInput(
+                            label: 'Confirm New Password',
+                            placeholder: 'Re-enter your new password',
+                            icon: Icons.check_circle_outline,
+                            controller: _confirmPassController,
+                            focusNode: _confirmFocus,
+                            visible: _showConfirm,
+                            onToggle: () => setState(() => _showConfirm = !_showConfirm),
+                            errorText: _submitAttempted && _confirmPassController.text.isNotEmpty && !_isMatch
+                                ? 'Passwords do not match.'
+                                : null,
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed: canSubmit ? _changePassword : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primarySky,
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor: AppColors.slate200,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              child: _isSubmitting
+                                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                  : const Text('Update Password', style: TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),

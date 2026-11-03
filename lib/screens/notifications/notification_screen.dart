@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/layout_constants.dart';
 import '../../core/theme/app_typography.dart';
 import '../../main.dart';
 import '../../models/order_model.dart';
-import '../../models/user_model.dart'; // TASK 5.3: UserRole
+import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/notification_feed.dart';
 import '../customer/customer_map_screen.dart';
@@ -31,6 +30,7 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
+  static const String _font = 'Plus Jakarta Sans';
   final NotificationReadStore _store = NotificationReadStore.instance;
   String _filter = 'all';
 
@@ -49,24 +49,23 @@ class _NotificationScreenState extends State<NotificationScreen> {
         letterSpacing: letterSpacing,
       );
 
-  // TASK 5.3: Switch on UserRole directly
   List<_ChipDef> _chipsFor(UserRole role) {
     return switch (role) {
       UserRole.owner => const [
-        _ChipDef('delivery', 'Delivery', Icons.local_shipping, AppColors.primarySky),
-        _ChipDef('orders', 'Orders & POS', Icons.receipt_long, AppColors.tealAccent),
-        _ChipDef('system', 'System', Icons.tune, AppColors.tertiary),
+        _ChipDef('delivery', 'Delivery', Icons.local_shipping_outlined, AppColors.primarySky),
+        _ChipDef('orders', 'Orders & POS', Icons.receipt_long_outlined, AppColors.tealAccent),
+        _ChipDef('system', 'System', Icons.tune_rounded, AppColors.tertiary),
       ],
       UserRole.staff => const [
-        _ChipDef('orders', 'POS', Icons.point_of_sale, AppColors.tealAccent),
-        _ChipDef('system', 'Inventory', Icons.inventory_2, AppColors.tertiary),
+        _ChipDef('orders', 'POS', Icons.point_of_sale_outlined, AppColors.tealAccent),
+        _ChipDef('system', 'Inventory', Icons.inventory_2_outlined, AppColors.tertiary),
       ],
       UserRole.rider => const [
-        _ChipDef('delivery', 'Delivery', Icons.local_shipping, AppColors.primarySky),
+        _ChipDef('delivery', 'Delivery', Icons.local_shipping_outlined, AppColors.primarySky),
       ],
       UserRole.customer => const [
-        _ChipDef('delivery', 'Delivery', Icons.local_shipping, AppColors.primarySky),
-        _ChipDef('orders', 'Orders', Icons.receipt_long, AppColors.tealAccent),
+        _ChipDef('delivery', 'Delivery', Icons.local_shipping_outlined, AppColors.primarySky),
+        _ChipDef('orders', 'Orders', Icons.receipt_long_outlined, AppColors.tealAccent),
       ],
     };
   }
@@ -79,29 +78,30 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return ValueListenableBuilder<String>(
       valueListenable: currentUserRoleNotifier,
       builder: (context, rawRole, _) {
-        final String feedRole = normalizeNotificationRole(rawRole); // Keeps string for backend query
-        final UserRole typedRole = UserRole.fromString(rawRole); // TASK 5.3 Typed Enum
+        final String feedRole = normalizeNotificationRole(rawRole);
+        final UserRole typedRole = UserRole.fromString(rawRole);
 
         if (uid != null) _store.ensureLoaded(uid);
 
         return Scaffold(
-          backgroundColor: AppColors.surfaceBackground,
+          backgroundColor: AppColors.surfaceCanvas, // Standard #F8FAFC
           body: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+              constraints: const BoxConstraints(maxWidth: 800), // Exactly 800px width
               child: Column(
                 children: [
                   _buildHeader(context, topInset),
                   Expanded(
                     child: uid == null
-                        ? _stateBlock(Icons.lock_outline, 'Not signed in', 'Sign in to see your notifications.')
+                        ? _stateBlock(Icons.lock_outline, 'Not signed in', 'Sign in to view your notification stream.')
                         : ListenableBuilder(
                       listenable: _store,
                       builder: (context, _) => NotificationFeed(
                         role: feedRole,
                         uid: uid,
-                        builder: (context, items, loading, error) => _buildBody(context, uid, typedRole, items, loading, error),
+                        builder: (context, items, loading, error) =>
+                            _buildBody(context, uid, typedRole, items, loading, error),
                       ),
                     ),
                   ),
@@ -117,33 +117,43 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Widget _buildHeader(BuildContext context, double topInset) {
     return Container(
       height: 64 + topInset,
-      padding: EdgeInsets.only(top: topInset, left: 12, right: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceBackground.withValues(alpha: 0.95),
-        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 1))],
+      width: double.infinity,
+      padding: EdgeInsets.only(top: topInset, left: 16, right: 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppColors.slate200)),
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: 44,
-            height: 44,
-            child: IconButton(
-              tooltip: 'Go back',
-              onPressed: () => Navigator.maybePop(context),
-              icon: const Icon(Icons.arrow_back, size: 24, color: AppColors.textLight),
-            ),
-          ),
-          Expanded(
-            child: Center(
-              child: Text(
-                'Notifications',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _ts(size: 17, weight: FontWeight.w700, color: AppColors.textLight, letterSpacing: -0.17),
+          Material(
+            color: AppColors.surfaceCanvas,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => Navigator.maybePop(context),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.slate200),
+                ),
+                child: const Icon(Icons.arrow_back, size: 20, color: AppColors.textLight),
               ),
             ),
           ),
-          const SizedBox(width: 44, height: 44),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Notifications',
+              style: TextStyle(
+                fontFamily: _font,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textLight,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -157,15 +167,23 @@ class _NotificationScreenState extends State<NotificationScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 52,
+              height: 52,
               decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle),
-              child: Icon(icon, size: 24, color: AppColors.primarySky),
+              child: Icon(icon, size: 26, color: AppColors.primarySky),
             ),
-            const SizedBox(height: 10),
-            Text(title, textAlign: TextAlign.center, style: _ts(size: 17, weight: FontWeight.w700, color: AppColors.textLight, letterSpacing: -0.17)),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: _ts(size: 16, weight: FontWeight.w700, color: AppColors.textLight),
+            ),
             const SizedBox(height: 4),
-            Text(message, textAlign: TextAlign.center, style: _ts(size: 11, weight: FontWeight.w400, color: AppColors.textSecondary, height: 1.45)),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: _ts(size: 12, weight: FontWeight.w400, color: AppColors.textSecondary, height: 1.45),
+            ),
           ],
         ),
       ),
@@ -190,7 +208,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       return _stateBlock(Icons.error_outline, 'Unable to load notifications', 'Please check your connection and try again later.');
     }
     if (items.isEmpty) {
-      return _stateBlock(Icons.notifications_none, 'No notifications yet', 'New alerts and updates will appear here.');
+      return _stateBlock(Icons.notifications_none, 'No notifications yet', 'New alerts and operational updates will appear here.');
     }
 
     final chips = _chipsFor(role);
@@ -199,6 +217,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final int unreadCount = items.where((n) => !_store.isRead(n.id)).length;
 
     return ListView(
+      physics: const BouncingScrollPhysics(),
       padding: EdgeInsets.only(bottom: 24 + bottomInset),
       children: [
         _buildTopBar(uid, items, unreadCount),
@@ -207,89 +226,76 @@ class _NotificationScreenState extends State<NotificationScreen> {
         if (filtered.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 40),
-            child: _stateBlock(Icons.notifications_none, 'Nothing here', 'There are no notifications in this category.'),
+            child: _stateBlock(Icons.filter_list_off, 'Nothing here', 'There are no notifications in this category.'),
           )
         else
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               children: [
-                for (int i = 0; i < filtered.length; i++) ...[
-                  if (i > 0) const SizedBox(height: 12),
+                for (int i = 0; i < filtered.length; i++)
                   _buildCard(context, uid, role, filtered[i]),
-                ],
               ],
             ),
           ),
-        if (unreadCount == 0) _buildFooter(),
+        if (unreadCount == 0 && filtered.isNotEmpty) _buildFooter(),
       ],
     );
   }
 
   Widget _buildTopBar(String uid, List<AppNotification> items, int unreadCount) {
     final bool allRead = unreadCount == 0;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: AppColors.surfaceFrost, borderRadius: BorderRadius.circular(999)),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: AppColors.primarySky,
-                          shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: AppColors.primarySky.withValues(alpha: 0.8), blurRadius: 8)],
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        allRead ? 'All read' : '$unreadCount Unread',
-                        style: _ts(size: 11, weight: FontWeight.w700, color: AppColors.primarySky, height: 1.27, letterSpacing: 0.22),
-                      ),
-                    ],
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: allRead ? AppColors.slate100 : const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Text(
+                  allRead ? 'All caught up' : '$unreadCount unread',
+                  style: _ts(
+                    size: 12,
+                    weight: FontWeight.w700,
+                    color: allRead ? AppColors.slate600 : AppColors.primarySky,
                   ),
                 ),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    "Today's Stream",
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: _ts(size: 11, weight: FontWeight.w400, color: AppColors.textSecondary, height: 1.45),
-                  ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Across your updates',
+                style: _ts(
+                  size: 12,
+                  weight: FontWeight.w500,
+                  color: AppColors.textSecondary,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: allRead ? null : () => _store.markAllRead(uid, items.map((n) => n.id)),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(allRead ? Icons.check : Icons.done_all, size: 17, color: allRead ? AppColors.secondary : AppColors.primarySky),
-                  const SizedBox(width: 4),
-                  Text(
-                    allRead ? 'All read' : 'Mark all read',
-                    style: _ts(size: 13, weight: FontWeight.w700, color: allRead ? AppColors.secondary : AppColors.primarySky, height: 1.23, letterSpacing: 0.13),
-                  ),
-                ],
+          if (!allRead)
+            TextButton.icon(
+              onPressed: () => _store.markAllRead(uid, items.map((n) => n.id)),
+              icon: const Icon(Icons.done_all, size: 16, color: AppColors.primarySky),
+              label: Text(
+                'Mark all read',
+                style: _ts(
+                  size: 12,
+                  weight: FontWeight.w700,
+                  color: AppColors.primarySky,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                visualDensity: VisualDensity.compact,
               ),
             ),
-          ),
         ],
       ),
     );
@@ -303,7 +309,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       child: Row(
         children: [
           for (int i = 0; i < all.length; i++) ...[
-            if (i > 0) const SizedBox(width: 4),
+            if (i > 0) const SizedBox(width: 6),
             _buildChip(all[i], active == all[i].key, totalCount),
           ],
         ],
@@ -313,17 +319,19 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   Widget _buildChip(_ChipDef def, bool isActive, int totalCount) {
     final Color fg = isActive ? Colors.white : AppColors.textSecondary;
-    return GestureDetector(
+
+    return InkWell(
       onTap: () => setState(() => _filter = def.key),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      borderRadius: BorderRadius.circular(100),
+      child: Container(
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
           color: isActive ? AppColors.primarySky : Colors.white,
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: isActive
-              ? const [BoxShadow(color: Color(0x590284C7), blurRadius: 8, offset: Offset(0, 2))]
-              : const [BoxShadow(color: Color(0x0D000000), blurRadius: 2, offset: Offset(0, 1))],
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(
+            color: isActive ? AppColors.primarySky : AppColors.slate200,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -332,7 +340,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
               Icon(def.icon, size: 15, color: isActive ? Colors.white : def.iconColor),
               const SizedBox(width: 6),
             ],
-            Text(def.label, style: _ts(size: 11, weight: FontWeight.w700, color: fg, height: 1.27, letterSpacing: 0.22)),
+            Text(
+              def.label,
+              style: _ts(
+                size: 12,
+                weight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: fg,
+              ),
+            ),
             if (def.key == 'all') ...[
               const SizedBox(width: 6),
               Container(
@@ -340,11 +355,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 height: 16,
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(
-                  color: isActive ? Colors.white.withValues(alpha: 0.2) : AppColors.slate200,
-                  borderRadius: BorderRadius.circular(999),
+                  color: isActive ? Colors.white.withValues(alpha: 0.25) : AppColors.slate100,
+                  borderRadius: BorderRadius.circular(100),
                 ),
                 alignment: Alignment.center,
-                child: Text('$totalCount', style: _ts(size: 10, weight: FontWeight.w700, color: fg, height: 1)),
+                child: Text(
+                  '$totalCount',
+                  style: _ts(size: 10, weight: FontWeight.w800, color: fg, height: 1),
+                ),
               ),
             ],
           ],
@@ -393,143 +411,172 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final bool read = _store.isRead(n.id);
     final String timeText = n.timeLabel ?? notificationTimeText(n.sortTime);
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        _store.markRead(uid, n.id);
-        final destination = _destinationFor(role, n);
-        if (destination != null) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => destination));
-        }
-      },
-      child: Opacity(
-        opacity: read ? 0.9 : 1,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: read ? AppColors.surfaceContainerLow : Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: read ? AppColors.slate300 : AppColors.slate200.withValues(alpha: 0.7)),
-            boxShadow: const [BoxShadow(color: Color(0x0D000000), blurRadius: 2, offset: Offset(0, 1))],
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: read ? const Color(0xFFF8FAFC) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: read ? AppColors.slate200 : AppColors.slate200.withValues(alpha: 0.9),
+        ),
+        boxShadow: read
+            ? null
+            : const [
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 4,
+            offset: Offset(0, 1),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: n.iconBg,
-                  shape: BoxShape.circle,
-                  boxShadow: read ? null : [BoxShadow(color: n.iconColor.withValues(alpha: 0.3), blurRadius: 10)],
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            _store.markRead(uid, n.id);
+            final destination = _destinationFor(role, n);
+            if (destination != null) {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => destination));
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: n.iconBg,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(n.icon, size: 20, color: n.iconColor),
                 ),
-                child: Icon(n.icon, size: 22, color: n.iconColor),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            n.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: _ts(size: 17, weight: FontWeight.w700, color: AppColors.textLight, height: 1.41, letterSpacing: -0.17),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        if (read)
-                          Container(
-                            margin: const EdgeInsets.only(top: 2),
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceCanvas,
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(color: AppColors.slate200.withValues(alpha: 0.7)),
-                            ),
-                            child: Text('Read', style: _ts(size: 10, weight: FontWeight.w800, color: AppColors.outline, height: 1.2, letterSpacing: 0.6)),
-                          )
-                        else
-                          Container(
-                            width: 10,
-                            height: 10,
-                            margin: const EdgeInsets.only(top: 7),
-                            decoration: BoxDecoration(
-                              color: AppColors.primarySky,
-                              shape: BoxShape.circle,
-                              boxShadow: [BoxShadow(color: AppColors.primarySky.withValues(alpha: 0.75), blurRadius: 8)],
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Icon(read ? Icons.history : Icons.schedule, size: 13, color: read ? AppColors.outline : AppColors.primarySky),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            timeText,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: _ts(size: 11, weight: FontWeight.w400, color: AppColors.textSecondary, height: 1.45),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(n.message, style: _ts(size: 13, weight: FontWeight.w500, color: AppColors.textSecondary, height: 1.38)),
-                    if (n.tag != null || n.trackOrder != null) ...[
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (n.trackOrder != null)
-                            GestureDetector(
-                              onTap: () {
-                                _store.markRead(uid, n.id);
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => CustomerMapScreen(order: n.trackOrder!)),
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primarySky,
-                                  borderRadius: BorderRadius.circular(999),
-                                  boxShadow: const [BoxShadow(color: Color(0x590284C7), blurRadius: 14, offset: Offset(0, 4))],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.near_me, size: 16, color: Colors.white),
-                                    const SizedBox(width: 6),
-                                    Text('Track Live Map', style: _ts(size: 11, weight: FontWeight.w700, color: Colors.white, height: 1.27, letterSpacing: 0.22)),
-                                  ],
-                                ),
+                          Expanded(
+                            child: Text(
+                              n.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: _ts(
+                                size: 15,
+                                weight: FontWeight.w700,
+                                color: AppColors.textLight,
+                                height: 1.3,
                               ),
                             ),
-                          if (n.tag != null)
+                          ),
+                          if (!read) ...[
+                            const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(color: AppColors.secondaryContainer, borderRadius: BorderRadius.circular(999)),
-                              child: Text(n.tag!, style: _ts(size: 10, weight: FontWeight.w800, color: AppColors.onSecondaryContainer, height: 1.2, letterSpacing: 0.6)),
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.only(top: 4),
+                              decoration: const BoxDecoration(
+                                color: AppColors.primarySky,
+                                shape: BoxShape.circle,
+                              ),
                             ),
+                          ],
                         ],
                       ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            read ? Icons.history : Icons.schedule,
+                            size: 12,
+                            color: read ? AppColors.slate400 : AppColors.primarySky,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            timeText,
+                            style: _ts(
+                              size: 11,
+                              weight: FontWeight.w500,
+                              color: read ? AppColors.slate400 : AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        n.message,
+                        style: _ts(
+                          size: 13,
+                          weight: FontWeight.w400,
+                          color: AppColors.textSecondary,
+                          height: 1.4,
+                        ),
+                      ),
+                      if (n.tag != null || n.trackOrder != null) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            if (n.tag != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.slate100,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  n.tag!,
+                                  style: _ts(
+                                    size: 10,
+                                    weight: FontWeight.w700,
+                                    color: AppColors.slate600,
+                                  ),
+                                ),
+                              ),
+                            if (n.tag != null && n.trackOrder != null)
+                              const SizedBox(width: 8),
+                            if (n.trackOrder != null)
+                              InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: () {
+                                  _store.markRead(uid, n.id);
+                                  final destination = _destinationFor(role, n);
+                                  if (destination != null) {
+                                    Navigator.push(context, MaterialPageRoute(builder: (context) => destination));
+                                  }
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.near_me_outlined, size: 14, color: AppColors.primarySky),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Track Live Map →',
+                                        style: _ts(
+                                          size: 12,
+                                          weight: FontWeight.w700,
+                                          color: AppColors.primarySky,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -538,25 +585,26 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   Widget _buildFooter() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
       child: Column(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle),
-            child: const Icon(Icons.done_all, size: 20, color: AppColors.primarySky),
+            child: const Icon(Icons.done_all, size: 18, color: AppColors.primarySky),
           ),
-          const SizedBox(height: 4),
-          Text("You're all caught up!", textAlign: TextAlign.center, style: _ts(size: 17, weight: FontWeight.w700, color: AppColors.textLight, height: 1.41, letterSpacing: -0.17)),
+          const SizedBox(height: 6),
+          Text(
+            "You're all caught up!",
+            textAlign: TextAlign.center,
+            style: _ts(size: 14, weight: FontWeight.w700, color: AppColors.textLight),
+          ),
           const SizedBox(height: 2),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 280),
-            child: Text(
-              'All alerts and order notifications are synchronized with Drink 8 Hub.',
-              textAlign: TextAlign.center,
-              style: _ts(size: 11, weight: FontWeight.w400, color: AppColors.textSecondary, height: 1.45),
-            ),
+          Text(
+            'All updates and alerts are synchronized.',
+            textAlign: TextAlign.center,
+            style: _ts(size: 11, weight: FontWeight.w400, color: AppColors.textSecondary),
           ),
         ],
       ),

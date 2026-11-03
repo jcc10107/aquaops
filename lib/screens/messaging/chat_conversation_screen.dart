@@ -7,8 +7,8 @@ import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/messaging_service.dart';
 import '../../widgets/messaging/chat_message_bubble.dart';
-import 'delivery_quick_replies.dart';
-import 'message_composer.dart';
+import '../../widgets/messaging/delivery_quick_replies.dart';
+import '../../widgets/messaging/message_composer.dart';
 
 const String _font = 'Plus Jakarta Sans';
 
@@ -114,8 +114,45 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     }
   }
 
+  Widget _buildCustomerReopenBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FDF4),
+        border: Border.all(color: const Color(0xFFBBF7D0)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline, color: Color(0xFF16A34A), size: 20),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'This ticket is marked resolved. Still have a question?',
+              style: TextStyle(fontFamily: _font, fontSize: 12, color: Color(0xFF15803D)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await _messagingService.reopenSupportConversation(widget.conversation.id);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF16A34A),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              minimumSize: Size.zero,
+            ),
+            child: const Text('Reopen Ticket', style: TextStyle(fontFamily: _font, fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeader(double topInset) {
     final isDelivery = widget.conversation.isDelivery;
+    final isStaffOrOwner = _currentUserRole == UserRole.staff || _currentUserRole == UserRole.owner;
+
     final title = isDelivery
         ? (widget.conversation.assignedRiderName ?? 'Assigned Rider')
         : (widget.conversation.supportTopic ?? 'Aqua Ops Support');
@@ -124,7 +161,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         ? (widget.conversation.orderId != null
         ? 'Order #${widget.conversation.orderId}'
         : 'Delivery')
-        : 'Station Dispatch Desk';
+        : 'Customer: ${widget.conversation.customerName}';
 
     return Container(
       height: 64 + topInset,
@@ -195,7 +232,31 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
               ],
             ),
           ),
-          if (widget.conversation.isReadOnly)
+          if (!isDelivery && isStaffOrOwner)
+            PopupMenuButton<ConversationStatus>(
+              icon: const Icon(Icons.more_vert, size: 20, color: AppColors.slate500),
+              onSelected: (newStatus) async {
+                await _messagingService.updateSupportStatus(
+                  conversationId: widget.conversation.id,
+                  newStatus: newStatus,
+                );
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: ConversationStatus.resolved,
+                  child: Text('Mark as Resolved', style: TextStyle(fontFamily: _font, fontSize: 13, color: Color(0xFF059669))),
+                ),
+                PopupMenuItem(
+                  value: ConversationStatus.waitingCustomer,
+                  child: Text('Wait for Customer', style: TextStyle(fontFamily: _font, fontSize: 13)),
+                ),
+                PopupMenuItem(
+                  value: ConversationStatus.open,
+                  child: Text('Reopen Ticket', style: TextStyle(fontFamily: _font, fontSize: 13)),
+                ),
+              ],
+            )
+          else if (widget.conversation.isReadOnly)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
@@ -222,16 +283,20 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     final topInset = MediaQuery.of(context).padding.top;
     final currentUserId = AuthService().currentUserId ?? '';
     final isReadOnly = widget.conversation.isReadOnly;
+    final isCustomer = _currentUserRole == UserRole.customer;
+    final isResolved = widget.conversation.status == ConversationStatus.resolved;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas, // Standard #F8FAFC
+      backgroundColor: AppColors.surfaceCanvas,
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800), // Standard 800px width
+          constraints: const BoxConstraints(maxWidth: 800),
           child: Column(
             children: [
               _buildHeader(topInset),
+              if (isCustomer && isResolved && widget.conversation.isSupport)
+                _buildCustomerReopenBanner(),
               Expanded(
                 child: StreamBuilder<List<ChatMessageModel>>(
                   stream: _messagingService.watchMessages(widget.conversation.id),
@@ -248,7 +313,11 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                       return const Center(child: CircularProgressIndicator());
                     }
 
-                    final messages = snapshot.data!;
+                    final messages = snapshot.data!.where((m) {
+                      if (isCustomer && m.isInternalNote) return false;
+                      return true;
+                    }).toList();
+
                     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
                     return ListView.builder(

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/layout_constants.dart'; // Added centralized layout constants
 import '../../core/constants/zones.dart';
 import '../../core/utils/validators.dart';
 import '../../models/order_model.dart';
@@ -178,15 +177,9 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
       width: double.infinity,
       padding: padding ?? const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceLowest,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F0284C7),
-            blurRadius: 20,
-            offset: Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: AppColors.slate200),
       ),
       child: child,
     );
@@ -244,8 +237,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
         totalAmount: _checkoutTotal,
         deliveryFee: _deliveryFee,
         paymentMethod: _paymentMethod,
-        gcashReference:
-        _paymentMethod == 'gcash' &&
+        gcashReference: _paymentMethod == 'gcash' &&
             _gcashRefController.text.trim().isNotEmpty
             ? _gcashRefController.text.trim()
             : null,
@@ -343,105 +335,36 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
     final int totalItemCount = widget.cart.values.fold(0, (a, b) => a + b);
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
+      backgroundColor: AppColors.surfaceBackground,
       body: SafeArea(
-        bottom: false,
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+            constraints: const BoxConstraints(maxWidth: 800), // Exactly matches POS screen
             child: Column(
               children: [
-                SizedBox(
-                  height: 64,
-                  width: double.infinity,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceCanvas.withValues(alpha: 0.8),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x0A000000),
-                          blurRadius: 8,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        Material(
-                          color: AppColors.surfaceIce,
-                          shape: const CircleBorder(),
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: widget.onBack,
-                            child: const SizedBox(
-                              width: 44,
-                              height: 44,
-                              child: Icon(
-                                Icons.arrow_back,
-                                color: AppColors.primarySky,
-                                size: 22,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Checkout',
-                              style: TextStyle(
-                                fontFamily: _fontFamily,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.17,
-                                color: AppColors.textLight,
-                              ),
-                            ),
-                            Text(
-                              'ORDER SUMMARY & REFILL DISPATCH',
-                              style: TextStyle(
-                                fontFamily: _fontFamily,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.6,
-                                color: AppColors.primarySky,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                _buildHeader(),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(
-                      top: 16,
-                      bottom: 40,
-                      left: 16,
-                      right: 16,
-                    ),
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildDeliveryCard(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
                         _buildOrderSummaryCard(totalItemCount),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
                         if (_orderedRefillsCount > 0) ...[
                           _buildContainerExchangeCard(),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 14),
                         ],
                         _buildPaymentMethodCard(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
                         _buildDeliveryNotesCard(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
                         _buildTotalsCard(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 18),
                         _buildConfirmButton(),
                       ],
                     ),
@@ -455,6 +378,66 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
     );
   }
 
+  Widget _buildHeader() {
+    return Container(
+      height: 64,
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppColors.slate200)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Material(
+            color: AppColors.sky50,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: widget.onBack,
+              child: const SizedBox(
+                width: 36,
+                height: 36,
+                child: Icon(
+                  Icons.arrow_back,
+                  color: AppColors.primarySky,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Checkout',
+                style: TextStyle(
+                  fontFamily: _fontFamily,
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textLight,
+                  height: 1.1,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                'Order Summary & Refill Dispatch',
+                style: TextStyle(
+                  fontFamily: _fontFamily,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDeliveryCard() {
     return _buildCheckoutCard(
       child: Column(
@@ -462,155 +445,96 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  color: AppColors.sky50,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.location_on,
+                  color: AppColors.primarySky,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
               Expanded(
-                child: Row(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: const BoxDecoration(
-                        color: AppColors.surfaceIce,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.location_on,
-                        color: AppColors.primarySky,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Text(
-                                'DELIVERING TO',
-                                style: TextStyle(
-                                  fontFamily: _fontFamily,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.6,
-                                  color: AppColors.primarySky,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.secondary,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.secondaryContainer.withValues(
-                                    alpha: 0.4,
-                                  ),
-                                  borderRadius: BorderRadius.circular(100),
-                                ),
-                                child: const Text(
-                                  'Home',
-                                  style: TextStyle(
-                                    fontFamily: _fontFamily,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.secondary,
-                                  ),
-                                ),
-                              ),
-                            ],
+                    Row(
+                      children: [
+                        const Text(
+                          'DELIVERING TO',
+                          style: TextStyle(
+                            fontFamily: _fontFamily,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                            color: AppColors.primarySky,
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            widget.currentAddress,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontFamily: _fontFamily,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.17,
-                              color: AppColors.textLight,
-                            ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
                           ),
-                          const Text(
-                            'San Pablo City, Laguna 4000',
+                          decoration: BoxDecoration(
+                            color: AppColors.emerald50,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Home',
                             style: TextStyle(
                               fontFamily: _fontFamily,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textSecondary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.emerald700,
                             ),
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.currentAddress,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: _fontFamily,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textLight,
+                      ),
+                    ),
+                    const Text(
+                      'San Pablo City, Laguna',
+                      style: TextStyle(
+                        fontFamily: _fontFamily,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              Material(
-                color: AppColors.surfaceIce,
-                borderRadius: BorderRadius.circular(100),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(100),
-                  onTap: widget.onChangeAddress,
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    child: Text(
-                      'Change',
-                      style: TextStyle(
-                        fontFamily: _fontFamily,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primarySky,
-                      ),
-                    ),
-                  ),
+              OutlinedButton(
+                onPressed: widget.onChangeAddress,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primarySky,
+                  side: const BorderSide(color: AppColors.slate200),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  minimumSize: const Size(60, 30),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
+                child: const Text('Change', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceCanvas,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.pin_drop, size: 18, color: AppColors.outline),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Near Blue Gate, Landmark: Water Station Alpha',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: _fontFamily,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
@@ -627,42 +551,40 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.local_drink, color: AppColors.primarySky, size: 20),
+                  Icon(Icons.receipt_long, color: AppColors.primarySky, size: 18),
                   SizedBox(width: 8),
                   Text(
-                    'Order Summary',
+                    'Order Items',
                     style: TextStyle(
                       fontFamily: _fontFamily,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.17,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
                       color: AppColors.textLight,
                     ),
                   ),
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceIce,
-                  borderRadius: BorderRadius.circular(100),
+                  color: AppColors.slate100,
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  '$totalItemCount Items • $_orderedRefillsCount Gals',
+                  '$totalItemCount Items',
                   style: const TextStyle(
                     fontFamily: _fontFamily,
                     fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primarySky,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.slate600,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+          const Divider(height: 1, color: AppColors.slate100),
+          const SizedBox(height: 10),
           ...widget.cart.entries.map((e) {
             final p = widget.products.firstWhere((prod) => prod['id'] == e.key);
             final double itemTotal = (p['price'] as double) * e.value;
@@ -677,19 +599,19 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                     child: Row(
                       children: [
                         Container(
-                          width: 32,
-                          height: 32,
+                          width: 28,
+                          height: 28,
                           decoration: const BoxDecoration(
-                            color: AppColors.surfaceIce,
+                            color: AppColors.sky50,
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             isSlim ? Icons.water_drop : Icons.local_drink,
                             color: AppColors.primarySky,
-                            size: 18,
+                            size: 16,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -700,8 +622,8 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontFamily: _fontFamily,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
                                   color: AppColors.textLight,
                                 ),
                               ),
@@ -710,7 +632,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                                 style: const TextStyle(
                                   fontFamily: _fontFamily,
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w400,
+                                  fontWeight: FontWeight.w500,
                                   color: AppColors.textSecondary,
                                 ),
                               ),
@@ -725,8 +647,8 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                     '₱${itemTotal.toStringAsFixed(2)}',
                     style: const TextStyle(
                       fontFamily: _fontFamily,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
                       color: AppColors.textLight,
                     ),
                   ),
@@ -753,7 +675,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                     const Icon(
                       Icons.swap_horizontal_circle,
                       color: AppColors.primarySky,
-                      size: 20,
+                      size: 18,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -761,21 +683,20 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Container Exchange',
+                            'Container Exchange (1:1)',
                             style: TextStyle(
                               fontFamily: _fontFamily,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.17,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
                               color: AppColors.textLight,
                             ),
                           ),
                           Text(
-                            'Total containers ordered: $_orderedRefillsCount',
+                            'Total refills ordered: $_orderedRefillsCount',
                             style: const TextStyle(
                               fontFamily: _fontFamily,
                               fontSize: 11,
-                              fontWeight: FontWeight.w400,
+                              fontWeight: FontWeight.w500,
                               color: AppColors.textSecondary,
                             ),
                           ),
@@ -785,34 +706,15 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.secondaryContainer.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: const Text(
-                  'Standard 1:1',
-                  style: TextStyle(
-                    fontFamily: _fontFamily,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.secondary,
-                  ),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.surfaceCanvas,
-              borderRadius: BorderRadius.circular(16),
+              color: AppColors.slate50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.slate200),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -825,8 +727,8 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                         'Empty Gallons Returning',
                         style: TextStyle(
                           fontFamily: _fontFamily,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
                           color: AppColors.textLight,
                         ),
                       ),
@@ -835,7 +737,6 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                         style: TextStyle(
                           fontFamily: _fontFamily,
                           fontSize: 11,
-                          fontWeight: FontWeight.w400,
                           color: AppColors.textSecondary,
                         ),
                       ),
@@ -845,7 +746,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                 Row(
                   children: [
                     Material(
-                      color: AppColors.surfaceLowest,
+                      color: Colors.white,
                       shape: const CircleBorder(),
                       elevation: 1,
                       shadowColor: Colors.black12,
@@ -857,31 +758,31 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                           }
                         },
                         child: const SizedBox(
-                          width: 36,
-                          height: 36,
+                          width: 32,
+                          height: 32,
                           child: Icon(
                             Icons.remove,
-                            size: 18,
+                            size: 16,
                             color: AppColors.primarySky,
                           ),
                         ),
                       ),
                     ),
                     SizedBox(
-                      width: 28,
+                      width: 32,
                       child: Text(
                         '$_emptyGallonsReturning',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontFamily: _fontFamily,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                           color: AppColors.textLight,
                         ),
                       ),
                     ),
                     Material(
-                      color: AppColors.surfaceLowest,
+                      color: Colors.white,
                       shape: const CircleBorder(),
                       elevation: 1,
                       shadowColor: Colors.black12,
@@ -893,11 +794,11 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                           }
                         },
                         child: const SizedBox(
-                          width: 36,
-                          height: 36,
+                          width: 32,
+                          height: 32,
                           child: Icon(
                             Icons.add,
-                            size: 18,
+                            size: 16,
                             color: AppColors.primarySky,
                           ),
                         ),
@@ -909,43 +810,28 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
             ),
           ),
           if (_missingContainersCount > 0) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.errorContainer.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(16),
+                color: AppColors.rose50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.rose200),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.error, color: AppColors.coralAlert, size: 20),
-                  const SizedBox(width: 10),
+                  const Icon(Icons.info_outline, color: AppColors.rose600, size: 18),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'CONTAINER DEFICIT NOTICE',
-                          style: TextStyle(
-                            fontFamily: _fontFamily,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.6,
-                            color: AppColors.coralAlert,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Missing $_missingContainersCount container(s). A refundable deposit of ₱${_missingContainerDeposit.toStringAsFixed(2)} (₱200/gal) has been added.',
-                          style: const TextStyle(
-                            fontFamily: _fontFamily,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      'Missing $_missingContainersCount container(s). A refundable deposit of ₱${_missingContainerDeposit.toStringAsFixed(2)} (₱200/gal) has been added.',
+                      style: const TextStyle(
+                        fontFamily: _fontFamily,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.rose600,
+                      ),
                     ),
                   ),
                 ],
@@ -964,71 +850,44 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.account_balance_wallet,
-                    color: AppColors.primarySky,
-                    size: 20,
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    'Payment Method',
-                    style: TextStyle(
-                      fontFamily: _fontFamily,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.17,
-                      color: AppColors.textLight,
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                'INSTANT VERIFY',
-                style: TextStyle(
-                  fontFamily: _fontFamily,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                  color: AppColors.primarySky,
-                ),
-              ),
-            ],
+          const Text(
+            'Payment Method',
+            style: TextStyle(
+              fontFamily: _fontFamily,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textLight,
+            ),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: SizedBox(
-                  height: 44,
+                  height: 42,
                   child: ElevatedButton.icon(
                     onPressed: () => setState(() => _paymentMethod = 'cash'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor:
-                      !isGcash ? AppColors.primarySky : AppColors.surfaceCanvas,
+                      !isGcash ? AppColors.primarySky : AppColors.slate100,
                       foregroundColor:
-                      !isGcash ? Colors.white : AppColors.textSecondary,
-                      elevation: !isGcash ? 4 : 0,
-                      shadowColor: const Color(0x400284C7),
+                      !isGcash ? Colors.white : AppColors.slate600,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(100),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                     icon: Icon(
                       Icons.payments,
-                      size: 18,
-                      color: !isGcash ? Colors.white : AppColors.textSecondary,
+                      size: 16,
+                      color: !isGcash ? Colors.white : AppColors.slate600,
                     ),
                     label: const Text(
                       'Cash on Delivery',
                       style: TextStyle(
                         fontFamily: _fontFamily,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -1037,30 +896,30 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: SizedBox(
-                  height: 44,
+                  height: 42,
                   child: ElevatedButton.icon(
                     onPressed: () => setState(() => _paymentMethod = 'gcash'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isGcash ? AppColors.primarySky : AppColors.surfaceCanvas,
+                      backgroundColor:
+                      isGcash ? AppColors.primarySky : AppColors.slate100,
                       foregroundColor:
-                      isGcash ? Colors.white : AppColors.textSecondary,
-                      elevation: isGcash ? 4 : 0,
-                      shadowColor: const Color(0x400284C7),
+                      isGcash ? Colors.white : AppColors.slate600,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(100),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                     icon: Icon(
                       Icons.check_circle,
-                      size: 18,
-                      color: isGcash ? Colors.white : AppColors.textSecondary,
+                      size: 16,
+                      color: isGcash ? Colors.white : AppColors.slate600,
                     ),
                     label: const Text(
                       'GCash Transfer',
                       style: TextStyle(
                         fontFamily: _fontFamily,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -1069,13 +928,14 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
             ],
           ),
           if (isGcash) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.surfaceCanvas,
-                borderRadius: BorderRadius.circular(16),
+                color: AppColors.slate50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.slate200),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1087,12 +947,12 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'GCASH ACCOUNT NAME',
+                            'GCASH ACCOUNT',
                             style: TextStyle(
                               fontFamily: _fontFamily,
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
-                              letterSpacing: 0.6,
+                              letterSpacing: 0.5,
                               color: AppColors.primarySky,
                             ),
                           ),
@@ -1100,8 +960,8 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                             _gcashAccount.accountName,
                             style: const TextStyle(
                               fontFamily: _fontFamily,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
                               color: AppColors.textLight,
                             ),
                           ),
@@ -1110,57 +970,39 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                             style: const TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
                               color: AppColors.textSecondary,
                             ),
                           ),
                         ],
                       ),
-                      Material(
-                        color: AppColors.surfaceLowest,
-                        shape: const CircleBorder(),
-                        elevation: 1,
-                        shadowColor: Colors.black12,
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: _copyGcashNumber,
-                          child: const SizedBox(
-                            width: 36,
-                            height: 36,
-                            child: Icon(
-                              Icons.content_copy,
-                              size: 18,
-                              color: AppColors.primarySky,
-                            ),
-                          ),
+                      OutlinedButton.icon(
+                        onPressed: _copyGcashNumber,
+                        icon: const Icon(Icons.content_copy, size: 14),
+                        label: const Text('Copy'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primarySky,
+                          side: const BorderSide(color: AppColors.slate200),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                         ),
                       ),
                     ],
                   ),
                   if (_gcashAccount.qrImageUrl != null) ...[
                     const SizedBox(height: 12),
-                    const Text(
-                      'Or scan with the GCash app:',
-                      style: TextStyle(
-                        fontFamily: _fontFamily,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
                     Center(
                       child: Container(
-                        width: 220,
-                        height: 220,
-                        padding: const EdgeInsets.all(8),
+                        width: 180,
+                        height: 180,
+                        padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: AppColors.surfaceLowest,
-                          borderRadius: BorderRadius.circular(16),
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppColors.slate200),
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                           child: Image.network(
                             _gcashAccount.qrImageUrl!,
                             fit: BoxFit.contain,
@@ -1171,80 +1013,54 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                   ],
                   const SizedBox(height: 12),
                   const Text(
-                    '13-Digit Ref Number',
+                    '13-Digit Reference Number',
                     style: TextStyle(
                       fontFamily: _fontFamily,
                       fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.bold,
                       color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Container(
-                    height: 48,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    height: 44,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceCanvas,
-                      borderRadius: BorderRadius.circular(16),
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: _gcashRefError != null
                             ? AppColors.coralAlert
-                            : Colors.transparent,
-                        width: _gcashRefError != null ? 1.5 : 1,
+                            : AppColors.slate200,
                       ),
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.tag,
-                          color: _gcashRefError != null
-                              ? AppColors.coralAlert
-                              : AppColors.primarySky,
-                          size: 20,
-                        ),
+                        const Icon(Icons.tag, color: AppColors.primarySky, size: 18),
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextField(
                             controller: _gcashRefController,
                             maxLength: 13,
                             keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                             onChanged: (_) {
-                              if (_gcashRefError != null) {
-                                setState(() => _gcashRefError = null);
-                              }
+                              if (_gcashRefError != null) setState(() => _gcashRefError = null);
                             },
                             style: const TextStyle(
                               fontFamily: 'monospace',
-                              fontSize: 15,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
                               color: AppColors.textLight,
                             ),
                             decoration: const InputDecoration(
                               hintText: 'Enter reference number',
-                              hintStyle: TextStyle(color: Color(0xFFC0C7D3)),
+                              hintStyle: TextStyle(color: AppColors.slate400),
                               border: InputBorder.none,
                               counterText: '',
                               isDense: true,
                             ),
                           ),
-                        ),
-                        Icon(
-                          Validators.sanitizePhone(
-                            _gcashRefController.text,
-                          ).length ==
-                              13
-                              ? Icons.check_circle
-                              : Icons.circle_outlined,
-                          color:
-                          Validators.sanitizePhone(
-                            _gcashRefController.text,
-                          ).length ==
-                              13
-                              ? AppColors.secondary
-                              : AppColors.outline,
-                          size: 20,
                         ),
                       ],
                     ),
@@ -1271,65 +1087,49 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                         style: TextStyle(
                           fontFamily: _fontFamily,
                           fontSize: 11,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.bold,
                           color: AppColors.textSecondary,
                         ),
                       ),
                       Text(
-                        _hasUploadedReceipt ? 'Uploaded' : 'Not uploaded',
+                        _hasUploadedReceipt ? 'Attached ✓' : 'Required',
                         style: TextStyle(
                           fontFamily: _fontFamily,
                           fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.bold,
                           color: _hasUploadedReceipt
-                              ? AppColors.secondary
+                              ? AppColors.emerald700
                               : AppColors.coralAlert,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   SizedBox(
                     width: double.infinity,
-                    height: 44,
+                    height: 40,
                     child: OutlinedButton.icon(
-                      onPressed: _isUploadingReceipt
-                          ? null
-                          : _pickAndUploadReceipt,
+                      onPressed: _isUploadingReceipt ? null : _pickAndUploadReceipt,
                       style: OutlinedButton.styleFrom(
-                        backgroundColor: AppColors.surfaceIce,
+                        backgroundColor: Colors.white,
                         side: BorderSide(
-                          color: _receiptError != null
-                              ? AppColors.coralAlert
-                              : AppColors.primarySky.withValues(alpha: 0.4),
-                          width: _receiptError != null ? 1.5 : 1.5,
+                          color: _receiptError != null ? AppColors.coralAlert : AppColors.slate200,
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       icon: _isUploadingReceipt
                           ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.primarySky,
-                        ),
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primarySky),
                       )
-                          : const Icon(
-                        Icons.add_photo_alternate,
-                        size: 20,
-                        color: AppColors.primarySky,
-                      ),
+                          : const Icon(Icons.add_photo_alternate, size: 16, color: AppColors.primarySky),
                       label: Text(
-                        _isUploadingReceipt
-                            ? 'Loading...'
-                            : 'Upload Screenshot from Gallery',
+                        _isUploadingReceipt ? 'Uploading...' : 'Upload Screenshot',
                         style: const TextStyle(
                           fontFamily: _fontFamily,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
                           color: AppColors.primarySky,
                         ),
                       ),
@@ -1351,95 +1151,37 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                   if (_hasUploadedReceipt) ...[
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceCanvas,
-                        borderRadius: BorderRadius.circular(16),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.slate200),
                       ),
                       child: Row(
                         children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            clipBehavior: Clip.antiAlias,
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceIce,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
                             child: _receiptBytes != null
-                                ? Image.memory(
-                              _receiptBytes!,
-                              fit: BoxFit.cover,
-                            )
-                                : const Icon(
-                              Icons.image,
-                              color: AppColors.primarySky,
-                              size: 20,
-                            ),
+                                ? Image.memory(_receiptBytes!, width: 36, height: 36, fit: BoxFit.cover)
+                                : const Icon(Icons.image, color: AppColors.primarySky, size: 20),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 8),
                           const Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'receipt_gcash.jpg',
-                                  style: TextStyle(
-                                    fontFamily: _fontFamily,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textLight,
-                                  ),
-                                ),
-                                Text(
-                                  'Verified Attachment • 1.4 MB',
-                                  style: TextStyle(
-                                    fontFamily: _fontFamily,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w400,
-                                    color: AppColors.secondary,
-                                  ),
-                                ),
+                                Text('Receipt attached', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textLight)),
+                                Text('Verified payment proof', style: TextStyle(fontSize: 10, color: AppColors.emerald700)),
                               ],
                             ),
                           ),
-                          Material(
-                            color: Colors.transparent,
-                            shape: const CircleBorder(),
-                            child: InkWell(
-                              customBorder: const CircleBorder(),
-                              onTap: _isUploadingReceipt
-                                  ? null
-                                  : _pickAndUploadReceipt,
-                              child: const Padding(
-                                padding: EdgeInsets.all(6),
-                                child: Icon(
-                                  Icons.sync,
-                                  size: 18,
-                                  color: AppColors.primarySky,
-                                ),
-                              ),
-                            ),
-                          ),
-                          Material(
-                            color: Colors.transparent,
-                            shape: const CircleBorder(),
-                            child: InkWell(
-                              customBorder: const CircleBorder(),
-                              onTap: () => setState(() {
-                                _hasUploadedReceipt = false;
-                                _receiptBytes = null;
-                                _receiptUrl = null;
-                              }),
-                              child: const Padding(
-                                padding: EdgeInsets.all(6),
-                                child: Icon(
-                                  Icons.close,
-                                  size: 18,
-                                  color: AppColors.outline,
-                                ),
-                              ),
-                            ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 16, color: AppColors.slate400),
+                            onPressed: () => setState(() {
+                              _hasUploadedReceipt = false;
+                              _receiptBytes = null;
+                              _receiptUrl = null;
+                            }),
                           ),
                         ],
                       ),
@@ -1461,15 +1203,14 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
         children: [
           const Row(
             children: [
-              Icon(Icons.speaker_notes, color: AppColors.primarySky, size: 20),
+              Icon(Icons.notes, color: AppColors.primarySky, size: 18),
               SizedBox(width: 8),
               Text(
                 'Delivery Notes',
                 style: TextStyle(
                   fontFamily: _fontFamily,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.17,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
                   color: AppColors.textLight,
                 ),
               ),
@@ -1479,7 +1220,6 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                 style: TextStyle(
                   fontFamily: _fontFamily,
                   fontSize: 11,
-                  fontWeight: FontWeight.w400,
                   color: AppColors.textSecondary,
                 ),
               ),
@@ -1489,8 +1229,9 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: AppColors.surfaceCanvas,
-              borderRadius: BorderRadius.circular(16),
+              color: AppColors.slate50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.slate200),
             ),
             child: TextField(
               controller: _notesController,
@@ -1500,8 +1241,8 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                 color: AppColors.textLight,
               ),
               decoration: const InputDecoration(
-                hintText: 'Provide instructions for rider...',
-                hintStyle: TextStyle(color: AppColors.textSecondary),
+                hintText: 'Provide instructions for the delivery rider...',
+                hintStyle: TextStyle(color: AppColors.slate400, fontSize: 13),
                 border: InputBorder.none,
                 isDense: true,
               ),
@@ -1520,7 +1261,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Refills Total ($_orderedRefillsCount Gallons)',
+                'Subtotal ($_orderedRefillsCount Gallons)',
                 style: const TextStyle(
                   fontFamily: _fontFamily,
                   fontSize: 13,
@@ -1532,8 +1273,8 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                 '₱${_cartSubtotal.toStringAsFixed(2)}',
                 style: const TextStyle(
                   fontFamily: _fontFamily,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
                   color: AppColors.textLight,
                 ),
               ),
@@ -1546,15 +1287,15 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.shield, size: 16, color: AppColors.coralAlert),
+                    const Icon(Icons.shield, size: 14, color: AppColors.rose600),
                     const SizedBox(width: 6),
                     Text(
-                      'Container Deposit (${_missingContainersCount}x)',
+                      'Bottle Deposit (${_missingContainersCount}x)',
                       style: const TextStyle(
                         fontFamily: _fontFamily,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.coralAlert,
+                        color: AppColors.rose600,
                       ),
                     ),
                   ],
@@ -1563,9 +1304,9 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                   '₱${_missingContainerDeposit.toStringAsFixed(2)}',
                   style: const TextStyle(
                     fontFamily: _fontFamily,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.coralAlert,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.rose600,
                   ),
                 ),
               ],
@@ -1580,7 +1321,7 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                   children: [
                     Icon(
                       Icons.local_shipping,
-                      size: 16,
+                      size: 15,
                       color: AppColors.textSecondary,
                     ),
                     SizedBox(width: 6),
@@ -1609,8 +1350,8 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
                     '₱${_deliveryFee.toStringAsFixed(2)}',
                     style: const TextStyle(
                       fontFamily: _fontFamily,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
                       color: AppColors.textLight,
                     ),
                   ),
@@ -1618,51 +1359,43 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
             ),
           ],
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceIce,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'TOTAL PAY AMOUNT',
-                      style: TextStyle(
-                        fontFamily: _fontFamily,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.6,
-                        color: AppColors.primarySky,
-                      ),
+          const Divider(height: 1, color: AppColors.slate100),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Total Amount',
+                    style: TextStyle(
+                      fontFamily: _fontFamily,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textLight,
                     ),
-                    Text(
-                      'Includes fully refundable bottle deposit',
-                      style: TextStyle(
-                        fontFamily: _fontFamily,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-                Text(
-                  '₱${_checkoutTotal.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontFamily: _fontFamily,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.44,
-                    color: AppColors.primarySky,
                   ),
+                  Text(
+                    'Inclusive of taxes & fees',
+                    style: TextStyle(
+                      fontFamily: _fontFamily,
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                '₱${_checkoutTotal.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontFamily: _fontFamily,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primarySky,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1672,22 +1405,21 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
   Widget _buildConfirmButton() {
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: 52,
       child: ElevatedButton(
         onPressed: _isPlacingOrder ? null : _placeOrder,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primarySky,
           foregroundColor: Colors.white,
-          elevation: 6,
-          shadowColor: AppColors.primarySky.withValues(alpha: 0.45),
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(100),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
         child: _isPlacingOrder
             ? const SizedBox(
-          width: 22,
-          height: 22,
+          width: 20,
+          height: 20,
           child: CircularProgressIndicator(
             strokeWidth: 2,
             color: Colors.white,
@@ -1700,14 +1432,13 @@ class _CustomerCheckoutScreenState extends State<CustomerCheckoutScreen> {
               'Confirm Order',
               style: TextStyle(
                 fontFamily: _fontFamily,
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.17,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
             ),
             SizedBox(width: 8),
-            Icon(Icons.arrow_forward, size: 20, color: Colors.white),
+            Icon(Icons.arrow_forward, size: 18, color: Colors.white),
           ],
         ),
       ),

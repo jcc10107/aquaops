@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../services/firestore_service.dart';
-import '../../widgets/sub_screen_header.dart'; // TASK 2.1: Reusable SubScreenHeader widget import
+import '../../widgets/sub_screen_header.dart';
 
 class TermsPrivacyScreen extends StatefulWidget {
   const TermsPrivacyScreen({super.key});
@@ -10,34 +10,36 @@ class TermsPrivacyScreen extends StatefulWidget {
   State<TermsPrivacyScreen> createState() => _TermsPrivacyScreenState();
 }
 
-// Fallback content shown immediately and whenever the owner hasn't saved
-// anything yet via the Terms & Privacy editor — so this screen never looks
-// broken/empty before a Firestore doc exists at settings/terms_privacy.
 const String fallbackEffectiveDate = 'September 21, 2026';
 const String fallbackJurisdiction = 'San Pablo City, Laguna';
 const String fallbackContactEmail = 'support@drink8water.ph';
 const List<Map<String, String>> fallbackTermsClauses = [
   {
     'title': 'Acceptance of Terms',
-    'body': 'By accessing, creating an account, or ordering through the Drink 8 Refilling Station platform (AquaOps), you confirm that you have read, understood, and agreed to be bound by these Terms of Service and applicable municipal health regulations.',
+    'body':
+    'By accessing, creating an account, or ordering through the Drink 8 Refilling Station platform (AquaOps), you confirm that you have read, understood, and agreed to be bound by these Terms of Service and applicable municipal health regulations.',
   },
   {
     'title': 'User Accounts & Registration',
-    'body': 'Customers must provide accurate residential delivery addresses, active mobile contact numbers, and ensure credentials remain secure. Account holders are responsible for all refill orders requested under their authenticated profile.',
+    'body':
+    'Customers must provide accurate residential delivery addresses, active mobile contact numbers, and ensure credentials remain secure. Account holders are responsible for all refill orders requested under their authenticated profile.',
   },
   {
     'title': 'Product & Gallon Policy',
-    'body': 'All 5-gallon slim and round containers exchanged must be thoroughly inspectable, free from contamination, oil residues, chemical odours, or structural fissures. Damaged customer-owned containers may be rejected to preserve hygienic purification integrity.',
+    'body':
+    'All 5-gallon slim and round containers exchanged must be thoroughly inspectable, free from contamination, oil residues, chemical odours, or structural fissures. Damaged customer-owned containers may be rejected to preserve hygienic purification integrity.',
   },
 ];
 const List<Map<String, String>> fallbackPrivacyClauses = [
   {
     'title': 'Information Collection',
-    'body': 'We collect personal details necessary to facilitate scheduled water distribution: full legal name, delivery drop-off point coordinates, mobile contact digits, and historical replenishment intervals.',
+    'body':
+    'We collect personal details necessary to facilitate scheduled water distribution: full legal name, delivery drop-off point coordinates, mobile contact digits, and historical replenishment intervals.',
   },
   {
     'title': 'Data Usage & Protection',
-    'body': 'Customer telemetry and contact records are strictly utilized for delivery dispatches, sanitation notices, and billing receipts. Data is never shared or sold to third-party commercial marketing entities without explicit written consent.',
+    'body':
+    'Customer telemetry and contact records are strictly utilized for delivery dispatches, sanitation notices, and billing receipts. Data is never shared or sold to third-party commercial marketing entities without explicit written consent.',
   },
 ];
 
@@ -47,65 +49,25 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
 
   static const String _font = 'Plus Jakarta Sans';
   static const Color _teal600 = Color(0xFF0D9488);
-  static const Color _teal800 = Color(0xFF115E59);
-  static const Color _teal50 = Color(0xFFF0FDFA);
-  static const Color _teal200 = Color(0xFF99F6E4);
-
-  List<BoxShadow> get _shadowSm => [
-    BoxShadow(
-      color: Colors.black.withValues(alpha: 0.05),
-      blurRadius: 2,
-      offset: const Offset(0, 1),
-    ),
-  ];
 
   Future<void> _handleAccept() async {
     if (_accepting) return;
     setState(() => _accepting = true);
     final messenger = ScaffoldMessenger.of(context);
-    final bottomInset = MediaQuery.of(context).padding.bottom;
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.backgroundDark.withValues(alpha: 0.95),
-        elevation: 6,
-        margin: EdgeInsets.fromLTRB(20, 0, 20, 24 + bottomInset),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
-        duration: const Duration(milliseconds: 1500),
-        content: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.check_circle, size: 18, color: Color(0xFF2DD4BF)),
-            SizedBox(width: 10),
-            Flexible(
-              child: Text(
-                'Terms & Privacy Accepted',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: _font,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
+      const SnackBar(
+        content: Text('Terms & Privacy accepted successfully!'),
+        backgroundColor: Color(0xFF059669),
       ),
     );
-    await Future.delayed(const Duration(milliseconds: 1100));
+    await Future.delayed(const Duration(milliseconds: 600));
     if (!mounted) return;
     final popped = await Navigator.maybePop(context);
     if (!popped && mounted) {
       setState(() => _accepting = false);
     }
   }
-
-  // NOTE (Task 2.1 Refactor): The private local '_buildHeader()' block was removed
-  // in favor of the shared 'SubScreenHeader' widget.
 
   Widget _buildTitleBlock() {
     return const Column(
@@ -115,142 +77,56 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
           'Terms & Privacy',
           style: TextStyle(
             fontFamily: _font,
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
-            height: 32 / 24,
-            letterSpacing: -0.6,
-            color: AppColors.backgroundDark,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textLight,
           ),
         ),
-        SizedBox(height: 6),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.only(top: 1),
-              child: Icon(Icons.water_drop_outlined, size: 15, color: AppColors.primarySky),
-            ),
-            SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                'Drink 8 Purified Water Refilling Station • San Pablo City',
-                style: TextStyle(
-                  fontFamily: _font,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  height: 1.625,
-                  color: AppColors.slate500,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionTitle(String text, Color barColor) {
-    return Row(
-      children: [
-        Container(
-          width: 6,
-          height: 16,
-          decoration: BoxDecoration(
-            color: barColor,
-            borderRadius: BorderRadius.circular(9999),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text.toUpperCase(),
-            style: const TextStyle(
-              fontFamily: _font,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.7,
-              color: AppColors.surfaceDark,
-            ),
+        SizedBox(height: 4),
+        Text(
+          'Drink 8 Purified Water Refilling Station • San Pablo City',
+          style: TextStyle(
+            fontFamily: _font,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textSecondary,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildInfoBlock(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceIce,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, size: 17, color: AppColors.primarySkyDark),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label.toUpperCase(),
-                style: const TextStyle(
-                  fontFamily: _font,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  height: 16 / 10,
-                  color: AppColors.slate400,
-                ),
-              ),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontFamily: _font,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  height: 16 / 12,
-                  color: AppColors.surfaceDark,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInfoCard(String effectiveDate, String jurisdiction) {
+  Widget _buildMetadataCard(String effectiveDate, String jurisdiction) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.slate200.withValues(alpha: 0.7)),
-        boxShadow: _shadowSm,
+        border: Border.all(color: AppColors.slate200),
       ),
       child: Row(
         children: [
           Expanded(
-            child: _buildInfoBlock(
-              Icons.calendar_today_outlined,
-              'Effective Date',
-              effectiveDate,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('EFFECTIVE DATE', style: TextStyle(fontFamily: _font, fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.slate400)),
+                const SizedBox(height: 2),
+                Text(effectiveDate, style: const TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textLight)),
+              ],
             ),
           ),
-          Container(
-            width: 1,
-            height: 28,
-            margin: const EdgeInsets.symmetric(horizontal: 10),
-            color: AppColors.slate200,
-          ),
+          Container(width: 1, height: 28, color: AppColors.slate200),
+          const SizedBox(width: 14),
           Expanded(
-            child: _buildInfoBlock(
-              Icons.location_on_outlined,
-              'Jurisdiction',
-              jurisdiction,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('JURISDICTION', style: TextStyle(fontFamily: _font, fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.slate400)),
+                const SizedBox(height: 2),
+                Text(jurisdiction, style: const TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textLight)),
+              ],
             ),
           ),
         ],
@@ -258,218 +134,55 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
     );
   }
 
-  Widget _buildClause(String number, String title, String body, Color numberColor) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(text: '$number ', style: TextStyle(color: numberColor)),
-              TextSpan(text: title),
-            ],
-          ),
-          style: const TextStyle(
-            fontFamily: _font,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            height: 16 / 12,
-            color: AppColors.backgroundDark,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          body,
-          style: const TextStyle(
-            fontFamily: _font,
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            height: 1.625,
-            color: AppColors.slate600,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildClauseCard(List<Widget> clauses) {
-    final List<Widget> children = [];
-    for (int i = 0; i < clauses.length; i++) {
-      children.add(clauses[i]);
-      if (i != clauses.length - 1) {
-        children.add(const SizedBox(height: 16));
-        children.add(Container(height: 1, color: AppColors.slate100));
-        children.add(const SizedBox(height: 16));
-      }
-    }
+  Widget _buildClauseCard(List<Map<String, String>> clauses, Color accentColor) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.slate200.withValues(alpha: 0.7)),
-        boxShadow: _shadowSm,
+        border: Border.all(color: AppColors.slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
-      ),
-    );
-  }
-
-  Widget _buildTermsSection(String effectiveDate, String jurisdiction, List<Map<String, String>> clauses) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('Part 1: Terms of Service', AppColors.primarySky),
-        const SizedBox(height: 24),
-        _buildInfoCard(effectiveDate, jurisdiction),
-        const SizedBox(height: 24),
-        _buildClauseCard([
-          for (int i = 0; i < clauses.length; i++)
-            _buildClause('${i + 1}.', clauses[i]['title'] ?? '', clauses[i]['body'] ?? '', AppColors.primarySky),
-        ]),
-      ],
-    );
-  }
-
-  Widget _buildDivider() {
-    return const Row(
-      children: [
-        Expanded(child: Divider(height: 1, thickness: 1, color: AppColors.slate200)),
-        SizedBox(width: 12),
-        Icon(Icons.shield_outlined, size: 14, color: AppColors.slate400),
-        SizedBox(width: 12),
-        Expanded(child: Divider(height: 1, thickness: 1, color: AppColors.slate200)),
-      ],
-    );
-  }
-
-  Widget _buildComplianceBadge() {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: _teal50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _teal200.withValues(alpha: 0.7)),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.verified_outlined, size: 16, color: _teal600),
-            SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                'Compliance: RA No. 10173 (Data Privacy Act of 2012)',
-                style: TextStyle(
-                  fontFamily: _font,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  height: 1.4,
-                  color: _teal800,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPrivacySection(String contactEmail, List<Map<String, String>> clauses) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('Part 2: Privacy Policy', _teal600),
-        const SizedBox(height: 16),
-        _buildComplianceBadge(),
-        const SizedBox(height: 16),
-        _buildClauseCard([
-          for (int i = 0; i < clauses.length; i++)
-            _buildClause('${i + 1}.', clauses[i]['title'] ?? '', clauses[i]['body'] ?? '', _teal600),
-        ]),
-        const SizedBox(height: 16),
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 0),
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  const TextSpan(text: 'Questions regarding legal guidelines? Contact station administration at '),
-                  TextSpan(
-                    text: contactEmail,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.primarySkyDark,
-                    ),
-                  ),
-                  const TextSpan(text: '.'),
-                ],
-              ),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: _font,
-                fontSize: 11,
-                fontWeight: FontWeight.w400,
-                height: 1.625,
-                color: AppColors.slate400,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAcceptButton() {
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 200),
-      opacity: _accepting ? 0.9 : 1,
-      child: Container(
-        height: 50,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: AppColors.primarySky,
-          borderRadius: BorderRadius.circular(9999),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primarySky.withValues(alpha: 0.38),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(9999),
-            onTap: _accepting ? null : _handleAccept,
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (int i = 0; i < clauses.length; i++) ...[
+            if (i > 0) const Divider(height: 24, color: AppColors.slate100),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.check, size: 19, color: Colors.white),
-                SizedBox(width: 8),
-                Flexible(
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                   child: Text(
-                    'I Accept Terms & Conditions',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: _font,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.35,
-                      color: Colors.white,
-                    ),
+                    '${i + 1}'.padLeft(2, '0'),
+                    style: TextStyle(fontFamily: _font, fontSize: 11, fontWeight: FontWeight.bold, color: accentColor),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        clauses[i]['title'] ?? '',
+                        style: const TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textLight),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        clauses[i]['body'] ?? '',
+                        style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textSecondary, height: 1.55),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-        ),
+          ],
+        ],
       ),
     );
   }
@@ -479,12 +192,11 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceBackground,
+      backgroundColor: AppColors.surfaceCanvas, // #F8FAFC
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            // TASK 2.1: Replaced private '_buildHeader()' call with shared SubScreenHeader widget
             const SubScreenHeader(),
             Expanded(
               child: StreamBuilder<Map<String, dynamic>?>(
@@ -494,33 +206,81 @@ class _TermsPrivacyScreenState extends State<TermsPrivacyScreen> {
                   final effectiveDate = (data?['effectiveDate'] as String?) ?? fallbackEffectiveDate;
                   final jurisdiction = (data?['jurisdiction'] as String?) ?? fallbackJurisdiction;
                   final contactEmail = (data?['contactEmail'] as String?) ?? fallbackContactEmail;
-                  final termsClauses = (data?['termsClauses'] as List?)?.map((c) => Map<String, String>.from(c as Map)).toList()
-                      ?? fallbackTermsClauses;
-                  final privacyClauses = (data?['privacyClauses'] as List?)?.map((c) => Map<String, String>.from(c as Map)).toList()
-                      ?? fallbackPrivacyClauses;
+                  final termsClauses = (data?['termsClauses'] as List?)?.map((c) => Map<String, String>.from(c as Map)).toList() ?? fallbackTermsClauses;
+                  final privacyClauses = (data?['privacyClauses'] as List?)?.map((c) => Map<String, String>.from(c as Map)).toList() ?? fallbackPrivacyClauses;
 
-                  return SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 450),
-                        child: Padding(
-                          padding: EdgeInsets.fromLTRB(20, 8, 20, 24 + bottomInset),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildTitleBlock(),
-                              const SizedBox(height: 24),
-                              _buildTermsSection(effectiveDate, jurisdiction, termsClauses),
-                              const SizedBox(height: 28),
-                              _buildDivider(),
-                              const SizedBox(height: 28),
-                              _buildPrivacySection(contactEmail, privacyClauses),
-                              const SizedBox(height: 28),
-                              _buildAcceptButton(),
-                            ],
-                          ),
+                  return Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 800), // Standard 800px width
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        padding: EdgeInsets.fromLTRB(16, 12, 16, 24 + bottomInset),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildTitleBlock(),
+                            const SizedBox(height: 16),
+                            _buildMetadataCard(effectiveDate, jurisdiction),
+                            const SizedBox(height: 20),
+
+                            // Part 1: Terms of Service
+                            Row(
+                              children: [
+                                Container(width: 4, height: 16, decoration: BoxDecoration(color: AppColors.primarySky, borderRadius: BorderRadius.circular(100))),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Part 1: Terms of Service',
+                                  style: TextStyle(fontFamily: _font, fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textLight),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            _buildClauseCard(termsClauses, AppColors.primarySky),
+                            const SizedBox(height: 24),
+
+                            // Part 2: Privacy Policy
+                            Row(
+                              children: [
+                                Container(width: 4, height: 16, decoration: BoxDecoration(color: _teal600, borderRadius: BorderRadius.circular(100))),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Part 2: Privacy Policy',
+                                  style: TextStyle(fontFamily: _font, fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textLight),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            _buildClauseCard(privacyClauses, _teal600),
+                            const SizedBox(height: 16),
+
+                            // Contact Note
+                            Center(
+                              child: Text(
+                                'Questions about these policies? Contact: $contactEmail',
+                                style: const TextStyle(fontFamily: _font, fontSize: 12, color: AppColors.slate400),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Accept Button
+                            SizedBox(
+                              height: 48,
+                              child: ElevatedButton.icon(
+                                onPressed: _accepting ? null : _handleAccept,
+                                icon: _accepting
+                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                    : const Icon(Icons.check, size: 18),
+                                label: const Text('I Accept Terms & Conditions', style: TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.bold)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primarySky,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

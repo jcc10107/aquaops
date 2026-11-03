@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/layout_constants.dart';
 import '../../main.dart';
 import '../../models/inventory_model.dart';
 import '../../models/user_model.dart';
@@ -8,14 +7,23 @@ import '../../services/firestore_service.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
+
   @override
   State<InventoryScreen> createState() => _InventoryScreenState();
 }
 
 class _InventoryScreenState extends State<InventoryScreen> {
-  String _activeTab = 'inventory';
-  String _stockFilter = 'all';
+  String _activeTab = 'inventory'; // 'inventory' | 'machinery'
+  String _stockFilter = 'all'; // 'all' | 'water' | 'packaging' | 'low_stock'
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
   final FirestoreService _firestoreService = FirestoreService();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   String _capitalize(String s) =>
       s.isNotEmpty ? '${s[0].toUpperCase()}${s.substring(1).toLowerCase()}' : s;
@@ -23,9 +31,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
   IconData _iconForItem(InventoryModel item) {
     final name = item.name.toLowerCase();
     if (item.category == 'packaging') {
-      return name.contains('cap') ? Icons.adjust : Icons.lock_open;
+      return name.contains('cap') ? Icons.adjust : Icons.inventory_2_outlined;
     }
-    return (name.contains('alkaline') || name.contains('slim')) ? Icons.opacity : Icons.water_drop;
+    return (name.contains('alkaline') || name.contains('slim'))
+        ? Icons.opacity
+        : Icons.water_drop_outlined;
   }
 
   Color _urgencyColor(String urgency) {
@@ -61,61 +71,80 @@ class _InventoryScreenState extends State<InventoryScreen> {
           builder: (dialogContext, setDialogState) {
             return Dialog(
               backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               elevation: 0,
               child: Center(
                 child: Container(
                   width: double.infinity,
-                  constraints: const BoxConstraints(maxWidth: 360),
-                  padding: const EdgeInsets.all(24),
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(32),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
-                    boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 24, offset: Offset(0, 10))],
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.slate200),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x1A0F172A), blurRadius: 16, offset: Offset(0, 6))
+                    ],
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 2, top: 4),
-                        child: Text(
-                          'Schedule Maintenance',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.backgroundDark, letterSpacing: -0.5),
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Schedule Maintenance',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textLight,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            icon: const Icon(Icons.close, size: 20, color: AppColors.slate400),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: equipmentController,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.surfaceDark),
+                        style: const TextStyle(fontSize: 14, color: AppColors.textLight),
                         decoration: InputDecoration(
-                          hintText: 'Equipment name',
-                          hintStyle: const TextStyle(color: AppColors.slate400, fontSize: 14, fontWeight: FontWeight.w500),
+                          labelText: 'Equipment Name',
+                          hintText: 'e.g., UV Filtration Unit B',
                           filled: true,
-                          fillColor: const Color(0xFFF8F9FE),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.slate100)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.slate100)),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primarySky, width: 1.5)),
+                          fillColor: AppColors.slate50,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primarySky, width: 2)),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: taskController,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.surfaceDark),
+                        style: const TextStyle(fontSize: 14, color: AppColors.textLight),
                         decoration: InputDecoration(
-                          hintText: 'Task (e.g. Filter replacement)',
-                          hintStyle: const TextStyle(color: AppColors.slate400, fontSize: 14, fontWeight: FontWeight.w500),
+                          labelText: 'Task Description',
+                          hintText: 'e.g., Filter membrane replacement',
                           filled: true,
-                          fillColor: const Color(0xFFF8F9FE),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.slate100)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.slate100)),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primarySky, width: 1.5)),
+                          fillColor: AppColors.slate50,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primarySky, width: 2)),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
+                      const Text(
+                        'Urgency Level',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(child: _buildUrgencyButton('Routine', urgency == 'Routine', AppColors.emerald600, () => setDialogState(() => urgency = 'Routine'))),
@@ -125,48 +154,47 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           Expanded(child: _buildUrgencyButton('Critical', urgency == 'Critical', AppColors.rose600, () => setDialogState(() => urgency = 'Critical'))),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
                       InkWell(
                         onTap: () async {
                           final picked = await _showCustomDatePicker(context, dueDate);
                           if (picked != null) setDialogState(() => dueDate = picked);
                         },
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(12),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8F9FE),
-                            border: Border.all(color: AppColors.slate100),
-                            borderRadius: BorderRadius.circular(16),
+                            color: AppColors.slate50,
+                            border: Border.all(color: AppColors.slate200),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.calendar_today_outlined, size: 20, color: AppColors.primarySky),
-                              const SizedBox(width: 12),
+                              const Icon(Icons.calendar_today_outlined, size: 18, color: AppColors.primarySky),
+                              const SizedBox(width: 10),
                               Text(
-                                'Due ${dueDate.month.toString().padLeft(2, '0')}/${dueDate.day.toString().padLeft(2, '0')}/${dueDate.year}',
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.surfaceDark),
+                                'Due Date: ${dueDate.month.toString().padLeft(2, '0')}/${dueDate.day.toString().padLeft(2, '0')}/${dueDate.year}',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textLight),
                               ),
                             ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
                       Row(
                         children: [
                           Expanded(
-                            child: TextButton(
+                            child: OutlinedButton(
                               onPressed: () => Navigator.pop(dialogContext),
-                              style: TextButton.styleFrom(
-                                backgroundColor: const Color(0xFFF3F4FA),
-                                foregroundColor: AppColors.borderDark,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: AppColors.slate200),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
-                              child: const Text("Cancel", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                              child: const Text("Cancel", style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () async {
@@ -181,7 +209,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                     urgency: urgency,
                                     dueDate: dueDate,
                                   ));
-                                  messenger.showSnackBar(const SnackBar(content: Text('Maintenance scheduled.')));
+                                  messenger.showSnackBar(const SnackBar(content: Text('Maintenance scheduled successfully.')));
                                 } catch (e) {
                                   messenger.showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: AppColors.error));
                                 }
@@ -190,11 +218,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                 backgroundColor: AppColors.primarySky,
                                 foregroundColor: Colors.white,
                                 elevation: 0,
-                                shadowColor: AppColors.primarySky.withValues(alpha: 0.35),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                              ).copyWith(elevation: WidgetStateProperty.resolveWith((states) => 4)),
-                              child: const Text("Schedule", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: const Text("Schedule", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ],
@@ -214,18 +241,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: isSelected ? selectedColor : const Color(0xFFF8F9FE),
-          borderRadius: BorderRadius.circular(100),
-          border: Border.all(color: Colors.transparent),
+          color: isSelected ? selectedColor : AppColors.slate100,
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
           label,
           style: TextStyle(
             color: isSelected ? Colors.white : AppColors.slate600,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             fontSize: 12,
           ),
         ),
@@ -242,49 +268,60 @@ class _InventoryScreenState extends State<InventoryScreen> {
       builder: (context) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           elevation: 0,
           child: Center(
             child: Container(
               width: double.infinity,
               constraints: const BoxConstraints(maxWidth: 360),
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: AppColors.slate100),
-                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 24, offset: Offset(0, 10))],
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.slate200),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x1A0F172A), blurRadius: 16, offset: Offset(0, 6))
+                ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    "Restock ${item.name}",
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.backgroundDark, height: 1.2, letterSpacing: -0.5),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          "Restock ${item.name}",
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textLight),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, size: 20, color: AppColors.slate400),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 6),
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        const TextSpan(text: 'Current stock: '),
-                        TextSpan(text: '${item.currentStock} ${item.unit}', style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.borderDark)),
-                      ],
-                    ),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.slate500),
-                  ),
-                  const SizedBox(height: 24),
                   Text(
-                    "Quantity to Add (${item.unit}):",
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.borderDark, letterSpacing: 0.2),
+                    'Current: ${item.currentStock} ${item.unit} • Max: ${item.maxCapacity} ${item.unit}',
+                    style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Units to add",
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceCanvas,
-                      border: Border.all(color: AppColors.slate200.withValues(alpha: 0.8)),
-                      borderRadius: BorderRadius.circular(16),
+                      color: AppColors.slate50,
+                      border: Border.all(color: AppColors.slate200),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
@@ -292,46 +329,45 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           child: TextFormField(
                             controller: restockController,
                             keyboardType: TextInputType.number,
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.backgroundDark),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textLight),
                             decoration: const InputDecoration(
                               hintText: 'Enter quantity',
                               border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(vertical: 12),
+                              contentPadding: EdgeInsets.symmetric(vertical: 10),
                               isDense: true,
                             ),
                           ),
                         ),
-                        Text(item.unit, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.slate400)),
+                        Text(item.unit, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.slate400)),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   Row(
                     children: [
                       Expanded(
-                        child: TextButton(
+                        child: OutlinedButton(
                           onPressed: () => Navigator.pop(context),
-                          style: TextButton.styleFrom(
-                            backgroundColor: AppColors.slate100,
-                            foregroundColor: AppColors.slate600,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppColors.slate200),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          child: const Text("Cancel", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                          child: const Text("Cancel", style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () async {
                             final add = int.tryParse(restockController.text) ?? 0;
                             final messenger = ScaffoldMessenger.of(this.context);
                             Navigator.pop(context);
-                            if (add == 0) return;
+                            if (add <= 0) return;
                             try {
                               await _firestoreService.restockItem(item.id, add);
                               if (!mounted) return;
-                              messenger.showSnackBar(const SnackBar(content: Text('Inventory Restocked successfully.')));
+                              messenger.showSnackBar(SnackBar(content: Text('Added $add ${item.unit} to ${item.name}.')));
                             } catch (e) {
                               if (!mounted) return;
                               messenger.showSnackBar(SnackBar(content: Text('Restock failed: $e'), backgroundColor: AppColors.error));
@@ -341,11 +377,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             backgroundColor: AppColors.primarySky,
                             foregroundColor: Colors.white,
                             elevation: 0,
-                            shadowColor: AppColors.primarySky.withValues(alpha: 0.35),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                          ).copyWith(elevation: WidgetStateProperty.resolveWith((states) => 4)),
-                          child: const Text("Restock", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Text("Add Stock", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ],
@@ -359,497 +394,180 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _buildMaintenanceCard(MaintenanceAlertModel alert) {
-    final color = _urgencyColor(alert.urgency);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
-        border: alert.isOverdue ? Border.all(color: AppColors.coralAlert.withValues(alpha: 0.4)) : null,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
-            child: Icon(Icons.precision_manufacturing, color: color, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        alert.equipmentName,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: alert.isCompleted ? AppColors.textSecondary : AppColors.textLight,
-                          decoration: alert.isCompleted ? TextDecoration.lineThrough : null,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(100)),
-                      child: Text(_capitalize(alert.urgency), style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(alert.taskType, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                const SizedBox(height: 4),
-                Text(
-                  alert.isCompleted
-                      ? 'Completed'
-                      : (alert.isOverdue
-                      ? 'Overdue • Due ${alert.dueDate.month}/${alert.dueDate.day}/${alert.dueDate.year}'
-                      : 'Due ${alert.dueDate.month}/${alert.dueDate.day}/${alert.dueDate.year}'),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: alert.isOverdue ? AppColors.coralAlert : AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          InkWell(
-            onTap: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              try {
-                await _firestoreService.setMaintenanceAlertCompleted(alert.id, !alert.isCompleted);
-              } catch (e) {
-                messenger.showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: AppColors.error));
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(color: alert.isCompleted ? AppColors.surfaceIce : AppColors.secondaryContainer, borderRadius: BorderRadius.circular(100)),
-              child: Text(
-                alert.isCompleted ? 'Reopen' : 'Done',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: alert.isCompleted ? AppColors.primarySky : AppColors.onSecondaryContainer),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildSummaryCards(List<InventoryModel> items) {
+    final waterItems = items.where((i) => i.category == 'water');
+    final totalWaterStock = waterItems.fold<int>(0, (sum, i) => sum + i.currentStock);
+    final totalWaterCapacity = waterItems.fold<int>(0, (sum, i) => sum + i.maxCapacity);
+    final waterPct = totalWaterCapacity == 0 ? 0.0 : totalWaterStock / totalWaterCapacity;
 
-  Widget _buildFilterDropdown() {
-    final options = [
-      {'id': 'all', 'name': 'All Categories'},
-      {'id': 'water', 'name': 'Water'},
-      {'id': 'packaging', 'name': 'Packaging'},
-    ];
+    final lowStockItems = items.where((i) => i.isLowStock).toList();
+    final bool hasAlerts = lowStockItems.isNotEmpty;
 
-    return Theme(
-      data: Theme.of(context).copyWith(
-        highlightColor: AppColors.surfaceIce,
-        splashColor: AppColors.surfaceFrost,
-        hoverColor: AppColors.surfaceIce,
-        focusColor: Colors.transparent,
-        shadowColor: AppColors.textLight.withValues(alpha: 0.12),
-      ),
-      child: Container(
-        height: 38,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(100),
-          border: Border.all(color: AppColors.slate200),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            value: _stockFilter,
-            icon: const Padding(
-              padding: EdgeInsets.only(left: 4),
-              child: Icon(Icons.keyboard_arrow_down, size: 18, color: AppColors.slate500),
-            ),
-            dropdownColor: Colors.white,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmallScreen = constraints.maxWidth < 480;
+
+        Widget waterCard = Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            elevation: 8,
-            isDense: true,
-            selectedItemBuilder: (_) => options
-                .map((o) => Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.filter_list, size: 14, color: AppColors.primarySky),
-                  const SizedBox(width: 6),
-                  Text(
-                    o['name']! == 'All Categories' ? 'Filter' : o['name']!,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primarySky),
-                  ),
-                ],
-              ),
-            ))
-                .toList(),
-            items: options.map((o) {
-              final isSelected = o['id'] == _stockFilter;
-              return DropdownMenuItem<String>(
-                value: o['id'],
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppColors.surfaceIce : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          o['name']!,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                            color: isSelected ? AppColors.primarySky : AppColors.textLight,
-                          ),
-                        ),
-                      ),
-                      if (isSelected) ...[
-                        const SizedBox(width: 8),
-                        const Icon(Icons.check, size: 16, color: AppColors.primarySky),
-                      ],
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-            onChanged: (v) {
-              if (v != null) setState(() => _stockFilter = v);
-            },
+            border: Border.all(color: AppColors.slate200),
           ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textMain = isDark ? Colors.white : AppColors.textLight;
-
-    final currentRole = UserRole.fromString(currentUserRoleNotifier.value);
-    final isOwner = currentRole == UserRole.owner;
-
-    final bottomInset = MediaQuery.of(context).padding.bottom;
-
-    return Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(16, 16, 16, 130 + bottomInset),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: const BoxDecoration(color: AppColors.surfaceFrost, shape: BoxShape.circle),
-                        child: const Center(child: Icon(Icons.inventory_2, color: AppColors.primarySky, size: 22)),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceIce,
-                          borderRadius: BorderRadius.circular(100),
-                          border: Border.all(color: AppColors.sky200),
-                        ),
-                        child: const Text(
-                          'INVENTORY HUB',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primarySky, letterSpacing: 0.5),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Inventory Management',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.backgroundDark, height: 1.2),
+                  const Text('WATER STOCK', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.slate500, letterSpacing: 0.8)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(color: AppColors.sky50, borderRadius: BorderRadius.circular(6)),
+                    child: Text('${(waterPct * 100).toStringAsFixed(0)}% Cap', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primarySky)),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceContainer,
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                        child: InkWell(
-                            onTap: () => setState(() => _activeTab = 'inventory'),
-                            borderRadius: BorderRadius.circular(100),
-                            child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                                decoration: BoxDecoration(
-                                    color: _activeTab == 'inventory' ? AppColors.primarySky : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(100),
-                                    boxShadow: _activeTab == 'inventory' ? [BoxShadow(color: AppColors.primarySky.withValues(alpha: 0.3), blurRadius: 16)] : []
-                                ),
-                                child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.inventory_2, size: 18, color: _activeTab == 'inventory' ? Colors.white : AppColors.textSecondary),
-                                      const SizedBox(width: 6),
-                                      Text('Stock Inventory',
-                                          style: TextStyle(
-                                              fontSize: 13, fontWeight: FontWeight.bold, color: _activeTab == 'inventory' ? Colors.white : AppColors.textSecondary))
-                                    ]
-                                )
-                            )
-                        )
-                    ),
-                    Expanded(
-                        child: InkWell(
-                            onTap: () => setState(() => _activeTab = 'machinery'),
-                            borderRadius: BorderRadius.circular(100),
-                            child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                                decoration: BoxDecoration(
-                                    color: _activeTab == 'machinery' ? AppColors.primarySky : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(100),
-                                    boxShadow: _activeTab == 'machinery' ? [BoxShadow(color: AppColors.primarySky.withValues(alpha: 0.3), blurRadius: 16)] : []
-                                ),
-                                child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.precision_manufacturing, size: 18, color: _activeTab == 'machinery' ? Colors.white : AppColors.textSecondary),
-                                      const SizedBox(width: 6),
-                                      Text('Machinery Alerts',
-                                          style: TextStyle(
-                                              fontSize: 13, fontWeight: FontWeight.bold, color: _activeTab == 'machinery' ? Colors.white : AppColors.textSecondary)),
-                                      const SizedBox(width: 4),
-                                      StreamBuilder<List<MaintenanceAlertModel>>(
-                                        stream: _firestoreService.getMaintenanceAlertsStream(),
-                                        builder: (context, snapshot) {
-                                          final hasOverdue = (snapshot.data ?? const <MaintenanceAlertModel>[]).any((a) => a.isOverdue);
-                                          if (!hasOverdue) return const SizedBox.shrink();
-                                          return Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.coralAlert, shape: BoxShape.circle));
-                                        },
-                                      ),
-                                    ]
-                                )
-                            )
-                        )
-                    ),
-                  ],
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text('$totalWaterStock', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textLight)),
+                  const SizedBox(width: 4),
+                  Text('/ $totalWaterCapacity Gal', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(100),
+                child: LinearProgressIndicator(
+                  value: waterPct.clamp(0.0, 1.0),
+                  minHeight: 6,
+                  backgroundColor: AppColors.slate100,
+                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primarySky),
                 ),
               ),
-              const SizedBox(height: 16),
-              if (_activeTab == 'inventory') ...[
-                StreamBuilder<List<InventoryModel>>(
-                  stream: _firestoreService.getInventoryStream(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 24),
-                        child: Text('Failed to load inventory: ${snapshot.error}', style: const TextStyle(color: AppColors.error)),
-                      );
-                    }
-                    if (!snapshot.hasData) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 48),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
+            ],
+          ),
+        );
 
-                    final invItems = snapshot.data!;
-                    final waterItems = invItems.where((i) => i.category == 'water');
-                    final totalWaterStock = waterItems.fold<int>(0, (sum, i) => sum + i.currentStock);
-                    final totalWaterCapacity = waterItems.fold<int>(0, (sum, i) => sum + i.maxCapacity);
-                    final waterPct = totalWaterCapacity == 0 ? 0.0 : totalWaterStock / totalWaterCapacity;
-                    final criticalItems = invItems.where((i) => i.isLowStock).toList();
-                    final filteredInvItems = _stockFilter == 'all' ? invItems : invItems.where((i) => i.category == _stockFilter).toList();
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                                child: Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(16),
-                                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)]),
-                                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                        const Text('TOTAL VOLUME', style: TextStyle(fontSize: 11, color: AppColors.textSecondary, letterSpacing: 1)),
-                                        Container(
-                                            width: 28,
-                                            height: 28,
-                                            decoration: const BoxDecoration(color: AppColors.surfaceIce, shape: BoxShape.circle),
-                                            child: const Icon(Icons.water_drop, size: 16, color: AppColors.primarySky))
-                                      ]),
-                                      const SizedBox(height: 8),
-                                      Text.rich(TextSpan(children: [
-                                        TextSpan(
-                                            text: '$totalWaterStock',
-                                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textLight)),
-                                        TextSpan(text: ' / $totalWaterCapacity Gal', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))
-                                      ])),
-                                      const SizedBox(height: 8),
-                                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                        Text('${(waterPct * 100).toStringAsFixed(0)}% Cap',
-                                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primarySky)),
-                                        const Text('Optimal', style: TextStyle(fontSize: 10, color: AppColors.textSecondary))
-                                      ]),
-                                      const SizedBox(height: 4),
-                                      Container(
-                                          height: 8,
-                                          decoration: BoxDecoration(color: AppColors.surfaceContainer, borderRadius: BorderRadius.circular(100)),
-                                          child: FractionallySizedBox(
-                                              alignment: Alignment.centerLeft,
-                                              widthFactor: waterPct.clamp(0.0, 1.0),
-                                              child: Container(decoration: BoxDecoration(color: AppColors.primarySky, borderRadius: BorderRadius.circular(100))))),
-                                    ]))),
-                            const SizedBox(width: 12),
-                            Expanded(
-                                child: Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(16),
-                                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)]),
-                                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                        const Text('WARNING',
-                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.coralAlert, letterSpacing: 1)),
-                                        Container(
-                                            width: 28,
-                                            height: 28,
-                                            decoration: const BoxDecoration(color: AppColors.errorContainer, shape: BoxShape.circle),
-                                            child: const Icon(Icons.warning, size: 16, color: AppColors.coralAlert))
-                                      ]),
-                                      const SizedBox(height: 8),
-                                      Text.rich(TextSpan(children: [
-                                        TextSpan(
-                                            text: '${criticalItems.length}',
-                                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.coralAlert)),
-                                        const TextSpan(text: ' Line Critical', style: TextStyle(fontSize: 13, color: AppColors.textSecondary))
-                                      ])),
-                                      const SizedBox(height: 8),
-                                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                        Expanded(
-                                            child: Text(criticalItems.isEmpty ? 'All clear' : criticalItems.first.name,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.coralAlert))),
-                                        Text(criticalItems.isEmpty ? '' : '< ${criticalItems.first.minimumThreshold} left',
-                                            style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
-                                      ]),
-                                      const SizedBox(height: 4),
-                                      Container(
-                                          height: 8,
-                                          decoration: BoxDecoration(color: AppColors.surfaceContainer, borderRadius: BorderRadius.circular(100)),
-                                          child: FractionallySizedBox(
-                                              alignment: Alignment.centerLeft,
-                                              widthFactor: criticalItems.isEmpty
-                                                  ? 0.0
-                                                  : (criticalItems.first.currentStock / (criticalItems.first.maxCapacity == 0 ? 1 : criticalItems.first.maxCapacity))
-                                                  .clamp(0.0, 1.0),
-                                              child: Container(decoration: BoxDecoration(color: AppColors.coralAlert, borderRadius: BorderRadius.circular(100))))),
-                                    ]))),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                          Flexible(
-                            child: Row(mainAxisSize: MainAxisSize.min, children: [
-                              Flexible(
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text('Tracked Supply Lines', maxLines: 1, style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: textMain)),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(color: AppColors.surfaceIce, borderRadius: BorderRadius.circular(100)),
-                                  child: Text('${filteredInvItems.length} Items',
-                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primarySky)))
-                            ]),
-                          ),
-                          const SizedBox(width: 8),
-                          _buildFilterDropdown(),
-                        ]),
-                        const SizedBox(height: 16),
-                        if (filteredInvItems.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 24),
-                            child: Text('No items in this category.', style: TextStyle(color: isDark ? Colors.white70 : AppColors.textSecondary)),
-                          ),
-                        ...filteredInvItems.map((item) => _buildInvCard(item)),
-                      ],
-                    );
-                  },
-                ),
-              ] else ...[
-                if (isOwner)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: OutlinedButton.icon(
-                      onPressed: _showAddMaintenanceAlertDialog,
-                      icon: const Icon(Icons.add, size: 16, color: AppColors.primarySky),
-                      label: const Text('Schedule Maintenance', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primarySky)),
-                      style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppColors.primarySky), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
+        Widget attentionCard = Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: hasAlerts ? AppColors.coralAlert.withValues(alpha: 0.4) : AppColors.slate200,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'STOCK HEALTH',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: hasAlerts ? AppColors.coralAlert : AppColors.slate500,
+                      letterSpacing: 0.8,
                     ),
                   ),
-                const SizedBox(height: 16),
-                StreamBuilder<List<MaintenanceAlertModel>>(
-                  stream: _firestoreService.getMaintenanceAlertsStream(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 24),
-                        child: Text('Failed to load alerts: ${snapshot.error}', style: const TextStyle(color: AppColors.error)),
-                      );
-                    }
-                    if (!snapshot.hasData) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 48),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    final alerts = snapshot.data!;
-                    if (alerts.isEmpty) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 24),
-                        child: Text('No maintenance scheduled.', style: TextStyle(color: isDark ? Colors.white70 : AppColors.textSecondary)),
-                      );
-                    }
-                    return Column(children: alerts.map((a) => _buildMaintenanceCard(a)).toList());
-                  },
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: hasAlerts ? const Color(0xFFFEE2E2) : AppColors.emerald50,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      hasAlerts ? 'Low Stock' : 'Optimal',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: hasAlerts ? AppColors.coralAlert : AppColors.emerald700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    '${lowStockItems.length}',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: hasAlerts ? AppColors.coralAlert : AppColors.textLight,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    hasAlerts ? 'Items need restock' : 'All lines healthy',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(100),
+                child: LinearProgressIndicator(
+                  value: items.isEmpty ? 0.0 : ((items.length - lowStockItems.length) / items.length).clamp(0.0, 1.0),
+                  minHeight: 6,
+                  backgroundColor: AppColors.slate100,
+                  valueColor: AlwaysStoppedAnimation<Color>(hasAlerts ? AppColors.coralAlert : AppColors.emerald600),
                 ),
-              ]
+              ),
             ],
+          ),
+        );
+
+        if (isSmallScreen) {
+          return Column(
+            children: [
+              waterCard,
+              const SizedBox(height: 10),
+              attentionCard,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: waterCard),
+            const SizedBox(width: 12),
+            Expanded(child: attentionCard),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildFilterChip(String label, String filterKey) {
+    final bool isSelected = _stockFilter == filterKey;
+    return GestureDetector(
+      onTap: () => setState(() => _stockFilter = filterKey),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primarySky : Colors.white,
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(
+            color: isSelected ? AppColors.primarySky : AppColors.slate200,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+            color: isSelected ? Colors.white : AppColors.slate600,
           ),
         ),
       ),
@@ -869,97 +587,577 @@ class _InventoryScreenState extends State<InventoryScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: isCrit ? [BoxShadow(color: AppColors.coralAlert.withValues(alpha: 0.15), blurRadius: 20)] : [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)]),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isCrit ? AppColors.coralAlert.withValues(alpha: 0.35) : AppColors.slate200,
+        ),
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(color: isCrit ? AppColors.errorContainer : AppColors.surfaceIce, shape: BoxShape.circle),
-                      child: Icon(icon, color: isCrit ? AppColors.coralAlert : AppColors.primarySky, size: 26)),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textLight)),
-                      if (isCrit)
-                        Row(children: [
-                          const Icon(Icons.emergency, size: 14, color: AppColors.coralAlert),
-                          const SizedBox(width: 4),
-                          Text('Threshold Breach (< ${item.minimumThreshold})',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.coralAlert))
-                        ])
-                      else
-                        Text(item.category == 'water' ? 'Station Filter Bank A • RO UV' : 'Packaging & Consumables',
-                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                    ],
-                  )
-                ],
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: isCrit ? const Color(0xFFFEE2E2) : AppColors.sky50,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  color: isCrit ? AppColors.coralAlert : AppColors.primarySky,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textLight,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _capitalize(item.category),
+                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
               ),
               Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: isCrit ? AppColors.errorContainer : AppColors.secondaryContainer, borderRadius: BorderRadius.circular(100)),
-                  child: Text(isCrit ? 'Critical' : 'In Stock',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isCrit ? AppColors.errorText : AppColors.onSecondaryContainer)))
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isCrit ? const Color(0xFFFEE2E2) : AppColors.emerald50,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  isCrit ? 'Low Stock' : 'Healthy',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isCrit ? AppColors.coralAlert : AppColors.emerald700,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text.rich(TextSpan(children: [
-              TextSpan(
-                  text: '$val ',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: isCrit ? AppColors.coralAlert : AppColors.textLight)),
-              TextSpan(text: isCrit ? 'pcs left' : '/ $max $unit', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))
-            ])),
-            Expanded(
-                child: Text(isCrit ? 'Immediate Action' : '${(pct * 100).toStringAsFixed(1)}% Ready',
-                    textAlign: TextAlign.right,
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isCrit ? AppColors.coralAlert : AppColors.primarySky),
-                    overflow: TextOverflow.ellipsis))
-          ]),
-          const SizedBox(height: 6),
-          Container(
-              height: 8,
-              decoration: BoxDecoration(color: AppColors.surfaceContainer, borderRadius: BorderRadius.circular(100)),
-              child: FractionallySizedBox(
-                  alignment: Alignment.centerLeft,
-                  widthFactor: pct,
-                  child: Container(decoration: BoxDecoration(color: isCrit ? AppColors.coralAlert : AppColors.primarySky, borderRadius: BorderRadius.circular(100))))),
-          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(children: [
-                Icon(isCrit ? Icons.timer : Icons.verified, size: 15, color: isCrit ? AppColors.textSecondary : AppColors.accentTeal),
-                const SizedBox(width: 4),
-                Text(isCrit ? 'Below minimum threshold' : (item.category == 'water' ? 'Purity: 0 ppm (Ultra)' : 'Stock healthy'),
-                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary))
-              ]),
-              InkWell(
-                onTap: () => _showRestockModal(item),
-                child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                        color: isCrit ? AppColors.coralAlert : AppColors.surfaceIce,
-                        borderRadius: BorderRadius.circular(100),
-                        boxShadow: isCrit ? [BoxShadow(color: AppColors.coralAlert.withValues(alpha: 0.35), blurRadius: 16, offset: const Offset(0, 4))] : []),
-                    child: Row(children: [
-                      Icon(isCrit ? Icons.priority_high : Icons.add_circle, size: 16, color: isCrit ? Colors.white : AppColors.primarySky),
-                      const SizedBox(width: 4),
-                      Text(isCrit ? 'Restock Now' : 'Restock',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isCrit ? Colors.white : AppColors.primarySky))
-                    ])),
-              )
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '$val',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isCrit ? AppColors.coralAlert : AppColors.textLight,
+                      ),
+                    ),
+                    TextSpan(
+                      text: ' / $max $unit',
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                isCrit ? '< ${item.minimumThreshold} min threshold' : '${(pct * 100).toStringAsFixed(0)}% available',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isCrit ? AppColors.coralAlert : AppColors.textSecondary,
+                ),
+              ),
             ],
-          )
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(100),
+            child: LinearProgressIndicator(
+              value: pct,
+              minHeight: 5,
+              backgroundColor: AppColors.slate100,
+              valueColor: AlwaysStoppedAnimation<Color>(isCrit ? AppColors.coralAlert : AppColors.primarySky),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              height: 32,
+              child: ElevatedButton.icon(
+                onPressed: () => _showRestockModal(item),
+                icon: const Icon(Icons.add, size: 14),
+                label: const Text('Restock', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isCrit ? AppColors.coralAlert : AppColors.primarySky,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMaintenanceCard(MaintenanceAlertModel alert) {
+    final color = _urgencyColor(alert.urgency);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: alert.isOverdue ? AppColors.coralAlert.withValues(alpha: 0.35) : AppColors.slate200,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.build_circle_outlined, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        alert.equipmentName,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: alert.isCompleted ? AppColors.slate400 : AppColors.textLight,
+                          decoration: alert.isCompleted ? TextDecoration.lineThrough : null,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        _capitalize(alert.urgency),
+                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(alert.taskType, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      alert.isOverdue ? Icons.error_outline : Icons.calendar_today,
+                      size: 12,
+                      color: alert.isOverdue ? AppColors.coralAlert : AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      alert.isCompleted
+                          ? 'Completed'
+                          : (alert.isOverdue
+                          ? 'Overdue • Due ${alert.dueDate.month}/${alert.dueDate.day}/${alert.dueDate.year}'
+                          : 'Due ${alert.dueDate.month}/${alert.dueDate.day}/${alert.dueDate.year}'),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: alert.isOverdue ? FontWeight.bold : FontWeight.normal,
+                        color: alert.isOverdue ? AppColors.coralAlert : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              try {
+                await _firestoreService.setMaintenanceAlertCompleted(alert.id, !alert.isCompleted);
+              } catch (e) {
+                messenger.showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: AppColors.error));
+              }
+            },
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: alert.isCompleted ? AppColors.slate300 : AppColors.primarySky),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: const Size(60, 30),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text(
+              alert.isCompleted ? 'Reopen' : 'Done',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: alert.isCompleted ? AppColors.slate500 : AppColors.primarySky,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModeToggle() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.slate100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: StreamBuilder<List<MaintenanceAlertModel>>(
+        stream: _firestoreService.getMaintenanceAlertsStream(),
+        builder: (context, snapshot) {
+          final hasOverdue = (snapshot.data ?? const <MaintenanceAlertModel>[]).any((a) => a.isOverdue && !a.isCompleted);
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _modeButton('Stock', Icons.inventory_2, 'inventory'),
+              _modeButton('Machinery', Icons.precision_manufacturing, 'machinery', hasBadge: hasOverdue),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _modeButton(String label, IconData icon, String tabKey, {bool hasBadge = false}) {
+    final bool selected = _activeTab == tabKey;
+    return InkWell(
+      onTap: () => setState(() => _activeTab = tabKey),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: selected
+              ? [const BoxShadow(color: Color(0x0A000000), blurRadius: 4, offset: Offset(0, 2))]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: selected ? AppColors.primarySky : AppColors.slate500,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+                color: selected ? AppColors.primarySky : AppColors.slate500,
+              ),
+            ),
+            if (hasBadge) ...[
+              const SizedBox(width: 4),
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(color: AppColors.coralAlert, shape: BoxShape.circle),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentRole = UserRole.fromString(currentUserRoleNotifier.value);
+    final isOwner = currentRole == UserRole.owner;
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 800),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 130),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Clean Header without redundant eyebrow text
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: AppColors.sky50,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _activeTab == 'inventory' ? Icons.inventory_2 : Icons.precision_manufacturing,
+                            color: AppColors.primarySky,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _activeTab == 'inventory' ? 'Stock Supplies' : 'Machinery Alerts',
+                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textLight, height: 1.1),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildModeToggle(),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Tab 1: Inventory
+              if (_activeTab == 'inventory')
+                StreamBuilder<List<InventoryModel>>(
+                  stream: _firestoreService.getInventoryStream(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: Center(
+                          child: Text('Failed to load inventory: ${snapshot.error}', style: const TextStyle(color: AppColors.error)),
+                        ),
+                      );
+                    }
+                    if (!snapshot.hasData) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 48),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+
+                    final allItems = snapshot.data!;
+
+                    final filteredItems = allItems.where((item) {
+                      final matchesSearch = _searchQuery.isEmpty ||
+                          item.name.toLowerCase().contains(_searchQuery.toLowerCase());
+                      if (!matchesSearch) return false;
+
+                      if (_stockFilter == 'all') return true;
+                      if (_stockFilter == 'low_stock') return item.isLowStock;
+                      return item.category == _stockFilter;
+                    }).toList();
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSummaryCards(allItems),
+                        const SizedBox(height: 20),
+
+                        // Search Field
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.slate200),
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                            style: const TextStyle(fontSize: 14, color: AppColors.textLight),
+                            decoration: InputDecoration(
+                              hintText: 'Search supplies by name...',
+                              hintStyle: const TextStyle(fontSize: 14, color: AppColors.slate400),
+                              prefixIcon: const Icon(Icons.search, size: 18, color: AppColors.slate400),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                icon: const Icon(Icons.clear, size: 16, color: AppColors.slate400),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => _searchQuery = '');
+                                },
+                              )
+                                  : null,
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Category Chips Filter
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(
+                            children: [
+                              _buildFilterChip('All Items', 'all'),
+                              const SizedBox(width: 8),
+                              _buildFilterChip('Water', 'water'),
+                              const SizedBox(width: 8),
+                              _buildFilterChip('Packaging', 'packaging'),
+                              const SizedBox(width: 8),
+                              _buildFilterChip('Low Stock', 'low_stock'),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        Row(
+                          children: [
+                            const Text(
+                              'Tracked Supplies',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textLight),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.slate100,
+                                borderRadius: BorderRadius.circular(100),
+                              ),
+                              child: Text(
+                                '${filteredItems.length}',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.slate600),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        if (filteredItems.isEmpty)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 36),
+                            alignment: Alignment.center,
+                            child: Column(
+                              children: const [
+                                Icon(Icons.inventory_2_outlined, size: 36, color: AppColors.slate300),
+                                SizedBox(height: 8),
+                                Text('No matching supplies found.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                              ],
+                            ),
+                          )
+                        else
+                          ...filteredItems.map((item) => _buildInvCard(item)),
+                      ],
+                    );
+                  },
+                ),
+
+              // Tab 2: Machinery Alerts
+              if (_activeTab == 'machinery')
+                StreamBuilder<List<MaintenanceAlertModel>>(
+                  stream: _firestoreService.getMaintenanceAlertsStream(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: Center(
+                          child: Text('Failed to load alerts: ${snapshot.error}', style: const TextStyle(color: AppColors.error)),
+                        ),
+                      );
+                    }
+                    if (!snapshot.hasData) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 48),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+
+                    final alerts = snapshot.data!;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Text('Active Equipment Tasks', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textLight)),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(color: AppColors.slate100, borderRadius: BorderRadius.circular(100)),
+                                  child: Text('${alerts.length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.slate600)),
+                                ),
+                              ],
+                            ),
+                            if (isOwner)
+                              OutlinedButton.icon(
+                                onPressed: _showAddMaintenanceAlertDialog,
+                                icon: const Icon(Icons.add, size: 14),
+                                label: const Text('Schedule', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.primarySky,
+                                  side: const BorderSide(color: AppColors.primarySky),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (alerts.isEmpty)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 48),
+                            alignment: Alignment.center,
+                            child: Column(
+                              children: const [
+                                Icon(Icons.check_circle_outline, size: 40, color: AppColors.emerald600),
+                                SizedBox(height: 8),
+                                Text('No scheduled maintenance tasks.', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textLight)),
+                                SizedBox(height: 4),
+                                Text('All plant machinery is in good standing.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                              ],
+                            ),
+                          )
+                        else
+                          ...alerts.map((alert) => _buildMaintenanceCard(alert)),
+                      ],
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -977,8 +1175,10 @@ class _CustomDatePickerModalState extends State<_CustomDatePickerModal> {
   late DateTime _selectedDate;
   late DateTime _displayMonth;
 
-  final List<String> _monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  final List<String> _shortDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  final List<String> _monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
 
   @override
   void initState() {
@@ -990,10 +1190,6 @@ class _CustomDatePickerModalState extends State<_CustomDatePickerModal> {
   void _prevMonth() => setState(() => _displayMonth = DateTime(_displayMonth.year, _displayMonth.month - 1, 1));
   void _nextMonth() => setState(() => _displayMonth = DateTime(_displayMonth.year, _displayMonth.month + 1, 1));
 
-  String _formatSelectedDate() {
-    return '${_shortDays[_selectedDate.weekday - 1]}, ${_monthNames[_selectedDate.month - 1].substring(0, 3)} ${_selectedDate.day}, ${_selectedDate.year}';
-  }
-
   List<Widget> _buildDaysGrid() {
     List<Widget> days = [];
     int daysInMonth = DateTime(_displayMonth.year, _displayMonth.month + 1, 0).day;
@@ -1002,47 +1198,37 @@ class _CustomDatePickerModalState extends State<_CustomDatePickerModal> {
     int prevDaysInMonth = DateTime(_displayMonth.year, _displayMonth.month, 0).day;
 
     for (int i = offset - 1; i >= 0; i--) {
-      days.add(Container(
-        alignment: Alignment.center,
-        child: Text(
-          '${prevDaysInMonth - i}',
-          style: const TextStyle(color: AppColors.slate300, fontSize: 14, fontWeight: FontWeight.w500),
-        ),
+      days.add(Center(
+        child: Text('${prevDaysInMonth - i}', style: const TextStyle(color: AppColors.slate300, fontSize: 13)),
       ));
     }
 
     for (int i = 1; i <= daysInMonth; i++) {
       DateTime loopDate = DateTime(_displayMonth.year, _displayMonth.month, i);
-      bool isSelected = loopDate.year == _selectedDate.year && loopDate.month == _selectedDate.month && loopDate.day == _selectedDate.day;
-      bool isToday = loopDate.year == DateTime.now().year && loopDate.month == DateTime.now().month && loopDate.day == DateTime.now().day;
+      bool isSelected = loopDate.year == _selectedDate.year &&
+          loopDate.month == _selectedDate.month &&
+          loopDate.day == _selectedDate.day;
+      bool isToday = loopDate.year == DateTime.now().year &&
+          loopDate.month == DateTime.now().month &&
+          loopDate.day == DateTime.now().day;
 
       days.add(
         GestureDetector(
           onTap: () => setState(() => _selectedDate = loopDate),
           child: Container(
-            width: 36,
-            height: 36,
+            margin: const EdgeInsets.all(2),
             decoration: BoxDecoration(
-              color: isSelected ? AppColors.primarySky : (isToday ? AppColors.surfaceIce : Colors.transparent),
-              borderRadius: BorderRadius.circular(12),
-              border: isToday && !isSelected ? Border.all(color: AppColors.surfaceFrost) : null,
-              boxShadow: isSelected ? const [BoxShadow(color: Color(0x4D0EA5E9), blurRadius: 8, offset: Offset(0, 3))] : null,
+              color: isSelected ? AppColors.primarySky : (isToday ? AppColors.sky50 : Colors.transparent),
+              borderRadius: BorderRadius.circular(8),
             ),
             alignment: Alignment.center,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Text(
-                  '$i',
-                  style: TextStyle(
-                    fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected ? Colors.white : (isToday ? AppColors.primarySky : AppColors.borderDark),
-                    fontSize: 14,
-                  ),
-                ),
-                if (isToday && !isSelected)
-                  Positioned(bottom: 4, child: Container(width: 4, height: 4, decoration: const BoxDecoration(color: AppColors.primarySky, shape: BoxShape.circle))),
-              ],
+            child: Text(
+              '$i',
+              style: TextStyle(
+                fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Colors.white : (isToday ? AppColors.primarySky : AppColors.textLight),
+                fontSize: 13,
+              ),
             ),
           ),
         ),
@@ -1055,141 +1241,88 @@ class _CustomDatePickerModalState extends State<_CustomDatePickerModal> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       elevation: 0,
       child: Center(
         child: Container(
           width: double.infinity,
-          constraints: const BoxConstraints(maxWidth: 360),
-          padding: const EdgeInsets.all(24),
+          constraints: const BoxConstraints(maxWidth: 340),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppColors.slate100),
-            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 24, offset: Offset(0, 10))],
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.slate200),
+            boxShadow: const [BoxShadow(color: Color(0x1A0F172A), blurRadius: 16, offset: Offset(0, 6))],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('SELECT DATE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.slate500, letterSpacing: 1.2)),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(color: AppColors.surfaceIce, border: Border.all(color: AppColors.surfaceFrost), borderRadius: BorderRadius.circular(100)),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppColors.primarySky, shape: BoxShape.circle)),
-                            const SizedBox(width: 6),
-                            const Text('ACTIVE CYCLE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.primarySky, letterSpacing: 0.8)),
-                          ],
-                        ),
-                      )
-                    ],
+                  Text(
+                    '${_monthNames[_displayMonth.month - 1]} ${_displayMonth.year}',
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textLight),
                   ),
-                  const SizedBox(height: 8),
-                  Text(_formatSelectedDate(), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.backgroundDark, letterSpacing: -0.5)),
-                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: _prevMonth,
+                        icon: const Icon(Icons.chevron_left, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      ),
+                      IconButton(
+                        onPressed: _nextMonth,
+                        icon: const Icon(Icons.chevron_right, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      ),
+                    ],
+                  )
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(color: AppColors.surfaceCanvas, border: Border.all(color: AppColors.slate100), borderRadius: BorderRadius.circular(16)),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Text('${_monthNames[_displayMonth.month - 1]} ${_displayMonth.year}',
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.surfaceDark)),
-                        const SizedBox(width: 4),
-                        const Icon(Icons.expand_more, size: 20, color: AppColors.slate500),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        InkWell(
-                          onTap: _prevMonth,
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(color: Colors.white, border: Border.all(color: AppColors.slate200), borderRadius: BorderRadius.circular(8)),
-                            child: const Icon(Icons.chevron_left, size: 18, color: AppColors.borderDark),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        InkWell(
-                          onTap: _nextMonth,
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(color: Colors.white, border: Border.all(color: AppColors.slate200), borderRadius: BorderRadius.circular(8)),
-                            child: const Icon(Icons.chevron_right, size: 18, color: AppColors.borderDark),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+                    .map((d) => SizedBox(
+                  width: 32,
+                  child: Center(
+                    child: Text(d, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.slate400)),
+                  ),
+                ))
+                    .toList(),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-                      .map((d) => SizedBox(width: 36, child: Center(child: Text(d, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.slate400)))))
-                      .toList(),
-                ),
-              ),
+              const SizedBox(height: 6),
               GridView.count(
                 crossAxisCount: 7,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 6,
-                crossAxisSpacing: 2,
                 children: _buildDaysGrid(),
               ),
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.only(top: 16),
-                decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.slate100))),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        backgroundColor: AppColors.slate100,
-                        foregroundColor: AppColors.slate600,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: const Text("Cancel", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Cancel", style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600, fontSize: 13)),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, _selectedDate),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primarySky,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(context, _selectedDate),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primarySky,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shadowColor: AppColors.primarySky.withValues(alpha: 0.3),
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ).copyWith(elevation: WidgetStateProperty.resolveWith((states) => 4)),
-                      child: const Text("Confirm", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-              ),
+                    child: const Text("Select", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              )
             ],
           ),
         ),

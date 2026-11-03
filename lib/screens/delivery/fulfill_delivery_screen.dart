@@ -2,12 +2,14 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
-import '../../models/order_model.dart';
-import '../../services/firestore_service.dart';
-import '../../services/cloudinary_service.dart';
-import '../../services/offline_queue_service.dart';
 import '../../core/constants/zones.dart';
+import '../../models/order_model.dart';
+import '../../services/cloudinary_service.dart';
+import '../../services/firestore_service.dart';
+import '../../services/offline_queue_service.dart';
+import 'rider_delivery_map_screen.dart';
 
 class FulfillDeliveryScreen extends StatefulWidget {
   final OrderModel order;
@@ -18,12 +20,12 @@ class FulfillDeliveryScreen extends StatefulWidget {
 }
 
 class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
-  // SPECIAL CASE (Task 7.3): Preserved 0xFF00B4D8 as distinct cyan from 0xFF06B6D4
-  static const Color _cyan = Color(0xFF00B4D8);
+  static const String _font = 'Plus Jakarta Sans';
 
   final FirestoreService _firestoreService = FirestoreService();
   final CloudinaryService _cloudinary = CloudinaryService();
   final OfflineQueueService _offlineQueue = OfflineQueueService();
+
   late int droppedOff;
   late int emptyCollected;
   bool paymentConfirmed = true;
@@ -32,7 +34,6 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
 
   final ImagePicker _picker = ImagePicker();
   final TextEditingController _recipientCtrl = TextEditingController();
-  XFile? _podPhoto;
   Uint8List? _podPhotoBytes;
   DateTime? _podTime;
 
@@ -50,6 +51,24 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
     super.dispose();
   }
 
+  Future<void> _callCustomer() async {
+    final phone = widget.order.customerPhone.trim();
+    if (phone.isEmpty) return;
+    final telUri = Uri.parse('tel:$phone');
+    if (await canLaunchUrl(telUri)) {
+      await launchUrl(telUri);
+    }
+  }
+
+  Future<void> _messageCustomer() async {
+    final phone = widget.order.customerPhone.trim();
+    if (phone.isEmpty) return;
+    final smsUri = Uri.parse('sms:$phone');
+    if (await canLaunchUrl(smsUri)) {
+      await launchUrl(smsUri);
+    }
+  }
+
   Future<void> _takePhoto() async {
     try {
       final shot = await _picker.pickImage(source: ImageSource.camera, imageQuality: 70);
@@ -57,24 +76,37 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
       final bytes = await shot.readAsBytes();
       if (!mounted) return;
       setState(() {
-        _podPhoto = shot;
         _podPhotoBytes = bytes;
         _podTime = DateTime.now();
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Camera error: $e'), backgroundColor: AppColors.error));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Camera error: $e'), backgroundColor: AppColors.error),
+      );
     }
   }
 
   Future<void> _submitFulfillment() async {
+    if (!paymentConfirmed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please certify drop-off and payment verification below.')),
+      );
+      return;
+    }
+
     setState(() => isSubmitting = true);
     final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
+
     try {
       String? podUrl;
       if (_podPhotoBytes != null) {
-        podUrl = await _cloudinary.uploadImage(_podPhotoBytes!, filename: 'proof_of_delivery.jpg', folder: 'proof_of_delivery');
+        podUrl = await _cloudinary.uploadImage(
+          _podPhotoBytes!,
+          filename: 'proof_of_delivery.jpg',
+          folder: 'proof_of_delivery',
+        );
       }
       await _firestoreService.fulfillDelivery(
         orderId: widget.order.id,
@@ -87,7 +119,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
       );
       if (!mounted) return;
       nav.pop();
-      messenger.showSnackBar(const SnackBar(content: Text('Delivery Completed!')));
+      messenger.showSnackBar(const SnackBar(content: Text('Delivery Completed Successfully!')));
     } catch (e) {
       try {
         await _offlineQueue.queue(
@@ -106,159 +138,572 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
         nav.pop();
         messenger.showSnackBar(
           const SnackBar(
-            content: Text('Saved offline — will sync automatically once you\'re back online.'),
+            content: Text('Saved offline — will sync automatically once back online.'),
             backgroundColor: AppColors.primarySky,
           ),
         );
       } catch (queueError) {
         if (!mounted) return;
         setState(() => isSubmitting = false);
-        messenger.showSnackBar(SnackBar(content: Text('Failed to complete delivery: $e'), backgroundColor: AppColors.error));
+        messenger.showSnackBar(
+          SnackBar(content: Text('Failed to complete delivery: $e'), backgroundColor: AppColors.error),
+        );
       }
     }
   }
 
   String _fmtTime(DateTime t) {
     String p(int n) => n.toString().padLeft(2, '0');
-    return '${t.year}-${p(t.month)}-${p(t.day)} ${p(t.hour)}:${p(t.minute)}:${p(t.second)} PHT';
+    return '${t.month}/${t.day}/${t.year} at ${p(t.hour)}:${p(t.minute)}';
   }
 
-  Widget _card({required Widget child, CrossAxisAlignment align = CrossAxisAlignment.start}) {
+  Widget _buildSectionCard({required Widget child, EdgeInsetsGeometry? padding}) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: padding ?? const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.slate100),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 1))],
+        border: Border.all(color: AppColors.slate200),
       ),
-      child: Column(crossAxisAlignment: align, children: [child]),
+      child: child,
     );
   }
 
-  Widget _sectionLabel(String text) => Text(
-    text.toUpperCase(),
-    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AppColors.slate400),
-  );
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.surfaceBackground,
+      appBar: _buildAppBar(),
+      body: SafeArea(
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800), // Responsive tablet constraint
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. Status Banner
+                  _buildStatusBanner(),
+                  const SizedBox(height: 14),
 
-  Widget _iconBubble(IconData icon, {Color color = AppColors.primarySky, Color? bg}) => Container(
-    width: 28,
-    height: 28,
-    decoration: BoxDecoration(color: bg ?? color.withValues(alpha: 0.1), shape: BoxShape.circle),
-    child: Icon(icon, size: 16, color: color),
-  );
+                  // 2. Customer Information
+                  _buildCustomerInfoCard(),
+                  const SizedBox(height: 14),
 
-  Widget _stepBtn(IconData icon, VoidCallback onTap) => InkWell(
-    customBorder: const CircleBorder(),
-    onTap: onTap,
-    child: Container(
-      width: 28,
-      height: 28,
-      decoration: const BoxDecoration(color: AppColors.slate100, shape: BoxShape.circle),
-      child: Icon(icon, size: 14, color: AppColors.borderDark),
-    ),
-  );
+                  // 3. Map Navigation Card
+                  _buildMapNavigationCard(),
+                  const SizedBox(height: 14),
 
-  Widget _statTile({
-    required String title,
-    required IconData icon,
-    required Widget value,
-    required String caption,
-    Color iconColor = AppColors.primarySky,
-    Color? iconBg,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.slate100),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 1))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.slate500))),
-              _iconBubble(icon, color: iconColor, bg: iconBg),
-            ],
-          ),
-          value,
-          Text(caption.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.4, color: AppColors.slate400)),
-        ],
-      ),
-    );
-  }
+                  // 4. Order Summary
+                  _buildOrderSummaryCard(),
+                  const SizedBox(height: 14),
 
-  Widget _paymentTab(String key, String label, IconData icon) {
-    final selected = paymentMethod == key;
-    return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: () => setState(() => paymentMethod = key),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.primarySky : Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: selected ? [BoxShadow(color: AppColors.primarySky.withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 4))] : null,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 15, color: selected ? Colors.white : AppColors.primarySky),
-              const SizedBox(width: 6),
-              Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: selected ? Colors.white : AppColors.primarySky)),
-            ],
+                  // 5. Delivery Details (Quantities)
+                  _buildDeliveryDetailsCard(),
+                  const SizedBox(height: 14),
+
+                  // 6. Recipient (Optional)
+                  _buildRecipientCard(),
+                  const SizedBox(height: 14),
+
+                  // 7. Proof of Delivery Photo
+                  _buildProofOfDeliveryCard(),
+                  const SizedBox(height: 14),
+
+                  // Certification checkbox
+                  _buildCertificationCheckbox(),
+                  const SizedBox(height: 18),
+
+                  // 8. Complete Delivery Button
+                  _buildCompleteDeliveryButton(),
+                ],
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _infoRow({required IconData icon, required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.slate100)),
-      child: Row(
+  // ========================================================
+  // 1. HEADER & STATUS
+  // ========================================================
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 1,
+      toolbarHeight: 64,
+      iconTheme: const IconThemeData(color: AppColors.textLight),
+      titleSpacing: 0,
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: AppColors.primarySky),
-          const SizedBox(width: 8),
-          Expanded(child: child),
+          const Text(
+            'Fulfill Delivery',
+            style: TextStyle(
+              fontFamily: _font,
+              color: AppColors.textLight,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Order #${widget.order.orderNumber}',
+            style: const TextStyle(
+              fontFamily: _font,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _banner() {
+  Widget _buildStatusBanner() {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [AppColors.primarySky, _cyan]),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: AppColors.primarySky.withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 6))],
+        color: AppColors.emerald50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.emerald200),
       ),
-      child: Row(
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(16)),
-            child: const Icon(Icons.water_drop, color: Colors.white, size: 28),
-          ),
-          const SizedBox(width: 16),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              Text('DELIVERY FULFILLMENT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8, color: Colors.white70)),
-              SizedBox(height: 2),
-              Text('Fulfill Drop-off', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
+              Icon(Icons.local_shipping, size: 18, color: AppColors.emerald700),
+              SizedBox(width: 8),
+              Text(
+                'Out for Delivery',
+                style: TextStyle(
+                  fontFamily: _font,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.emerald700,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            'Assigned to you',
+            style: TextStyle(
+              fontFamily: _font,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.emerald700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ========================================================
+  // 2. CUSTOMER INFORMATION
+  // ========================================================
+  Widget _buildCustomerInfoCard() {
+    final String phone = widget.order.customerPhone.trim();
+    final String address = (widget.order.deliveryAddress ?? '').trim();
+    final String zone = widget.order.areaZone.trim().isEmpty ? '' : zoneLabel(widget.order.areaZone.trim());
+    final String fullAddress = address.isNotEmpty ? (zone.isNotEmpty ? '$address, $zone' : address) : zone;
+    final String? notes = widget.order.lastTransferReason;
+
+    return _buildSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Avatar
+              Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: AppColors.sky50,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.person, color: AppColors.primarySky, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.order.customerName,
+                      style: const TextStyle(
+                        fontFamily: _font,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textLight,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on, size: 14, color: AppColors.primarySky),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            fullAddress.isEmpty ? 'No address specified' : fullAddress,
+                            style: const TextStyle(
+                              fontFamily: _font,
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Call & Message buttons
+              IconButton(
+                onPressed: phone.isNotEmpty ? _callCustomer : null,
+                icon: const Icon(Icons.phone, size: 20, color: AppColors.primarySky),
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.sky50,
+                  padding: const EdgeInsets.all(8),
+                ),
+              ),
+              const SizedBox(width: 6),
+              IconButton(
+                onPressed: phone.isNotEmpty ? _messageCustomer : null,
+                icon: const Icon(Icons.chat_bubble, size: 18, color: AppColors.primarySky),
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.sky50,
+                  padding: const EdgeInsets.all(8),
+                ),
+              ),
+            ],
+          ),
+
+          // Optional Delivery Instructions Box
+          if (notes != null && notes.trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceCanvas,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.slate200),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.assignment_outlined, size: 16, color: AppColors.primarySky),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Delivery Instructions',
+                          style: TextStyle(
+                            fontFamily: _font,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textLight,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          notes,
+                          style: const TextStyle(
+                            fontFamily: _font,
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ========================================================
+  // 3. MAP NAVIGATION (View on Map)
+  // ========================================================
+  Widget _buildMapNavigationCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.sky200),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => RiderDeliveryMapScreen(order: widget.order),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primarySky,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.map, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'View on Map',
+                        style: TextStyle(
+                          fontFamily: _font,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textLight,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'See location and start navigation',
+                        style: TextStyle(
+                          fontFamily: _font,
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: AppColors.primarySky, size: 22),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ========================================================
+  // 4. ORDER SUMMARY
+  // ========================================================
+  Widget _buildOrderSummaryCard() {
+    final totalUnits = widget.order.items.fold<int>(0, (sum, i) => sum + i.quantity);
+    final isCOD = paymentMethod == 'cash';
+
+    return _buildSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.check_circle_outline, color: AppColors.primarySky, size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'Order Summary',
+                    style: TextStyle(
+                      fontFamily: _font,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textLight,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.sky50,
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Text(
+                  '$totalUnits items',
+                  style: const TextStyle(
+                    fontFamily: _font,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primarySky,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: AppColors.slate100),
+          const SizedBox(height: 10),
+
+          // Items List
+          ...widget.order.items.map((item) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: const BoxDecoration(
+                      color: AppColors.sky50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.local_drink, color: AppColors.primarySky, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.name,
+                          style: const TextStyle(
+                            fontFamily: _font,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textLight,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          '${item.quantity} × ₱${item.unitPrice.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontFamily: _font,
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    '${item.quantity}',
+                    style: const TextStyle(
+                      fontFamily: _font,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textLight,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+
+          // Empty containers count row
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: const BoxDecoration(
+                    color: AppColors.slate100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.autorenew, color: AppColors.slate600, size: 18),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Empty Containers (to collect)',
+                    style: TextStyle(
+                      fontFamily: _font,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+                Text(
+                  '$emptyCollected',
+                  style: const TextStyle(
+                    fontFamily: _font,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textLight,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 8),
+          const Divider(height: 1, color: AppColors.slate100),
+          const SizedBox(height: 10),
+
+          // Payment Method & Total Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.payment, size: 18, color: AppColors.slate500),
+                  SizedBox(width: 8),
+                  Text(
+                    'Payment Method',
+                    style: TextStyle(
+                      fontFamily: _font,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isCOD ? AppColors.emerald50 : AppColors.sky50,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      isCOD ? 'Cash (₱${widget.order.totalAmount.toStringAsFixed(2)})' : 'GCash Paid',
+                      style: TextStyle(
+                        fontFamily: _font,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isCOD ? AppColors.emerald700 : AppColors.primarySky,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ],
@@ -266,204 +711,164 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
     );
   }
 
-  Widget _customerCard() {
-    final String phone = widget.order.customerPhone.trim();
-    final String address = (widget.order.deliveryAddress ?? '').trim();
-    final String zone = widget.order.areaZone.trim().isEmpty ? '' : zoneLabel(widget.order.areaZone.trim());
-    final String location = address.isNotEmpty ? (zone.isNotEmpty ? '$address • $zone' : address) : zone;
-    final String number = widget.order.orderNumber.startsWith('#') ? widget.order.orderNumber : '#${widget.order.orderNumber}';
+  // ========================================================
+  // 5. DELIVERY DETAILS (Quantities & Discrepancy)
+  // ========================================================
+  Widget _buildDeliveryDetailsCard() {
+    final int unreturnedDiff = droppedOff - emptyCollected;
+    final bool balanced = unreturnedDiff == 0;
+    final Color diffColor = balanced ? AppColors.emerald700 : (unreturnedDiff > 0 ? AppColors.coralAlert : AppColors.primarySky);
 
-    return _card(
+    return _buildSectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          const Row(
             children: [
-              _sectionLabel('Customer & Order Details'),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: AppColors.primarySky.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(100)),
-                child: Text(number, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primarySky)),
+              Icon(Icons.water_drop, color: AppColors.primarySky, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'Delivery Details',
+                style: TextStyle(
+                  fontFamily: _font,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textLight,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              // Gallons Delivered Counter
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.slate50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.slate200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Gallons Delivered',
+                        style: TextStyle(
+                          fontFamily: _font,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildStepBtn(
+                            icon: Icons.remove,
+                            onTap: () => setState(() => droppedOff = droppedOff > 0 ? droppedOff - 1 : 0),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: Text(
+                              '$droppedOff',
+                              style: const TextStyle(
+                                fontFamily: _font,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textLight,
+                              ),
+                            ),
+                          ),
+                          _buildStepBtn(
+                            icon: Icons.add,
+                            onTap: () => setState(() => droppedOff++),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+
+              // Empty Containers Collected Counter
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.slate50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.slate200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Empties Collected',
+                        style: TextStyle(
+                          fontFamily: _font,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildStepBtn(
+                            icon: Icons.remove,
+                            onTap: () => setState(() => emptyCollected = emptyCollected > 0 ? emptyCollected - 1 : 0),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: Text(
+                              '$emptyCollected',
+                              style: const TextStyle(
+                                fontFamily: _font,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textLight,
+                              ),
+                            ),
+                          ),
+                          _buildStepBtn(
+                            icon: Icons.add,
+                            onTap: () => setState(() => emptyCollected++),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(child: Text(widget.order.customerName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.surfaceDark))),
-              if (phone.isNotEmpty) Text(phone, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.slate500)),
-            ],
-          ),
-          if (location.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(12)),
-              child: Row(
-                children: [
-                  const Icon(Icons.location_on, size: 16, color: AppColors.primarySky),
-                  const SizedBox(width: 6),
-                  Expanded(child: Text(location, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.slate500))),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
 
-  Widget _statsGrid() {
-    final int unreturnedDiff = droppedOff - emptyCollected;
-    final bool balanced = unreturnedDiff == 0;
-    final Color diffColor = balanced ? AppColors.emerald600 : (unreturnedDiff > 0 ? AppColors.coralAlert : AppColors.primarySky);
-    final String diffLabel = balanced ? 'Balanced (0)' : (unreturnedDiff > 0 ? 'Deficit (-$unreturnedDiff)' : 'Surplus (+${-unreturnedDiff})');
-
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 1.3,
-      children: [
-        _statTile(
-          title: 'Delivered',
-          icon: Icons.water_drop,
-          value: Text('$droppedOff units', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.surfaceDark)),
-          caption: '5-Gal Full',
-        ),
-        _statTile(
-          title: 'Empties Retrieved',
-          icon: Icons.autorenew,
-          value: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _stepBtn(Icons.remove, () => setState(() => emptyCollected = emptyCollected > 0 ? emptyCollected - 1 : 0)),
-              Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text('$emptyCollected units', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.surfaceDark)))),
-              _stepBtn(Icons.add, () => setState(() => emptyCollected++)),
-            ],
-          ),
-          caption: 'Empty Return',
-        ),
-        _statTile(
-          title: 'Container Telematics',
-          icon: balanced ? Icons.balance : Icons.warning_amber_rounded,
-          iconColor: diffColor,
-          iconBg: diffColor.withValues(alpha: 0.1),
-          value: Text(diffLabel, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: diffColor)),
-          caption: balanced ? 'Zero Bottle Discrepancy' : 'Bottle Discrepancy',
-        ),
-        _statTile(
-          title: 'Payment Collected',
-          icon: Icons.qr_code_2,
-          value: Text('₱${widget.order.totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.primarySky)),
-          caption: paymentMethod == 'gcash' ? 'GCash Collected' : 'Cash Collected',
-        ),
-      ],
-    );
-  }
-
-  Widget _paymentTotalCard() {
-    return _card(
-      align: CrossAxisAlignment.center,
-      child: Column(
-        children: [
-          _sectionLabel('Payment Collection (COD / GCash)'),
-          const SizedBox(height: 4),
-          Text('₱${widget.order.totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: AppColors.primarySky, height: 1.1)),
-          const SizedBox(height: 4),
-          Text('Total Payable for $droppedOff ${droppedOff == 1 ? 'Gallon' : 'Gallons'}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.slate500)),
-        ],
-      ),
-    );
-  }
-
-  Widget _verificationCard() {
-    final ref = widget.order.gcashReference;
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(child: _sectionLabel('Payment & Verification')),
-              if (paymentConfirmed)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: AppColors.emerald50, borderRadius: BorderRadius.circular(100)),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.check_circle, size: 12, color: AppColors.emerald600),
-                      SizedBox(width: 4),
-                      Text('Payment Confirmed', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.emerald600)),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
+          // Discrepancy indicator
           Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(color: AppColors.slate100, borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: balanced ? AppColors.emerald50 : AppColors.rose50,
+              borderRadius: BorderRadius.circular(8),
+            ),
             child: Row(
               children: [
-                _paymentTab('cash', 'Cash', Icons.local_atm),
-                const SizedBox(width: 4),
-                _paymentTab('gcash', 'GCash QR', Icons.account_balance_wallet),
-              ],
-            ),
-          ),
-          if (ref != null && ref.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _infoRow(
-              icon: Icons.sell,
-              child: Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 4,
-                children: [
-                  const Text('Customer-provided ref:', style: TextStyle(fontSize: 12, color: AppColors.slate400)),
-                  Text(ref, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'monospace', color: AppColors.surfaceDark)),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(color: AppColors.surfaceCanvas, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.slate100)),
-            child: Row(
-              children: [
-                const Icon(Icons.badge, size: 18, color: AppColors.primarySky),
-                const SizedBox(width: 8),
-                const Text('Recipient:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.slate600)),
+                Icon(balanced ? Icons.verified : Icons.warning_amber_rounded, size: 14, color: diffColor),
                 const SizedBox(width: 6),
-                Expanded(
-                  child: TextField(
-                    controller: _recipientCtrl,
-                    textCapitalization: TextCapitalization.words,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.surfaceDark),
-                    decoration: const InputDecoration(
-                      hintText: 'Name of person who received',
-                      hintStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.slate400),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    onChanged: (_) => setState(() {}),
+                Text(
+                  balanced ? 'Bottle balance: 0 discrepancy' : 'Discrepancy: ${unreturnedDiff > 0 ? "-$unreturnedDiff deficit" : "+${-unreturnedDiff} surplus"}',
+                  style: TextStyle(
+                    fontFamily: _font,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: diffColor,
                   ),
                 ),
-                if (_recipientCtrl.text.trim().isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: AppColors.emerald100.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(100)),
-                    child: const Text('Signed', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.emerald700)),
-                  ),
               ],
             ),
           ),
@@ -472,197 +877,259 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
     );
   }
 
-  Widget _podCard() {
-    final hasPhoto = _podPhoto != null;
-    return _card(
+  Widget _buildStepBtn({required IconData icon, required VoidCallback onTap}) {
+    return Material(
+      color: Colors.white,
+      shape: const CircleBorder(),
+      elevation: 1,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 32,
+          height: 32,
+          child: Icon(icon, size: 16, color: AppColors.primarySky),
+        ),
+      ),
+    );
+  }
+
+  // ========================================================
+  // 6. RECIPIENT (Optional)
+  // ========================================================
+  Widget _buildRecipientCard() {
+    return _buildSectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          const Row(
             children: [
-              const Expanded(
-                child: Row(
-                  children: [
-                    Icon(Icons.photo_camera, size: 20, color: AppColors.primarySky),
-                    SizedBox(width: 8),
-                    Flexible(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('PROOF OF DELIVERY (POD)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AppColors.slate400)),
-                          Text('Drop-off Photo Verification', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.surfaceDark)),
-                        ],
-                      ),
-                    ),
-                  ],
+              Icon(Icons.person_outline, color: AppColors.primarySky, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'Recipient',
+                style: TextStyle(
+                  fontFamily: _font,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textLight,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                decoration: BoxDecoration(
-                  color: hasPhoto ? AppColors.emerald50 : AppColors.amber50,
-                  borderRadius: BorderRadius.circular(100),
-                  border: Border.all(color: hasPhoto ? AppColors.emerald200 : AppColors.amber200),
+              SizedBox(width: 6),
+              Text(
+                '(Optional)',
+                style: TextStyle(
+                  fontFamily: _font,
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (hasPhoto)
-                      const Icon(Icons.check_circle, size: 12, color: AppColors.emerald600)
-                    else
-                      Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppColors.amber500, shape: BoxShape.circle)),
-                    const SizedBox(width: 4),
-                    Text(hasPhoto ? 'Photo Verified' : 'Pending Photo',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: hasPhoto ? AppColors.emerald700 : AppColors.amber600)),
-                  ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _recipientCtrl,
+            textCapitalization: TextCapitalization.words,
+            style: const TextStyle(
+              fontFamily: _font,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textLight,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Enter recipient name',
+              hintStyle: const TextStyle(
+                fontFamily: _font,
+                fontSize: 13,
+                color: AppColors.slate400,
+              ),
+              filled: true,
+              fillColor: AppColors.slate50,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.slate200),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.slate200),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.primarySky, width: 2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Name of the person who received the delivery.',
+            style: TextStyle(
+              fontFamily: _font,
+              fontSize: 11,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ========================================================
+  // 7. PROOF OF DELIVERY PHOTO
+  // ========================================================
+  Widget _buildProofOfDeliveryCard() {
+    final hasPhoto = _podPhotoBytes != null;
+
+    return _buildSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.photo_camera_outlined, color: AppColors.primarySky, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'Proof of Delivery Photo',
+                style: TextStyle(
+                  fontFamily: _font,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textLight,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
+
+          // Upload / Preview box
           GestureDetector(
             onTap: _takePhoto,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                width: double.infinity,
-                height: 208,
-                decoration: BoxDecoration(
-                  color: hasPhoto ? AppColors.backgroundDark : AppColors.surfaceCanvas,
-                  borderRadius: BorderRadius.circular(12),
-                  border: hasPhoto ? null : Border.all(color: AppColors.slate200, width: 2),
-                ),
-                child: hasPhoto
-                    ? Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.memory(_podPhotoBytes!, fit: BoxFit.cover),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [Colors.black.withValues(alpha: 0.75), Colors.transparent, Colors.black.withValues(alpha: 0.4)],
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 10,
-                      left: 10,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(100), border: Border.all(color: Colors.white24)),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.verified, size: 14, color: AppColors.emerald400),
-                            SizedBox(width: 4),
-                            Text('VERIFIED POD', style: TextStyle(fontSize: 10, color: Colors.white, fontFamily: 'monospace', letterSpacing: 0.5)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 12,
-                      bottom: 10,
-                      child: Text(
-                        'TIMESTAMP: ${_fmtTime(_podTime ?? DateTime.now())}',
-                        style: const TextStyle(fontSize: 9, color: AppColors.slate300, fontFamily: 'monospace'),
-                      ),
-                    ),
-                  ],
-                )
-                    : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(color: AppColors.primarySky.withValues(alpha: 0.1), shape: BoxShape.circle),
-                      child: const Icon(Icons.add_a_photo, size: 24, color: AppColors.primarySky),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text('No photo captured yet', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.borderDark)),
-                    const SizedBox(height: 2),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 24),
-                      child: Text('Take a live photo of jugs at doorstep to verify delivery',
-                          textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.slate400)),
-                    ),
-                  ],
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: hasPhoto ? Colors.black : AppColors.slate50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: hasPhoto ? Colors.transparent : AppColors.slate300,
+                  width: 1.5,
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _takePhoto,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primarySky,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              icon: const Icon(Icons.photo_camera, size: 18, color: Colors.white),
-              label: Text(hasPhoto ? 'Retake Photo' : 'Take Photo', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-            ),
-          ),
-          if (hasPhoto) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: AppColors.emerald50, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.emerald100)),
-              child: Row(
+              child: hasPhoto
+                  ? Column(
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.memory(_podPhotoBytes!, width: 40, height: 40, fit: BoxFit.cover),
-                  ),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Photo Proof Captured', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.emerald800)),
-                        Text('Water jugs verified on doorstep', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: AppColors.emerald600)),
-                      ],
+                    child: Image.memory(
+                      _podPhotoBytes!,
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
                     ),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: _takePhoto,
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      side: BorderSide(color: AppColors.primarySky.withValues(alpha: 0.3)),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Captured: ${_fmtTime(_podTime ?? DateTime.now())}',
+                        style: const TextStyle(
+                          fontFamily: _font,
+                          fontSize: 11,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: _takePhoto,
+                        icon: const Icon(Icons.refresh, size: 14, color: AppColors.primarySky),
+                        label: const Text('Retake Photo', style: TextStyle(color: AppColors.primarySky, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ],
+              )
+                  : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      color: AppColors.sky50,
+                      shape: BoxShape.circle,
                     ),
-                    icon: const Icon(Icons.refresh, size: 13, color: AppColors.primarySky),
-                    label: const Text('Retake', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primarySky)),
+                    child: const Icon(Icons.camera_alt, color: AppColors.primarySky, size: 22),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Take a photo',
+                    style: TextStyle(
+                      fontFamily: _font,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textLight,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'Capture the delivered items or recipient',
+                    style: TextStyle(
+                      fontFamily: _font,
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 38,
+                    child: OutlinedButton.icon(
+                      onPressed: _takePhoto,
+                      icon: const Icon(Icons.photo_camera, size: 16),
+                      label: const Text('Open Camera', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primarySky,
+                        side: const BorderSide(color: AppColors.primarySky),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
+          const SizedBox(height: 6),
+          const Row(
+            children: [
+              Icon(Icons.access_time, size: 13, color: AppColors.slate400),
+              SizedBox(width: 4),
+              Text(
+                'Photo will be timestamped automatically upon capture.',
+                style: TextStyle(
+                  fontFamily: _font,
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _certifyBox() {
+  // ========================================================
+  // CERTIFICATION CHECKBOX
+  // ========================================================
+  Widget _buildCertificationCheckbox() {
     return InkWell(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(12),
       onTap: () => setState(() => paymentConfirmed = !paymentConfirmed),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.primarySky.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.primarySky.withValues(alpha: 0.2)),
+          color: paymentConfirmed ? AppColors.sky50 : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: paymentConfirmed ? AppColors.sky200 : AppColors.slate200),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -673,16 +1140,22 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
               margin: const EdgeInsets.only(top: 2),
               decoration: BoxDecoration(
                 color: paymentConfirmed ? AppColors.primarySky : Colors.white,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(4),
                 border: paymentConfirmed ? null : Border.all(color: AppColors.slate400),
               ),
-              child: paymentConfirmed ? const Icon(Icons.check, size: 15, color: Colors.white) : null,
+              child: paymentConfirmed ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'I certify that $droppedOff delivered ${droppedOff == 1 ? 'unit' : 'units'} and $emptyCollected empty ${emptyCollected == 1 ? 'container has' : 'containers have'} been physically verified, handed over, and payment of ₱${widget.order.totalAmount.toStringAsFixed(2)} confirmed.',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.borderDark, height: 1.35),
+                'I certify that $droppedOff delivered unit(s) and $emptyCollected empty container(s) have been verified and payment of ₱${widget.order.totalAmount.toStringAsFixed(2)} confirmed.',
+                style: const TextStyle(
+                  fontFamily: _font,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textLight,
+                  height: 1.35,
+                ),
               ),
             ),
           ],
@@ -691,92 +1164,38 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
     );
   }
 
-  Widget _actions() {
-    final enabled = paymentConfirmed && !isSubmitting;
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: enabled ? _submitFulfillment : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primarySky,
-              disabledBackgroundColor: AppColors.primarySky.withValues(alpha: 0.4),
-              elevation: enabled ? 8 : 0,
-              shadowColor: AppColors.primarySky.withValues(alpha: 0.35),
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-            ),
-            icon: isSubmitting
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.verified, size: 20, color: Colors.white),
-            label: Text(isSubmitting ? 'Completing...' : 'Complete & Verify Drop-off',
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+  // ========================================================
+  // 8. COMPLETE DELIVERY BUTTON
+  // ========================================================
+  Widget _buildCompleteDeliveryButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton.icon(
+        onPressed: (isSubmitting || !paymentConfirmed) ? null : _submitFulfillment,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primarySky,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: AppColors.slate200,
+          disabledForegroundColor: AppColors.slate400,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
-        const SizedBox(height: 4),
-        TextButton(
-          onPressed: isSubmitting ? null : () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.slate400)),
-        ),
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.surfaceBackground,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 1,
-        toolbarHeight: 64,
-        iconTheme: const IconThemeData(color: AppColors.textLight),
-        titleSpacing: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Fulfill Drop-off', style: TextStyle(color: AppColors.textLight, fontSize: 18, fontWeight: FontWeight.bold, height: 1.2)),
-            const SizedBox(height: 2),
-            Row(
-              children: [
-                Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.primarySky, shape: BoxShape.circle)),
-                const SizedBox(width: 6),
-                const Text('ORDER FULFILLMENT PROTOCOL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.8, color: AppColors.outline)),
-              ],
-            ),
-          ],
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _banner(),
-                  const SizedBox(height: 14),
-                  _customerCard(),
-                  const SizedBox(height: 14),
-                  _statsGrid(),
-                  const SizedBox(height: 14),
-                  _paymentTotalCard(),
-                  const SizedBox(height: 14),
-                  _verificationCard(),
-                  const SizedBox(height: 14),
-                  _podCard(),
-                  const SizedBox(height: 14),
-                  _certifyBox(),
-                  const SizedBox(height: 16),
-                  _actions(),
-                ],
-              ),
-            ),
+        icon: isSubmitting
+            ? const SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+        )
+            : const Icon(Icons.check_circle, size: 20, color: Colors.white),
+        label: Text(
+          isSubmitting ? 'Submitting Drop-off...' : 'Complete Delivery',
+          style: const TextStyle(
+            fontFamily: _font,
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),

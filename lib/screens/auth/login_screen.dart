@@ -3,10 +3,10 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/layout_constants.dart';
 import '../../core/utils/app_toast.dart';
 import '../../core/utils/validators.dart';
+import '../../main.dart'; // for currentUserRoleNotifier
 import '../../services/auth_service.dart';
 import '../../widgets/auth_brand_header.dart';
 import 'reset_password_screen.dart';
-import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,6 +27,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   static const String _font = 'Plus Jakarta Sans';
 
+  // Role -> route. Roles not listed here are rejected at login.
+  static const Map<String, String> _roleRoutes = {
+    'owner': '/owner_dashboard',
+    'staff': '/pos',
+    'rider': '/dispatch',
+    'customer': '/customer',
+  };
+
   @override
   void dispose() {
     _emailCtrl.dispose();
@@ -38,6 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text;
 
+    // Validate inputs
     setState(() {
       _emailError = Validators.validateEmail(email);
       _passwordError = password.isEmpty ? 'Password is required.' : null;
@@ -56,23 +65,42 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _authService.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      // 1. Sign in + load Firestore profile (signIn signs out if no profile)
+      final profile = await _authService.signIn(email, password);
+      if (profile == null) {
+        throw Exception('Account profile not found. Please contact support.');
+      }
+
+      // 2. Map role enum -> route (rejects unknown roles)
+      final role = profile.role.name; // 'owner' | 'staff' | 'rider' | 'customer'
+      final route = _roleRoutes[role];
+      if (route == null) {
+        await _authService.signOut();
+        throw Exception('Account has no valid role assigned.');
+      }
+
+      // 3. Save role so shellAt() picks the right tabs
+      currentUserRoleNotifier.value = role;
+
       if (!mounted) return;
       AppToast.showSuccess(context, 'Welcome back!', title: 'Login Successful');
+
+      // 4. Go to home and clear the login screen from the back stack
+      Navigator.of(context).pushNamedAndRemoveUntil(route, (r) => false);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isLoading = false);
       AppToast.showError(
         context,
         getAuthErrorMessage(e),
         title: 'Login Failed',
       );
+    } finally {
+      // Always stop the spinner (no-op if screen was already replaced)
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  // Reusable text field with icon, label and inline error
   Widget _buildInputField({
     required TextEditingController controller,
     required String label,
@@ -118,7 +146,11 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               Padding(
                 padding: const EdgeInsets.only(left: 14, right: 10),
-                child: Icon(icon, color: hasError ? AppColors.error : const Color(0xFF707881), size: 18),
+                child: Icon(
+                  icon,
+                  color: hasError ? AppColors.error : const Color(0xFF707881),
+                  size: 18,
+                ),
               ),
               Expanded(
                 child: TextField(
@@ -177,7 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: kMaxContentWidth), // Using global content width constraint
+              constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -186,6 +218,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     subtitle: 'Sign in to manage orders & water delivery',
                   ),
                   const SizedBox(height: 28),
+
+                  // Email field
                   _buildInputField(
                     controller: _emailCtrl,
                     label: 'Email Address',
@@ -198,6 +232,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                   const SizedBox(height: 14),
+
+                  // Password field with show/hide toggle
                   _buildInputField(
                     controller: _passwordCtrl,
                     label: 'Password',
@@ -210,21 +246,28 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        _obscurePassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
                         color: const Color(0xFF707881),
                         size: 18,
                       ),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
                     ),
                   ),
                   const SizedBox(height: 8),
+
+                  // Forgot password (push, so Back returns to login)
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const ResetPasswordScreen()),
+                          MaterialPageRoute(
+                            builder: (_) => const ResetPasswordScreen(),
+                          ),
                         );
                       },
                       style: TextButton.styleFrom(
@@ -242,6 +285,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
+
+                  // Sign in button (disabled + spinner while loading)
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -276,6 +321,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
+
+                  // Sign up link (named route, replaces login)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -288,12 +335,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       GestureDetector(
-                        onTap: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (_) => const SignupScreen()),
-                          );
-                        },
+                        onTap: () =>
+                            Navigator.pushReplacementNamed(context, '/signup'),
                         child: const Text(
                           'Sign Up',
                           style: TextStyle(

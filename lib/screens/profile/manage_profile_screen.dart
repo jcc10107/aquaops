@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/layout_constants.dart';
 import '../../core/utils/validators.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
@@ -27,6 +26,7 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
   late final TextEditingController _phoneCtrl;
   String? _nameError;
   String? _phoneError;
+  bool _saving = false;
 
   static const String _font = 'Plus Jakarta Sans';
 
@@ -45,7 +45,6 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
   }
 
   Future<void> _saveChanges() async {
-    final messenger = ScaffoldMessenger.of(context);
     final name = _nameCtrl.text.trim();
     final phone = _phoneCtrl.text.trim();
 
@@ -57,24 +56,29 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
         invalidMessage: 'Enter a valid 11-digit mobile number.',
       );
     });
+
     if (_nameError != null || _phoneError != null) return;
 
-    Navigator.pop(context);
+    setState(() => _saving = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
+
     try {
       await _firestoreService.updateUserProfile(
         uid: widget.user.id,
         name: name,
         phone: phone,
       );
+      if (!mounted) return;
+      nav.pop();
       messenger.showSnackBar(
         const SnackBar(content: Text('Profile saved successfully!')),
       );
     } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
       messenger.showSnackBar(
-        SnackBar(
-          content: Text('Failed to save: $e'),
-          backgroundColor: AppColors.error,
-        ),
+        SnackBar(content: Text('Failed to save: $e'), backgroundColor: AppColors.coralAlert),
       );
     }
   }
@@ -84,9 +88,10 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
     final String displayName = widget.userData['name'] ?? 'User';
     final String initials = widget.userData['initials'] ?? 'U';
     final String email = widget.userData['email'] ?? '';
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
+      backgroundColor: AppColors.surfaceCanvas, // #F8FAFC
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -95,376 +100,179 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                keyboardDismissBehavior:
-                ScrollViewKeyboardDismissBehavior.onDrag,
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 child: Align(
                   alignment: Alignment.topCenter,
-                  child: Container(
-                    width: double.infinity,
-                    constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const AquaLogo(size: 80),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Manage Profile',
-                          style: TextStyle(
-                            fontFamily: _font,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.44,
-                            color: AppColors.textLight,
-                          ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 800), // Standard 800px width
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(16, 16, 16, 24 + bottomInset),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.slate200),
                         ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'Update your personal details & contact info',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: _font,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceIce,
-                            borderRadius: BorderRadius.circular(9999),
-                            border: Border.all(
-                              color: AppColors.cyanHighlight.withValues(alpha: 0.2),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 24,
-                                height: 24,
-                                alignment: Alignment.center,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primary,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Text(
-                                  initials,
-                                  style: const TextStyle(
-                                    fontFamily: _font,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  displayName,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontFamily: _font,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            const Padding(
-                              padding: EdgeInsets.only(left: 4, bottom: 4),
-                              child: Text(
-                                'Full Name',
-                                style: TextStyle(
-                                  fontFamily: _font,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.textSecondary,
-                                ),
+                            const AquaLogo(size: 72),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Manage Profile',
+                              style: TextStyle(
+                                fontFamily: _font,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textLight,
                               ),
                             ),
-                            _buildInputField(
-                              controller: _nameCtrl,
-                              icon: Icons.person_outline,
-                              hint: 'Full name',
-                              keyboardType: TextInputType.name,
-                              errorText: _nameError,
-                              onChanged: () {
-                                if (_nameError != null) {
-                                  setState(() => _nameError = null);
-                                }
-                              },
-                            ),
-                            const SizedBox(height: 14),
-                            const Padding(
-                              padding: EdgeInsets.only(left: 4, bottom: 4),
-                              child: Text(
-                                'Mobile Number',
-                                style: TextStyle(
-                                  fontFamily: _font,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.textSecondary,
-                                ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'Update your personal information & contact details',
+                              style: TextStyle(
+                                fontFamily: _font,
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
                               ),
                             ),
-                            _buildInputField(
-                              controller: _phoneCtrl,
-                              icon: Icons.call_outlined,
-                              hint: '0917 123 4567',
-                              keyboardType: TextInputType.phone,
-                              errorText: _phoneError,
-                              onChanged: () {
-                                if (_phoneError != null) {
-                                  setState(() => _phoneError = null);
-                                }
-                              },
-                            ),
                             const SizedBox(height: 14),
-                            const Padding(
-                              padding: EdgeInsets.only(
-                                left: 4,
-                                right: 4,
-                                bottom: 4,
+
+                            // User Badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE0F2FE),
+                                borderRadius: BorderRadius.circular(100),
                               ),
                               child: Row(
-                                mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    'Email Address',
-                                    style: TextStyle(
-                                      fontFamily: _font,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.textSecondary,
+                                  CircleAvatar(
+                                    radius: 10,
+                                    backgroundColor: AppColors.primarySky,
+                                    child: Text(
+                                      initials,
+                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
                                     ),
                                   ),
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.verified,
-                                        size: 13,
-                                        color: AppColors.secondary,
-                                      ),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Verified',
-                                        style: TextStyle(
-                                          fontFamily: _font,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 0.6,
-                                          color: AppColors.secondary,
-                                        ),
-                                      ),
-                                    ],
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    displayName,
+                                    style: const TextStyle(fontFamily: _font, fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0369A1)),
                                   ),
                                 ],
                               ),
-                            ),
-                            _buildReadOnlyField(
-                              icon: Icons.mail_outline,
-                              value: email,
                             ),
                             const SizedBox(height: 24),
-                            Container(
-                              height: 48,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryContainer,
-                                borderRadius: BorderRadius.circular(9999),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.primaryContainer.withValues(alpha: 0.3),
-                                    blurRadius: 15,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                  BoxShadow(
-                                    color: AppColors.primaryContainer.withValues(alpha: 0.1),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(9999),
-                                  onTap: _saveChanges,
-                                  child: const Center(
-                                    child: Text(
-                                      'Save Changes',
-                                      style: TextStyle(
-                                        fontFamily: _font,
-                                        color: Colors.white,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.13,
-                                      ),
-                                    ),
+
+                            // Form Fields
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Full Name *', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                                const SizedBox(height: 6),
+                                TextField(
+                                  controller: _nameCtrl,
+                                  style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
+                                  decoration: InputDecoration(
+                                    prefixIcon: const Icon(Icons.person_outline, size: 18, color: AppColors.slate400),
+                                    hintText: 'Enter your full name',
+                                    filled: true,
+                                    fillColor: AppColors.surfaceCanvas,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
+                                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primarySky)),
+                                    errorText: _nameError,
                                   ),
                                 ),
-                              ),
+                                const SizedBox(height: 14),
+
+                                const Text('Mobile Phone Number *', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                                const SizedBox(height: 6),
+                                TextField(
+                                  controller: _phoneCtrl,
+                                  keyboardType: TextInputType.phone,
+                                  style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
+                                  decoration: InputDecoration(
+                                    prefixIcon: const Icon(Icons.phone_outlined, size: 18, color: AppColors.slate400),
+                                    hintText: '09XX XXX XXXX',
+                                    filled: true,
+                                    fillColor: AppColors.surfaceCanvas,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
+                                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primarySky)),
+                                    errorText: _phoneError,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text('Email Address', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.verified, size: 13, color: Color(0xFF059669)),
+                                        const SizedBox(width: 4),
+                                        Text('Verified', style: const TextStyle(fontFamily: _font, fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceCanvas,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: AppColors.slate200),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.mail_outline, size: 18, color: AppColors.slate400),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          email,
+                                          style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textSecondary),
+                                        ),
+                                      ),
+                                      const Icon(Icons.lock_outline, size: 16, color: AppColors.slate400),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 48,
+                                  child: ElevatedButton(
+                                    onPressed: _saving ? null : _saveChanges,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primarySky,
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    child: _saving
+                                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                        : const Text('Save Changes', style: TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                        const SizedBox(height: 48),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInputField({
-    required TextEditingController controller,
-    required IconData icon,
-    required String hint,
-    TextInputType keyboardType = TextInputType.text,
-    String? errorText,
-    VoidCallback? onChanged,
-  }) {
-    final bool hasError = errorText != null;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          height: 48,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: hasError
-                ? Border.all(color: AppColors.error, width: 1.5)
-                : null,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 14, right: 10),
-                child: Icon(
-                  icon,
-                  color: hasError
-                      ? AppColors.error
-                      : AppColors.outline,
-                  size: 18,
-                ),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  keyboardType: keyboardType,
-                  onChanged: (_) => onChanged?.call(),
-                  style: const TextStyle(
-                    fontFamily: _font,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textLight,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: hint,
-                    hintStyle: const TextStyle(
-                      color: AppColors.outline,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-            ],
-          ),
-        ),
-        if (hasError)
-          Padding(
-            padding: const EdgeInsets.only(left: 4, top: 4),
-            child: Text(
-              errorText,
-              style: const TextStyle(
-                fontFamily: _font,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: AppColors.error,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildReadOnlyField({
-    required IconData icon,
-    required String value,
-  }) {
-    return Opacity(
-      opacity: 0.9,
-      child: Container(
-        height: 48,
-        decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 2,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 14, right: 10),
-              child: Icon(icon, color: AppColors.outline, size: 18),
-            ),
-            Expanded(
-              child: Text(
-                value,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: _font,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textLight,
-                ),
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.only(left: 8, right: 14),
-              child: Icon(
-                Icons.lock_outline,
-                color: AppColors.outline,
-                size: 16,
               ),
             ),
           ],

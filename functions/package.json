@@ -1,23 +1,19 @@
 {
-  "name": "aquaops-functions",
+  "name": "aquaops-worker",
+  "version": "1.0.0",
+  "private": true,
   "scripts": {
-    "build": "tsc",
-    "serve": "npm run build && firebase emulators:start --only functions",
-    "shell": "npm run build && firebase functions:shell",
-    "start": "npm run shell",
-    "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "build": "echo 'No build step required for worker.js'",
+    "deploy": "firebase deploy --only functions"
   },
   "engines": {
-    "node": "18"
+    "node": ">=18"
   },
-  "main": "lib/index.js",
   "dependencies": {
     "firebase-admin": "^12.0.0",
     "firebase-functions": "^4.6.0"
   },
   "devDependencies": {
     "typescript": "^5.1.6"
-  },
-  "private": true
+  }
 }

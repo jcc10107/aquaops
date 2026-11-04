@@ -20,6 +20,7 @@ class AuthService {
   final FirestoreService _firestore = FirestoreService();
 
   static bool _foregroundListenerRegistered = false;
+  static bool _tokenRefreshListenerRegistered = false;
 
   User? get currentUser => _auth.currentUser;
   String? get currentUserId => _auth.currentUser?.uid;
@@ -81,6 +82,21 @@ class AuthService {
           showWebNotification(title, body);
         });
       }
+
+      if (!_tokenRefreshListenerRegistered) {
+        _tokenRefreshListenerRegistered = true;
+        // FCM can rotate a device's token at any time (not just at sign-in)
+        // — without this, a rotated token silently stops receiving pushes
+        // until the next full sign-in. Always save to whoever is CURRENTLY
+        // signed in, not the uid this particular sign-in started with.
+        FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+          final currentUid = _auth.currentUser?.uid;
+          if (currentUid == null) return;
+          _firestore.saveFcmToken(currentUid, newToken).catchError((e, st) {
+            debugPrint('[FCM] token refresh save error: $e\n$st');
+          });
+        });
+      }
     } catch (e, st) {
       debugPrint('[FCM] registration error: $e\n$st');
     }
@@ -101,20 +117,6 @@ class AuthService {
       return profile;
     }
     return null;
-  }
-
-  Future<UserCredential> signInWithEmailAndPassword({
-    required String email,
-    required String password,
-  }) async {
-    final credential = await _auth.signInWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
-    if (credential.user != null) {
-      unawaited(_registerForPushNotifications(credential.user!.uid));
-    }
-    return credential;
   }
 
   Future<UserModel> signUp({
@@ -145,20 +147,6 @@ class AuthService {
     await _firestore.createUser(user);
     unawaited(_registerForPushNotifications(uid));
     return user;
-  }
-
-  Future<UserCredential> createUserWithEmailAndPassword({
-    required String email,
-    required String password,
-  }) async {
-    final credential = await _auth.createUserWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
-    if (credential.user != null) {
-      unawaited(_registerForPushNotifications(credential.user!.uid));
-    }
-    return credential;
   }
 
   Future<void> signOut() async {

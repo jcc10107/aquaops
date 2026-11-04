@@ -62,6 +62,16 @@ class MessagingService {
     });
   }
 
+  /// One-shot fetch of a single conversation, used to resolve a
+  /// conversationId (e.g. from a tapped push notification's data payload)
+  /// into the full model ChatConversationScreen needs. Returns null if the
+  /// conversation doesn't exist or isn't readable by the caller.
+  Future<ChatConversationModel?> getConversationOnce(String conversationId) async {
+    final snap = await _db.collection(_colConversations).doc(conversationId).get();
+    if (!snap.exists) return null;
+    return ChatConversationModel.fromFirestore(snap);
+  }
+
   /// Stream real-time messages for a specific conversation
   Stream<List<ChatMessageModel>> watchMessages(
       String conversationId, {

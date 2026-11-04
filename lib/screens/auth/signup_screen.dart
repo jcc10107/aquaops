@@ -74,9 +74,11 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _authService.createUserWithEmailAndPassword(
+      await _authService.signUp(
+        name: name,
         email: email,
         password: password,
+        phone: phone,
       );
       if (!mounted) return;
       AppToast.showSuccess(

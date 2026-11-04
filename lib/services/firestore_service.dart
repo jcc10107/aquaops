@@ -497,7 +497,10 @@ class FirestoreService {
   }
 
   Future<void> saveFcmToken(String uid, String token) async {
-    await _db.collection(_colUsers).doc(uid).update({'fcmToken': token});
+    // merge: true so this never throws NOT_FOUND if it runs before the
+    // user's profile doc exists yet (e.g. a signup race) — the token just
+    // waits as an orphan field until the rest of the profile is written.
+    await _db.collection(_colUsers).doc(uid).set({'fcmToken': token}, SetOptions(merge: true));
   }
 
   Future<void> deleteUserProfile(String uid) async {

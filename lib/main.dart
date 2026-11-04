@@ -1,5 +1,6 @@
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,11 +11,14 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/customer/customer_main_screen.dart';
 import 'screens/main_shell.dart';
+import 'screens/messaging/chat_conversation_screen.dart';
 import 'screens/profile/profile_screen.dart';
+import 'services/messaging_service.dart';
 import 'services/offline_queue_service.dart';
 
 final ValueNotifier<bool> isDarkModeNotifier = ValueNotifier(false);
 final ValueNotifier<String> currentUserRoleNotifier = ValueNotifier('none');
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,7 +36,33 @@ void main() async {
     );
   }
 
+  _wireNotificationTapRouting();
+
   runApp(const AquaOpsApp());
+}
+
+// Opens the relevant conversation when the user taps a chat push
+// notification — covers both "app was backgrounded, tap brings it to the
+// foreground" (onMessageOpenedApp) and "app was fully closed, tap launches
+// it" (getInitialMessage, checked once at startup). Silently does nothing
+// for notifications with no conversationId (e.g. the low-stock/unassigned
+// -order alerts from the GitHub Actions notifier) or once functions/'s
+// chat trigger isn't deployed yet.
+void _wireNotificationTapRouting() {
+  Future<void> openConversation(RemoteMessage message) async {
+    final conversationId = message.data['conversationId'] as String?;
+    if (conversationId == null) return;
+    final conversation = await MessagingService().getConversationOnce(conversationId);
+    if (conversation == null) return;
+    navigatorKey.currentState?.push(
+      MaterialPageRoute(builder: (_) => ChatConversationScreen(conversation: conversation)),
+    );
+  }
+
+  FirebaseMessaging.onMessageOpenedApp.listen(openConversation);
+  FirebaseMessaging.instance.getInitialMessage().then((message) {
+    if (message != null) openConversation(message);
+  });
 }
 
 enum ShellTab { dashboard, pos, queue, stock, refund, profile }
@@ -74,6 +104,7 @@ class AquaOpsApp extends StatelessWidget {
       builder: (context, isDark, child) {
         final baseTheme = isDark ? ThemeData.dark() : ThemeData.light();
         return MaterialApp(
+          navigatorKey: navigatorKey,
           title: 'AquaOps',
           debugShowCheckedModeBanner: false,
           themeMode: isDark ? ThemeMode.dark : ThemeMode.light,

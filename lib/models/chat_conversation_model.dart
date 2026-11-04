@@ -24,7 +24,7 @@ enum ConversationStatus {
         return ConversationStatus.completed;
       case 'open':
         return ConversationStatus.open;
-      case 'waiting_customer':
+      case 'waitingcustomer':
         return ConversationStatus.waitingCustomer;
       case 'resolved':
         return ConversationStatus.resolved;

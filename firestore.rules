@@ -132,5 +132,246 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isOwner();
     }
+
+    // ===============================================================
+    // Messaging (conversations + nested messages)
+    // ===============================================================
+    //
+    // Collection: conversations
+    // Document ID: 'order_{orderId}' for delivery chats, auto-ID for support
+    // Fields:
+    //   - type: string, 'delivery' | 'support' (immutable after create)
+    //   - orderId: string, optional (delivery chats only)
+    //   - customerId: string, required, immutable — owning customer's uid
+    //   - customerName: string, required
+    //   - assignedRiderId: string, optional — delivery chats
+    //   - assignedRiderName: string, optional
+    //   - assignedStaffId: string, optional — support chats
+    //   - assignedStaffName: string, optional
+    //   - status: string, one of active/completed/open/waitingCustomer/resolved
+    //   - supportTopic: string, optional
+    //   - lastMessageText: string, optional
+    //   - lastMessageSenderId: string, optional
+    //   - lastMessageAt: timestamp, optional
+    //   - customerUnreadCount: number
+    //   - staffOrRiderUnreadCount: number
+    //   - createdAt: timestamp, required, immutable
+    //   - updatedAt: timestamp
+    //
+    // Subcollection: conversations/{conversationId}/messages
+    // Fields:
+    //   - conversationId: string, required, must match the parent doc id
+    //   - senderId: string, required — the auth uid of the sender, or the
+    //     literal 'system' for automated status messages
+    //   - senderName: string, required
+    //   - senderRole: string, one of customer/rider/staff/owner/system
+    //   - text: string, required
+    //   - type: string, one of text/system/internalNote
+    //   - createdAt: timestamp, required
+    //
+    // KNOWN SIMPLIFICATION (documented, not hidden): this app has no Cloud
+    // Function yet that writes system messages with elevated trust, so
+    // senderId == 'system' messages are allowed straight from the client —
+    // any authorized participant of the conversation can post one. This is
+    // intentionally narrow (requires type == 'system' too) but is weaker
+    // than a true backend-only write path. Migrate to a Cloud Function
+    // trigger later and tighten this to admin-only once that exists.
+    // Internal-note visibility is NOT filtered out for customers/riders at
+    // the rules layer yet, because no screen currently creates
+    // internalNote messages — add a type-based read restriction here if
+    // that feature gets built, matched by a query-side filter in the app.
+    // ===============================================================
+
+    function conversationStatusValues() {
+      return ['active', 'completed', 'open', 'waitingCustomer', 'resolved'];
+    }
+
+    function conversationUnchangedCore() {
+      // Identity fields that must never change after the document is created.
+      return request.resource.data.customerId == resource.data.customerId
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function isValidUnreadDelta(field) {
+      // A role is only ever expected to either leave an unread counter
+      // alone, bump it by exactly 1 (new message), or clear it to 0 (read).
+      return !(field in request.resource.data.diff(resource.data).affectedKeys())
+        || request.resource.data[field] == resource.data[field] + 1
+        || request.resource.data[field] == 0;
+    }
+
+    function isValidLastMessageFields() {
+      // Shared by every update path — bounds lastMessageText/SenderId so no
+      // caller can smuggle an oversized or mistyped value through an update
+      // that only hasOnly() would otherwise have let through untyped.
+      let d = request.resource.data;
+      return (!('lastMessageText' in d) || (d.lastMessageText is string && d.lastMessageText.size() < 5000))
+        && (!('lastMessageSenderId' in d) || (d.lastMessageSenderId is string && d.lastMessageSenderId.size() < 200));
+    }
+
+    function isValidNewConversation() {
+      let d = request.resource.data;
+      return d.keys().hasOnly([
+          'type', 'orderId', 'customerId', 'customerName',
+          'assignedRiderId', 'assignedRiderName',
+          'assignedStaffId', 'assignedStaffName',
+          'status', 'supportTopic',
+          'lastMessageText', 'lastMessageSenderId', 'lastMessageAt',
+          'customerUnreadCount', 'staffOrRiderUnreadCount',
+          'createdAt', 'updatedAt'
+        ])
+        && d.type in ['delivery', 'support']
+        && d.customerId is string && d.customerId.size() > 0
+        && d.customerName is string && d.customerName.size() > 0 && d.customerName.size() < 150
+        && d.status in conversationStatusValues()
+        && d.createdAt is timestamp
+        && (!('orderId' in d) || (d.orderId is string && d.orderId.size() < 200))
+        && (!('supportTopic' in d) || (d.supportTopic is string && d.supportTopic.size() < 200))
+        && (!('assignedRiderId' in d) || (d.assignedRiderId is string && d.assignedRiderId.size() < 200))
+        && (!('customerUnreadCount' in d) || (d.customerUnreadCount is number && d.customerUnreadCount >= 0))
+        && (!('staffOrRiderUnreadCount' in d) || (d.staffOrRiderUnreadCount is number && d.staffOrRiderUnreadCount >= 0))
+        && (d.type != 'delivery' || ('orderId' in d && d.orderId is string && d.orderId.size() > 0));
+    }
+
+    function isValidCustomerConversationUpdate() {
+      // A customer's only legitimate status write is reopening a support
+      // ticket back to 'open' (see reopenSupportConversation /
+      // sendMessage's waitingCustomer->open transition) — never any other
+      // value, so this is intentionally narrower than the full enum.
+      return conversationUnchangedCore()
+        && resource.data.customerId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'updatedAt', 'lastMessageText', 'lastMessageSenderId',
+            'lastMessageAt', 'staffOrRiderUnreadCount', 'customerUnreadCount'
+          ])
+        && (!('status' in request.resource.data.diff(resource.data).affectedKeys())
+            || request.resource.data.status == 'open')
+        && isValidLastMessageFields()
+        && isValidUnreadDelta('customerUnreadCount')
+        && isValidUnreadDelta('staffOrRiderUnreadCount');
+    }
+
+    function isValidRiderConversationUpdate() {
+      return conversationUnchangedCore()
+        && resource.data.type == 'delivery'
+        && resource.data.assignedRiderId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'updatedAt', 'lastMessageText', 'lastMessageSenderId',
+            'lastMessageAt', 'staffOrRiderUnreadCount', 'customerUnreadCount'
+          ])
+        && request.resource.data.status in ['active', 'completed']
+        && isValidLastMessageFields()
+        && isValidUnreadDelta('customerUnreadCount')
+        && isValidUnreadDelta('staffOrRiderUnreadCount');
+    }
+
+    function isValidStaffConversationUpdate() {
+      return conversationUnchangedCore()
+        && request.resource.data.status in conversationStatusValues()
+        && request.resource.data.keys().hasOnly([
+            'type', 'orderId', 'customerId', 'customerName',
+            'assignedRiderId', 'assignedRiderName',
+            'assignedStaffId', 'assignedStaffName',
+            'status', 'supportTopic',
+            'lastMessageText', 'lastMessageSenderId', 'lastMessageAt',
+            'customerUnreadCount', 'staffOrRiderUnreadCount',
+            'createdAt', 'updatedAt'
+          ])
+        && isValidLastMessageFields();
+    }
+
+    function messagingParentConversation(conversationId) {
+      return get(/databases/$(database)/documents/conversations/$(conversationId)).data;
+    }
+
+    function newDeliveryConversationOrder() {
+      // orderId is required for delivery conversations by
+      // isValidNewConversation() before this ever runs.
+      return get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data;
+    }
+
+    function riderMatchesNewDeliveryConversation() {
+      // A rider self-assigning a brand-new delivery conversation must be
+      // doing so for a real order they are actually assigned to, with the
+      // customerId they claim actually matching that order's customer —
+      // otherwise nothing stops a rider from forging a chat against any
+      // customer they like.
+      let order = newDeliveryConversationOrder();
+      return order.assignedRiderId == request.auth.uid
+        && order.customerId == request.resource.data.customerId;
+    }
+
+    function customerMatchesNewDeliveryConversation() {
+      // Same idea for a customer self-creating a delivery conversation —
+      // the order must actually belong to them.
+      let order = newDeliveryConversationOrder();
+      return order.customerId == request.auth.uid;
+    }
+
+    function isConversationParticipant(conversationId) {
+      let conv = messagingParentConversation(conversationId);
+      return conv.customerId == request.auth.uid
+        || (conv.type == 'delivery' && 'assignedRiderId' in conv && conv.assignedRiderId == request.auth.uid);
+    }
+
+    function isValidMessage(conversationId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['conversationId', 'senderId', 'senderName', 'senderRole', 'text', 'type', 'createdAt'])
+        && d.conversationId == conversationId
+        && d.senderId is string && d.senderId.size() > 0
+        && d.senderName is string && d.senderName.size() > 0 && d.senderName.size() < 150
+        && d.senderRole in ['customer', 'rider', 'staff', 'owner', 'system']
+        && d.text is string && d.text.size() > 0 && d.text.size() < 5000
+        && d.type in ['text', 'system', 'internalNote']
+        && d.createdAt is timestamp;
+    }
+
+    match /conversations/{conversationId} {
+      allow read: if isStaff()
+        || (isSignedIn() && resource.data.customerId == request.auth.uid)
+        || (isRider() && resource.data.type == 'delivery' && 'assignedRiderId' in resource.data && resource.data.assignedRiderId == request.auth.uid);
+
+      allow create: if isValidNewConversation() && (
+          (request.resource.data.type == 'support' && request.resource.data.customerId == request.auth.uid)
+          || (request.resource.data.type == 'delivery' && (
+              isStaff()
+              || (isRider() && 'assignedRiderId' in request.resource.data && request.resource.data.assignedRiderId == request.auth.uid
+                  && riderMatchesNewDeliveryConversation())
+              || (isSignedIn() && request.resource.data.customerId == request.auth.uid
+                  && customerMatchesNewDeliveryConversation())
+            ))
+        );
+
+      allow update: if (isStaff() && isValidStaffConversationUpdate())
+        || isValidCustomerConversationUpdate()
+        || isValidRiderConversationUpdate();
+
+      // No delete — conversations are kept as permanent history.
+
+      match /messages/{messageId} {
+        allow read: if isStaff() || isConversationParticipant(conversationId);
+
+        allow create: if isValidMessage(conversationId) && (
+            // A normal user-authored message from a real conversation participant.
+            // Delivery chats are locked once completed (no exception here —
+            // the completion announcement itself goes through the system
+            // branch below, which is allowed regardless of status).
+            (request.resource.data.senderId == request.auth.uid
+              && request.resource.data.type in ['text', 'internalNote']
+              && (request.resource.data.type != 'internalNote' || isStaff())
+              && (isStaff() || isConversationParticipant(conversationId))
+              && (messagingParentConversation(conversationId).type != 'delivery'
+                  || messagingParentConversation(conversationId).status != 'completed'))
+            // Automated system message — see the KNOWN SIMPLIFICATION note above.
+            || (request.resource.data.senderId == 'system'
+                && request.resource.data.senderRole == 'system'
+                && request.resource.data.type == 'system'
+                && (isStaff() || isConversationParticipant(conversationId)))
+          );
+
+        // No update/delete — messages are immutable once sent.
+      }
+    }
   }
 }

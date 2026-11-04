@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import '../../core/constants/zones.dart';
 import '../../models/order_model.dart';
 import '../../services/cloudinary_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/messaging_service.dart';
 import '../../services/offline_queue_service.dart';
 import 'rider_delivery_map_screen.dart';
 
@@ -24,6 +26,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
 
   final FirestoreService _firestoreService = FirestoreService();
   final CloudinaryService _cloudinary = CloudinaryService();
+  final MessagingService _messagingService = MessagingService();
   final OfflineQueueService _offlineQueue = OfflineQueueService();
 
   late int droppedOff;
@@ -117,6 +120,10 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
         proofOfDeliveryUrl: podUrl,
         recipientName: _recipientCtrl.text.trim().isEmpty ? null : _recipientCtrl.text.trim(),
       );
+      // Best-effort — a delivery chat that fails to lock here still gets
+      // synced read-only the next time anyone opens it (see
+      // getOrCreateDeliveryConversation), so this is never load-bearing.
+      unawaited(_messagingService.lockDeliveryConversationAsCompleted(widget.order.id));
       if (!mounted) return;
       nav.pop();
       messenger.showSnackBar(const SnackBar(content: Text('Delivery Completed Successfully!')));

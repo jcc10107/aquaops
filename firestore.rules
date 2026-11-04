@@ -235,10 +235,11 @@ service cloud.firestore {
     }
 
     function isValidCustomerConversationUpdate() {
-      // A customer's only legitimate status write is reopening a support
-      // ticket back to 'open' (see reopenSupportConversation /
-      // sendMessage's waitingCustomer->open transition) — never any other
-      // value, so this is intentionally narrower than the full enum.
+      // A customer's only legitimate status writes are: reopening a
+      // support ticket back to 'open' (see reopenSupportConversation /
+      // sendMessage's waitingCustomer->open transition), or locking their
+      // own delivery chat read-only when they cancel that order
+      // (lockDeliveryConversationAsCompleted) — never any other value.
       return conversationUnchangedCore()
         && resource.data.customerId == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -246,7 +247,8 @@ service cloud.firestore {
             'lastMessageAt', 'staffOrRiderUnreadCount', 'customerUnreadCount'
           ])
         && (!('status' in request.resource.data.diff(resource.data).affectedKeys())
-            || request.resource.data.status == 'open')
+            || (resource.data.type == 'support' && request.resource.data.status == 'open')
+            || (resource.data.type == 'delivery' && request.resource.data.status == 'completed'))
         && isValidLastMessageFields()
         && isValidUnreadDelta('customerUnreadCount')
         && isValidUnreadDelta('staffOrRiderUnreadCount');
@@ -370,7 +372,16 @@ service cloud.firestore {
                 && (isStaff() || isConversationParticipant(conversationId)))
           );
 
-        // No update/delete — messages are immutable once sent.
+        // Content is immutable once sent — the one exception is the
+        // 'notified' bookkeeping flag scripts/notify_check.mjs sets after
+        // successfully pushing this message (same purpose as
+        // notifiedUnassigned/notifiedLowStock elsewhere), scoped so it can
+        // never touch anything else on the message.
+        allow update: if isStaff()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['notified'])
+          && request.resource.data.notified is bool;
+
+        // No delete — messages are permanent history.
       }
     }
   }

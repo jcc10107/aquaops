@@ -740,6 +740,12 @@ class FirestoreService {
       'closedAt': FieldValue.serverTimestamp(),
     });
 
+    unawaited(_push.notifyDispatchQueue(
+      title: 'Cash-out awaiting verification',
+      body: '$riderName submitted a shift turnover — ₱${reportedCash.toStringAsFixed(2)} reported. Review it in Rider Cash-Out.',
+      data: {'cashOutId': docRef.id},
+    ));
+
     return docRef.id;
   }
 
@@ -779,6 +785,25 @@ class FirestoreService {
       'verifiedAt': FieldValue.serverTimestamp(),
     });
 
+    final riderId = data['riderId'] as String?;
+    final riderName = data['riderName'] as String? ?? 'Rider';
+    final discrepancyNote = discrepancy == 0
+        ? 'matched exactly'
+        : '${discrepancy > 0 ? 'over' : 'short'} by ₱${discrepancy.abs().toStringAsFixed(2)}';
+    if (riderId != null && riderId.isNotEmpty) {
+      unawaited(_push.notifyUser(
+        uid: riderId,
+        title: 'Cash-out verified',
+        body: 'Your turnover was verified — $discrepancyNote.',
+        data: {'cashOutId': cashOutId},
+      ));
+    }
+    unawaited(_push.notifyDispatchQueue(
+      title: 'Rider cash-out closed',
+      body: '$riderName handed over ₱${actualCashReceived.toStringAsFixed(2)} — $discrepancyNote.',
+      data: {'cashOutId': cashOutId},
+    ));
+
     return discrepancy;
   }
 
@@ -789,12 +814,24 @@ class FirestoreService {
   }) async {
     if (rejectionReason.trim().isEmpty) throw ArgumentError('Rejection reason required.');
     final docRef = _db.collection(_colRiderCashouts).doc(cashOutId);
+    final snap = await docRef.get();
+    final riderId = snap.data()?['riderId'] as String?;
+
     await docRef.update({
       'status': 'rejected',
       'rejectionReason': rejectionReason.trim(),
       'rejectedByName': rejectedByName,
       'rejectedAt': FieldValue.serverTimestamp(),
     });
+
+    if (riderId != null && riderId.isNotEmpty) {
+      unawaited(_push.notifyUser(
+        uid: riderId,
+        title: 'Cash-out rejected',
+        body: 'Your turnover was rejected: $rejectionReason',
+        data: {'cashOutId': cashOutId},
+      ));
+    }
   }
 
   Future<double> closeRiderCashOut({
@@ -835,6 +872,16 @@ class FirestoreService {
       'closedAt': FieldValue.serverTimestamp(),
       'verifiedAt': FieldValue.serverTimestamp(),
     });
+
+    final discrepancyNote = discrepancy == 0
+        ? 'matched exactly'
+        : '${discrepancy > 0 ? 'over' : 'short'} by ₱${discrepancy.abs().toStringAsFixed(2)}';
+    unawaited(_push.notifyUser(
+      uid: riderId,
+      title: 'Cash-out closed',
+      body: 'Dispatch closed your shift turnover — $discrepancyNote.',
+      data: {'cashOutId': docRef.id},
+    ));
 
     return discrepancy;
   }
@@ -914,6 +961,13 @@ class FirestoreService {
     );
 
     await docRef.set(request.toMap());
+
+    unawaited(_push.notifyDispatchQueue(
+      title: 'Emergency transfer request',
+      body: '$riderName needs help with ${affectedOrderIds.length} ${affectedOrderIds.length == 1 ? 'delivery' : 'deliveries'} — $reason. Review it in Emergency Requests.',
+      data: {'emergencyRequestId': docRef.id},
+    ));
+
     return docRef.id;
   }
 
@@ -968,6 +1022,12 @@ class FirestoreService {
       'status': EmergencyRequestStatus.cancelled.name,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    unawaited(_push.notifyDispatchQueue(
+      title: 'Emergency request withdrawn',
+      body: '${data['riderName'] ?? 'A rider'} cancelled their emergency transfer request.',
+      data: {'emergencyRequestId': requestId},
+    ));
   }
 
   Future<void> declineEmergencyRequest({
@@ -993,6 +1053,16 @@ class FirestoreService {
       'declineReason': declineReason.trim(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    final riderId = data['riderId'] as String?;
+    if (riderId != null && riderId.isNotEmpty) {
+      unawaited(_push.notifyUser(
+        uid: riderId,
+        title: 'Emergency request declined',
+        body: declineReason.trim(),
+        data: {'emergencyRequestId': requestId},
+      ));
+    }
   }
 
   Future<int> resolveEmergencyRequestAndTransfer({
@@ -1044,6 +1114,20 @@ class FirestoreService {
     });
 
     await batch.commit();
+
+    unawaited(_push.notifyUser(
+      uid: fromRiderId,
+      title: 'Emergency request resolved',
+      body: '$count ${count == 1 ? 'delivery was' : 'deliveries were'} transferred to $toRiderName.',
+      data: {'emergencyRequestId': requestId},
+    ));
+    unawaited(_push.notifyUser(
+      uid: toRiderId,
+      title: 'Deliveries transferred to you',
+      body: '$count ${count == 1 ? 'delivery' : 'deliveries'} reassigned to you from another rider\'s emergency.',
+      data: {'emergencyRequestId': requestId},
+    ));
+
     return count;
   }
 

@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/chat_conversation_model.dart';
 import '../models/chat_message_model.dart';
 import '../models/order_model.dart';
 import '../models/user_model.dart';
+import 'push_notification_service.dart';
 
 class MessagingService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final PushNotificationService _push = PushNotificationService();
 
   static const String _colConversations = 'conversations';
   static const String _subColMessages = 'messages';
@@ -320,6 +324,25 @@ class MessagingService {
     batch.update(convRef, updates);
 
     await batch.commit();
+
+    // Same recipient logic as functions/src/index.ts's onNewChatMessage
+    // and notify_check.mjs's chat section — this is just the real-time
+    // path; those remain as backups if this call fails.
+    final customerId = convData['customerId'] as String?;
+    final notifData = {'conversationId': conversationId, 'click_action': 'FLUTTER_NOTIFICATION_CLICK'};
+    if (type == ConversationType.delivery) {
+      final recipientId = senderId == customerId ? convData['assignedRiderId'] as String? : customerId;
+      if (recipientId != null && recipientId.isNotEmpty && recipientId != senderId) {
+        unawaited(_push.notifyUser(uid: recipientId, title: senderName, body: cleanText, data: notifData));
+      }
+    } else if (isCustomer && (convData['assignedStaffId'] as String?)?.isEmpty != false) {
+      unawaited(_push.notifyDispatchQueue(title: senderName, body: cleanText, data: notifData));
+    } else {
+      final recipientId = isCustomer ? convData['assignedStaffId'] as String? : customerId;
+      if (recipientId != null && recipientId.isNotEmpty && recipientId != senderId) {
+        unawaited(_push.notifyUser(uid: recipientId, title: senderName, body: cleanText, data: notifData));
+      }
+    }
   }
 
   /// Mark conversation as read

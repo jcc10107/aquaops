@@ -103,14 +103,26 @@ service cloud.firestore {
     }
 
     match /rider_cashouts/{cashOutId} {
-      allow read: if isStaff();
-      allow create: if isStaff();
-      // Narrow exception for scripts/notify_check.mjs to mark a cash-out
-      // as already pushed to the dispatch queue — same pattern as the
-      // 'notified' flag on messages, orders, and inventory.
-      allow update: if isStaff()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['notified'])
-        && request.resource.data.notified is bool;
+      // Two real flows write here:
+      //  - A rider submits their own shift-end turnover as a 'pending'
+      //    doc (submitRiderCashOutRequest), and can cancel it themselves
+      //    while it's still pending (cancelRiderCashOutRequest).
+      //  - Staff either verifies+closes that pending doc
+      //    (verifyAndCloseRiderCashOut, an update) or, if a rider never
+      //    filed one, closes it directly as a fresh 'completed' doc
+      //    (closeRiderCashOut, a create) — both already-trusted staff
+      //    actions, so left broad like this project's other staff writes
+      //    (orders, inventory) rather than enumerating every field.
+      allow read: if isStaff()
+        || (isRider() && resource.data.riderId == request.auth.uid);
+      allow create: if isStaff()
+        || (isRider()
+            && request.resource.data.riderId == request.auth.uid
+            && request.resource.data.status == 'pending');
+      allow update: if isStaff();
+      allow delete: if isRider()
+        && resource.data.riderId == request.auth.uid
+        && resource.data.status == 'pending';
     }
 
     match /refund_requests/{refundId} {

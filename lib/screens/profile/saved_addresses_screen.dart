@@ -258,6 +258,68 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                       ),
                       const SizedBox(height: 16),
 
+                      Text(
+                        'Exact Pin Location *',
+                        style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: _locationError != null ? AppColors.coralAlert : AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: 6),
+                      if (_pinnedLocation != null)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFBBF7D0)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle, size: 18, color: Color(0xFF16A34A)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _pinnedLocation!.address,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF15803D)),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _pinLocationOnMap,
+                                child: const Text('Change', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _pinLocationOnMap,
+                            icon: const Icon(Icons.pin_drop_outlined, size: 18),
+                            label: const Text('Pin Exact Location on Map', style: TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primarySky,
+                              side: BorderSide(color: _locationError != null ? AppColors.coralAlert : AppColors.primarySky),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                      if (_locationError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4, top: 4),
+                          child: Text(_locationError!, style: const TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.coralAlert)),
+                        )
+                      else
+                        const Padding(
+                          padding: EdgeInsets.only(left: 4, top: 4),
+                          child: Text(
+                            'Pin it first — the barangay and street below fill in automatically.',
+                            style: TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.textSecondary),
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+
                       const Text('Barangay (San Pablo City) *', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
                       const SizedBox(height: 6),
                       StreamBuilder<bool>(
@@ -331,68 +393,6 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                           errorText: _streetError,
                         ),
                       ),
-                      const SizedBox(height: 16),
-
-                      Text(
-                        'Exact Pin Location *',
-                        style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: _locationError != null ? AppColors.coralAlert : AppColors.textSecondary),
-                      ),
-                      const SizedBox(height: 6),
-                      if (_pinnedLocation != null)
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF0FDF4),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFBBF7D0)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.check_circle, size: 18, color: Color(0xFF16A34A)),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _pinnedLocation!.address,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF15803D)),
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: _pinLocationOnMap,
-                                child: const Text('Change', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold)),
-                              ),
-                            ],
-                          ),
-                        )
-                      else
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _pinLocationOnMap,
-                            icon: const Icon(Icons.pin_drop_outlined, size: 18),
-                            label: const Text('Pin Exact Location on Map', style: TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.bold)),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.primarySky,
-                              side: BorderSide(color: _locationError != null ? AppColors.coralAlert : AppColors.primarySky),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                          ),
-                        ),
-                      if (_locationError != null)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 4, top: 4),
-                          child: Text(_locationError!, style: const TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.coralAlert)),
-                        )
-                      else
-                        const Padding(
-                          padding: EdgeInsets.only(left: 4, top: 4),
-                          child: Text(
-                            'Required so the rider gets your precise location instead of just the typed address.',
-                            style: TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.textSecondary),
-                          ),
-                        ),
                       const SizedBox(height: 16),
 
                       const Text('Landmark & Delivery Instructions (Optional)', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),

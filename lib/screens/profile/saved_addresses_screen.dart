@@ -65,7 +65,6 @@ class _AddAddressSheet extends StatefulWidget {
 
 class _AddAddressSheetState extends State<_AddAddressSheet> {
   final FirestoreService _firestoreService = FirestoreService();
-  final LocationService _locationService = LocationService();
   String _tag = 'Home';
   String? _barangay;
   bool _isPrimary = false;
@@ -73,7 +72,6 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
   String? _streetError;
   String? _locationError;
   PreciseLocation? _pinnedLocation;
-  bool _locating = false;
 
   final TextEditingController _streetCtrl = TextEditingController();
   final TextEditingController _landmarkCtrl = TextEditingController();
@@ -92,28 +90,46 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
   }
 
   Future<void> _pinLocationOnMap() async {
-    setState(() => _locating = true);
-    double lat = stationLat;
-    double lng = stationLng;
-    try {
-      final position = await _locationService.getCurrentPosition();
-      lat = position.latitude;
-      lng = position.longitude;
-    } catch (_) {
-      // Fall back to the station's coordinates as a starting point — the
-      // rider can still drag the pin to the right spot manually.
-    }
-    if (!mounted) return;
-    setState(() => _locating = false);
+    // Opens immediately centered on the station — waiting on a
+    // high-accuracy GPS fix here (up to 20s, and often slow on desktop
+    // browsers with no real GPS chip) just to pick a starting point isn't
+    // worth the delay, since the map's own GPS button and manual drag
+    // already get the user to the right spot.
     final result = await Navigator.push<PreciseLocation>(
       context,
-      MaterialPageRoute(builder: (_) => LocationPickerMapScreen(initialLat: lat, initialLng: lng)),
+      MaterialPageRoute(builder: (_) => const LocationPickerMapScreen(initialLat: stationLat, initialLng: stationLng)),
     );
     if (result == null || !mounted) return;
     setState(() {
       _pinnedLocation = result;
       _locationError = null;
+      // Reuse the reverse-geocoded address so the rider only has to touch
+      // the landmark/recipient fields — not retype what the pin already
+      // tells us.
+      if (_streetCtrl.text.trim().isEmpty) {
+        _streetCtrl.text = result.address;
+      }
+      final matchedBarangay = _matchBarangay(result.address);
+      if (matchedBarangay != null) {
+        _barangay = matchedBarangay;
+        _barangayError = null;
+        _barangayFreeTextCtrl.text = matchedBarangay;
+      }
     });
+  }
+
+  // Best-effort match of a reverse-geocoded address string against the
+  // official barangay list, so the dropdown can pre-select itself. Not
+  // guaranteed to find one (OSM's phrasing varies) — the field stays
+  // editable either way.
+  String? _matchBarangay(String address) {
+    final lower = address.toLowerCase();
+    final sortedByLength = [...sanPabloBarangays]..sort((a, b) => b.length.compareTo(a.length));
+    for (final b in sortedByLength) {
+      final bareName = b.replaceFirst(RegExp(r'^(Barangay|Brgy\.?)\s+', caseSensitive: false), '').toLowerCase().trim();
+      if (bareName.isNotEmpty && lower.contains(bareName)) return b;
+    }
+    return null;
   }
 
   void _submit() {
@@ -262,6 +278,13 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                           return SizedBox(
                             width: double.infinity,
                             child: DropdownMenu<String>(
+                              // DropdownMenu only reads initialSelection on
+                              // its first build — keying by the current
+                              // value forces a fresh widget (and a fresh
+                              // read of it) whenever pinning a location
+                              // auto-fills _barangay, so the field visibly
+                              // updates instead of silently staying blank.
+                              key: ValueKey(_barangay),
                               initialSelection: _barangay,
                               menuHeight: 300,
                               enableFilter: true,
@@ -336,7 +359,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                                 ),
                               ),
                               TextButton(
-                                onPressed: _locating ? null : _pinLocationOnMap,
+                                onPressed: _pinLocationOnMap,
                                 child: const Text('Change', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold)),
                               ),
                             ],
@@ -346,10 +369,8 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton.icon(
-                            onPressed: _locating ? null : _pinLocationOnMap,
-                            icon: _locating
-                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                                : const Icon(Icons.pin_drop_outlined, size: 18),
+                            onPressed: _pinLocationOnMap,
+                            icon: const Icon(Icons.pin_drop_outlined, size: 18),
                             label: const Text('Pin Exact Location on Map', style: TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.bold)),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppColors.primarySky,

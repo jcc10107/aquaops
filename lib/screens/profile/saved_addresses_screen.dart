@@ -309,14 +309,6 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                         Padding(
                           padding: const EdgeInsets.only(left: 4, top: 4),
                           child: Text(_locationError!, style: const TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.coralAlert)),
-                        )
-                      else
-                        const Padding(
-                          padding: EdgeInsets.only(left: 4, top: 4),
-                          child: Text(
-                            'Pin it first — the barangay and street below fill in automatically.',
-                            style: TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.textSecondary),
-                          ),
                         ),
                       const SizedBox(height: 16),
 

@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local-only dev secrets (never commit the WORKER_SECRET value itself)
+run_dev.ps1

@@ -1,6 +1,14 @@
 /**
  * Aqua Ops — Free FCM Push Notification Worker
  * Runs natively in Cloudflare Workers using WebCrypto RS256
+ *
+ * Called directly by the Flutter app right after a write that should
+ * notify someone, for real-time delivery instead of GitHub Actions'
+ * ~15-min poll. Request body:
+ *   { recipientId, title, messageText, conversationId?, data? }         - one user
+ *   { recipientIds: [...], title, messageText, ... }                    - several specific users
+ *   { broadcastRoles: ['staff','owner'], title, messageText, ... }      - everyone with these roles
+ * Exactly one of recipientId / recipientIds / broadcastRoles is required.
  */
 
 export default {
@@ -24,71 +32,57 @@ export default {
       }
 
       const body = await request.json();
-      const { recipientId, title, messageText, conversationId } = body;
+      const { recipientId, recipientIds, broadcastRoles, title, messageText, conversationId, data } = body;
 
-      if (!recipientId || !messageText) {
-        return new Response(JSON.stringify({ error: 'Missing recipientId or messageText' }), {
+      if (!messageText) {
+        return new Response(JSON.stringify({ error: 'Missing messageText' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      if (!recipientId && !recipientIds && !broadcastRoles) {
+        return new Response(JSON.stringify({ error: 'Provide recipientId, recipientIds, or broadcastRoles' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
         });
       }
 
-      // 2. Query recipient's FCM token from Firestore REST API
-      const tokenUrl = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${recipientId}`;
-      const userRes = await fetch(tokenUrl);
-      if (!userRes.ok) {
-        return new Response(JSON.stringify({ error: 'User record not found in Firestore' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      const userData = await userRes.json();
-      const fcmToken = userData.fields?.fcmToken?.stringValue;
-
-      if (!fcmToken) {
-        return new Response(JSON.stringify({ message: 'No registered FCM token found for user' }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      // 3. Obtain Google OAuth2 Access Token
+      // 2. One OAuth2 token, scoped for both FCM sends and authenticated
+      // Firestore REST reads — a service-account Bearer token reads
+      // Firestore directly via Google Cloud IAM, bypassing security rules
+      // the same way the Admin SDK does, so this works even though the
+      // users collection requires isSignedIn() for normal client reads.
       const accessToken = await getGoogleOAuth2Token(
         env.FIREBASE_CLIENT_EMAIL,
-        env.FIREBASE_PRIVATE_KEY
+        env.FIREBASE_PRIVATE_KEY,
+      );
+      const firestoreHeaders = { Authorization: `Bearer ${accessToken}` };
+
+      // 3. Resolve the target uid(s) to FCM tokens.
+      let uids;
+      if (broadcastRoles) {
+        uids = await queryUidsByRole(env.FIREBASE_PROJECT_ID, firestoreHeaders, broadcastRoles);
+      } else {
+        uids = recipientIds ?? [recipientId];
+      }
+
+      const tokens = (
+        await Promise.all(uids.map((uid) => getFcmToken(env.FIREBASE_PROJECT_ID, firestoreHeaders, uid)))
+      ).filter(Boolean);
+
+      if (tokens.length === 0) {
+        return new Response(JSON.stringify({ message: 'No registered FCM token(s) found for the given recipient(s)' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      // 4. Send FCM Push Notification(s) via Google HTTP v1, in parallel.
+      const results = await Promise.all(
+        tokens.map((token) => sendFcm(env.FIREBASE_PROJECT_ID, accessToken, token, title, messageText, conversationId, data)),
       );
 
-      // 4. Send FCM Push Notification via Google HTTP v1
-      const fcmPayload = {
-        message: {
-          token: fcmToken,
-          notification: {
-            title: title || 'Aqua Ops Message',
-            body: messageText,
-          },
-          data: {
-            conversationId: conversationId || '',
-            click_action: 'FLUTTER_NOTIFICATION_CLICK',
-          },
-        },
-      };
-
-      const fcmRes = await fetch(
-        `https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(fcmPayload),
-        }
-      );
-
-      const fcmResult = await fcmRes.json();
-
-      return new Response(JSON.stringify({ success: true, result: fcmResult }), {
+      return new Response(JSON.stringify({ success: true, sent: results.length, results }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -102,13 +96,80 @@ export default {
   },
 };
 
+async function getFcmToken(projectId, firestoreHeaders, uid) {
+  const res = await fetch(
+    `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`,
+    { headers: firestoreHeaders },
+  );
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.fields?.fcmToken?.stringValue ?? null;
+}
+
+async function queryUidsByRole(projectId, firestoreHeaders, roles) {
+  const res = await fetch(
+    `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`,
+    {
+      method: 'POST',
+      headers: { ...firestoreHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        structuredQuery: {
+          from: [{ collectionId: 'users' }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: 'role' },
+              op: 'IN',
+              value: { arrayValue: { values: roles.map((r) => ({ stringValue: r })) } },
+            },
+          },
+        },
+      }),
+    },
+  );
+  if (!res.ok) return [];
+  const rows = await res.json();
+  return rows
+    .filter((row) => row.document)
+    .map((row) => row.document.name.split('/').pop());
+}
+
+async function sendFcm(projectId, accessToken, token, title, messageText, conversationId, extraData) {
+  const fcmPayload = {
+    message: {
+      token,
+      notification: {
+        title: title || 'Aqua Ops Message',
+        body: messageText,
+      },
+      data: {
+        ...(extraData ?? {}),
+        ...(conversationId ? { conversationId } : {}),
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+    },
+  };
+
+  const fcmRes = await fetch(
+    `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(fcmPayload),
+    },
+  );
+  return fcmRes.json();
+}
+
 // ── Native RS256 JWT & OAuth 2.0 Generator ───────────────────────────
 async function getGoogleOAuth2Token(clientEmail, privateKeyPem) {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: 'RS256', typ: 'JWT' };
   const claim = {
     iss: clientEmail,
-    scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    scope: 'https://www.googleapis.com/auth/firebase.messaging https://www.googleapis.com/auth/datastore.readonly',
     aud: 'https://oauth2.googleapis.com/token',
     exp: now + 3600,
     iat: now,

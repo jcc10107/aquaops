@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/constants/zones.dart';
 import '../models/branch_model.dart';
@@ -9,9 +11,11 @@ import '../models/rider_cash_out_model.dart';
 import '../models/saved_address_model.dart';
 import '../models/shift_model.dart';
 import '../models/user_model.dart';
+import 'push_notification_service.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final PushNotificationService _push = PushNotificationService();
 
   // ── Collection names ──────────────────────────────────────────────
   static const String _colInventory = 'inventory';
@@ -244,6 +248,12 @@ class FirestoreService {
       'createdAt': FieldValue.serverTimestamp(),
     });
 
+    unawaited(_push.notifyDispatchQueue(
+      title: 'New order placed',
+      body: '$orderNumber from $customerName needs processing.',
+      data: {'orderId': orderRef.id},
+    ));
+
     return orderNumber;
   }
 
@@ -289,14 +299,25 @@ class FirestoreService {
 
   Future<void> cancelOrder(String orderId) async {
     final orderRef = _db.collection(_colOrders).doc(orderId);
+    String? orderNumber;
     await _db.runTransaction((transaction) async {
       final snap = await transaction.get(orderRef);
       if (!snap.exists) return;
       if (snap.data()?['status'] == 'delivered') {
         throw Exception('Delivered orders cannot be cancelled.');
       }
+      orderNumber = snap.data()?['orderNumber'] as String?;
       transaction.update(orderRef, {'status': 'cancelled'});
     });
+
+    // The customer is the one cancelling here — no point telling them
+    // about their own action — but dispatch needs to know so nobody
+    // preps or sends a rider for it.
+    unawaited(_push.notifyDispatchQueue(
+      title: 'Order cancelled',
+      body: '${orderNumber ?? 'An order'} was cancelled by the customer.',
+      data: {'orderId': orderId},
+    ));
   }
 
   Future<void> confirmOrderReceived({
@@ -347,6 +368,7 @@ class FirestoreService {
     String? recipientName,
   }) async {
     final orderRef = _db.collection(_colOrders).doc(orderId);
+    String orderNumber = '';
 
     await _db.runTransaction((transaction) async {
       final orderSnap = await transaction.get(orderRef);
@@ -354,6 +376,7 @@ class FirestoreService {
         throw Exception('Order not found.');
       }
       final data = orderSnap.data()!;
+      orderNumber = data['orderNumber'] as String? ?? '';
       final currentStatus = data['status'] as String?;
       if (currentStatus == 'delivered' || currentStatus == 'cancelled' || data['stockDeductedAt'] != null) {
         throw Exception('This delivery was already processed.');
@@ -446,6 +469,15 @@ class FirestoreService {
         });
       }
     });
+
+    if (customerId.isNotEmpty) {
+      unawaited(_push.notifyUser(
+        uid: customerId,
+        title: 'Order update',
+        body: 'Your order $orderNumber has been delivered. Thank you for choosing Aqua Ops!',
+        data: {'orderId': orderId},
+      ));
+    }
   }
 
   // ── Team ──────────────────────────────────────────────────────────
@@ -469,11 +501,33 @@ class FirestoreService {
     required String riderId,
     required String riderName,
   }) async {
-    await _db.collection(_colOrders).doc(orderId).update({
+    final orderRef = _db.collection(_colOrders).doc(orderId);
+    await orderRef.update({
       'assignedRiderId': riderId,
       'assignedRiderName': riderName,
       'status': 'outForDelivery',
     });
+
+    final snap = await orderRef.get();
+    final data = snap.data();
+    if (data == null) return;
+    final orderNumber = data['orderNumber'] as String? ?? '';
+    final customerId = data['customerId'] as String?;
+
+    if (customerId != null && customerId.isNotEmpty) {
+      unawaited(_push.notifyUser(
+        uid: customerId,
+        title: 'Order update',
+        body: 'Your order $orderNumber is out for delivery!',
+        data: {'orderId': orderId},
+      ));
+    }
+    unawaited(_push.notifyUser(
+      uid: riderId,
+      title: 'New delivery assigned',
+      body: 'You\'ve been assigned $orderNumber.',
+      data: {'orderId': orderId},
+    ));
   }
 
   // ── Users ─────────────────────────────────────────────────────────

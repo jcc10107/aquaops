@@ -41,6 +41,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
   bool _loading = true;
   bool _locating = false;
   bool _isApproximateLocation = false;
+  bool _navigationStarted = false;
   String? _statusMessage;
 
   // Keeps this screen's own position live without the rider having to tap
@@ -238,56 +239,22 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
     }
   }
 
-  Future<void> _startExternalNavigation() async {
-    final dest = _destination;
-    final fullAddress = widget.order.deliveryAddress?.trim() ?? '';
-
-    Uri navUri;
-    Uri webUri;
-
-    // If exact coordinates are available, launch via lat/lng
-    if (dest != null && !_isApproximateLocation) {
-      final double lat = dest.latitude;
-      final double lng = dest.longitude;
-      navUri = Uri.parse('google.navigation:q=$lat,$lng&mode=d');
-      webUri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
-    } else if (fullAddress.isNotEmpty) {
-      // If address is unparsed, pass the query directly to Google Maps
-      final encodedQuery = Uri.encodeComponent('$fullAddress, San Pablo City');
-      navUri = Uri.parse('google.navigation:q=$encodedQuery&mode=d');
-      webUri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$encodedQuery');
-    } else {
-      final double lat = dest?.latitude ?? _sanPabloCenter.latitude;
-      final double lng = dest?.longitude ?? _sanPabloCenter.longitude;
-      navUri = Uri.parse('google.navigation:q=$lat,$lng&mode=d');
-      webUri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+  // Stays entirely in-app — the live map above this button (with
+  // auto-refreshing position/route from _autoRefresh) IS the navigation
+  // view. This just forces an immediate refresh instead of waiting for
+  // the next 20s tick, re-centers on the rider, and gives clear
+  // confirmation that the customer can now see them moving. No hand-off
+  // to an external maps app.
+  Future<void> _startInAppNavigation() async {
+    setState(() => _navigationStarted = true);
+    await _autoRefresh();
+    if (!mounted) return;
+    if (_riderPos != null) {
+      _mapController.move(_riderPos!, 17);
     }
-
-    try {
-      if (await canLaunchUrl(navUri)) {
-        await launchUrl(navUri);
-      } else if (await canLaunchUrl(webUri)) {
-        await launchUrl(webUri, mode: LaunchMode.externalApplication);
-      } else {
-        throw 'No navigation app found';
-      }
-    } catch (_) {
-      // Safe fallback: open in browser search
-      if (fullAddress.isNotEmpty) {
-        final searchUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(fullAddress)}');
-        if (await canLaunchUrl(searchUri)) {
-          await launchUrl(searchUri, mode: LaunchMode.externalApplication);
-          return;
-        }
-      }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open navigation application.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Navigation started — the customer can now see your live location.')),
+    );
   }
 
   Future<void> _callCustomer() async {
@@ -726,9 +693,12 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                             child: SizedBox(
                               height: 48,
                               child: OutlinedButton.icon(
-                                onPressed: _startExternalNavigation,
-                                icon: const Icon(Icons.navigation_outlined, size: 18),
-                                label: const Text('Start Navigation', style: TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.bold)),
+                                onPressed: _navigationStarted ? null : _startInAppNavigation,
+                                icon: Icon(_navigationStarted ? Icons.navigation : Icons.navigation_outlined, size: 18),
+                                label: Text(
+                                  _navigationStarted ? 'Navigating…' : 'Start Navigation',
+                                  style: const TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.bold),
+                                ),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppColors.primarySky,
                                   side: const BorderSide(color: AppColors.primarySky, width: 1.5),

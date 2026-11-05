@@ -343,24 +343,40 @@ async function main() {
     console.log(`Notified: chat message in ${conversationId}`);
   }
 
-  // Rider cash-out settlements — closeRiderCashOut() writes status:
-  // 'completed' immediately (it's staff physically counting the rider's
-  // cash at the counter, not a pending request), so every doc here is
-  // already a finished settlement the rest of the team should know about.
-  const newCashOuts = cashOuts.filter((c) => !field(c, 'notified'));
+  // Rider cash-out activity — two shapes reach this collection:
+  //  - 'pending': a rider just submitted their own shift turnover
+  //    (submitRiderCashOutRequest) and is waiting on dispatch to verify
+  //    it. cashHandedOver/discrepancy don't exist yet at this point.
+  //  - 'completed': either that pending request got verified+closed, or
+  //    staff closed one directly with no prior rider submission — either
+  //    way cashHandedOver/discrepancy are set.
+  // Tracked by the last status actually notified (same idea as order
+  // notifiedStatus), not a plain boolean — so a submission that gets
+  // notified as 'pending' still gets a second, separate notification once
+  // it moves to 'completed', instead of being silently skipped.
+  const newCashOuts = cashOuts.filter((c) => field(c, 'notifiedStatus') !== field(c, 'status'));
   for (const cashOut of newCashOuts) {
-    const discrepancy = field(cashOut, 'discrepancy') ?? 0;
-    const discrepancyNote = discrepancy === 0
-      ? 'matched exactly'
-      : `${discrepancy > 0 ? 'over' : 'short'} by ₱${Math.abs(discrepancy).toFixed(2)}`;
-    const title = 'Rider cash-out closed';
-    const body = `${field(cashOut, 'riderName') ?? 'A rider'} handed over ₱${(field(cashOut, 'cashHandedOver') ?? 0).toFixed(2)} — ${discrepancyNote}.`;
+    const riderName = field(cashOut, 'riderName') ?? 'A rider';
+    const status = field(cashOut, 'status');
+    let title;
+    let body;
+    if (status === 'pending') {
+      title = 'Cash-out awaiting verification';
+      body = `${riderName} submitted a shift turnover — ₱${(field(cashOut, 'reportedCash') ?? field(cashOut, 'cashCollected') ?? 0).toFixed(2)} reported. Review it in Rider Cash-Out.`;
+    } else {
+      const discrepancy = field(cashOut, 'discrepancy') ?? 0;
+      const discrepancyNote = discrepancy === 0
+        ? 'matched exactly'
+        : `${discrepancy > 0 ? 'over' : 'short'} by ₱${Math.abs(discrepancy).toFixed(2)}`;
+      title = 'Rider cash-out closed';
+      body = `${riderName} handed over ₱${(field(cashOut, 'cashHandedOver') ?? 0).toFixed(2)} — ${discrepancyNote}.`;
+    }
     if (!(await pushToDispatchQueue(title, body, { cashOutId: docId(cashOut) }))) {
       console.error(`Skipping markNotified for cash-out ${docId(cashOut)} - every push failed, will retry next run.`);
       continue;
     }
-    await patchField(idToken, `rider_cashouts/${docId(cashOut)}`, 'notified', true);
-    console.log(`Notified: ${title} - ${field(cashOut, 'riderName')}`);
+    await patchField(idToken, `rider_cashouts/${docId(cashOut)}`, 'notifiedStatus', status);
+    console.log(`Notified: ${title} - ${riderName}`);
   }
 
   if (

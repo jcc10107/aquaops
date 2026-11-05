@@ -1010,6 +1010,8 @@ class FirestoreService {
     String? contactName,
     String? phone,
     bool isPrimary = false,
+    double? latitude,
+    double? longitude,
   }) async {
     final addressesRef = _userAddressRef(uid);
     final newAddress = SavedAddressModel(
@@ -1020,6 +1022,8 @@ class FirestoreService {
       contactName: contactName,
       phone: phone,
       isPrimary: isPrimary,
+      latitude: latitude,
+      longitude: longitude,
     ).toMap();
 
     if (!isPrimary) {

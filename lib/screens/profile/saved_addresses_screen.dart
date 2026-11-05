@@ -4,6 +4,8 @@ import '../../core/constants/zones.dart';
 import '../../core/utils/app_toast.dart';
 import '../../models/saved_address_model.dart';
 import '../../services/firestore_service.dart';
+import '../../services/location_service.dart';
+import '../customer/location_picker_map_screen.dart';
 
 const String _font = 'Plus Jakarta Sans';
 
@@ -15,6 +17,8 @@ class _NewAddress {
   final String contact;
   final String phone;
   final bool isPrimary;
+  final double latitude;
+  final double longitude;
 
   const _NewAddress({
     required this.label,
@@ -24,6 +28,8 @@ class _NewAddress {
     required this.contact,
     required this.phone,
     required this.isPrimary,
+    required this.latitude,
+    required this.longitude,
   });
 }
 
@@ -59,11 +65,15 @@ class _AddAddressSheet extends StatefulWidget {
 
 class _AddAddressSheetState extends State<_AddAddressSheet> {
   final FirestoreService _firestoreService = FirestoreService();
+  final LocationService _locationService = LocationService();
   String _tag = 'Home';
   String? _barangay;
   bool _isPrimary = false;
   String? _barangayError;
   String? _streetError;
+  String? _locationError;
+  PreciseLocation? _pinnedLocation;
+  bool _locating = false;
 
   final TextEditingController _streetCtrl = TextEditingController();
   final TextEditingController _landmarkCtrl = TextEditingController();
@@ -81,13 +91,39 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
     super.dispose();
   }
 
+  Future<void> _pinLocationOnMap() async {
+    setState(() => _locating = true);
+    double lat = stationLat;
+    double lng = stationLng;
+    try {
+      final position = await _locationService.getCurrentPosition();
+      lat = position.latitude;
+      lng = position.longitude;
+    } catch (_) {
+      // Fall back to the station's coordinates as a starting point — the
+      // rider can still drag the pin to the right spot manually.
+    }
+    if (!mounted) return;
+    setState(() => _locating = false);
+    final result = await Navigator.push<PreciseLocation>(
+      context,
+      MaterialPageRoute(builder: (_) => LocationPickerMapScreen(initialLat: lat, initialLng: lng)),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _pinnedLocation = result;
+      _locationError = null;
+    });
+  }
+
   void _submit() {
     final street = _streetCtrl.text.trim();
     setState(() {
       _barangayError = (_barangay == null || _barangay!.isEmpty) ? 'Please select a barangay.' : null;
       _streetError = street.isEmpty ? 'Street address is required.' : null;
+      _locationError = _pinnedLocation == null ? 'Pin the exact delivery location on the map.' : null;
     });
-    if (_barangayError != null || _streetError != null) return;
+    if (_barangayError != null || _streetError != null || _locationError != null) return;
     Navigator.pop(
       context,
       _NewAddress(
@@ -98,6 +134,8 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
         contact: _contactCtrl.text.trim(),
         phone: _phoneCtrl.text.trim(),
         isPrimary: _isPrimary,
+        latitude: _pinnedLocation!.latitude,
+        longitude: _pinnedLocation!.longitude,
       ),
     );
   }
@@ -272,6 +310,70 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                       ),
                       const SizedBox(height: 16),
 
+                      Text(
+                        'Exact Pin Location *',
+                        style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: _locationError != null ? AppColors.coralAlert : AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: 6),
+                      if (_pinnedLocation != null)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFBBF7D0)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle, size: 18, color: Color(0xFF16A34A)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _pinnedLocation!.address,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF15803D)),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _locating ? null : _pinLocationOnMap,
+                                child: const Text('Change', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _locating ? null : _pinLocationOnMap,
+                            icon: _locating
+                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Icon(Icons.pin_drop_outlined, size: 18),
+                            label: const Text('Pin Exact Location on Map', style: TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primarySky,
+                              side: BorderSide(color: _locationError != null ? AppColors.coralAlert : AppColors.primarySky),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                      if (_locationError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4, top: 4),
+                          child: Text(_locationError!, style: const TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.coralAlert)),
+                        )
+                      else
+                        const Padding(
+                          padding: EdgeInsets.only(left: 4, top: 4),
+                          child: Text(
+                            'Required so the rider gets your precise location instead of just the typed address.',
+                            style: TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.textSecondary),
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+
                       const Text('Landmark & Delivery Instructions (Optional)', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
                       const SizedBox(height: 6),
                       TextField(
@@ -412,6 +514,8 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
         contactName: result.contact.isEmpty ? null : result.contact,
         phone: result.phone.isEmpty ? null : result.phone,
         isPrimary: result.isPrimary,
+        latitude: result.latitude,
+        longitude: result.longitude,
       );
       if (mounted) {
         AppToast.showSuccess(context, 'Delivery address saved successfully!');

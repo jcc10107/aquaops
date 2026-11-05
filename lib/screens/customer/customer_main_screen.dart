@@ -352,8 +352,13 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                                   onTap: () {
                                     setState(() {
                                       _currentAddress = address.addressText;
-                                      _currentLat = null;
-                                      _currentLng = null;
+                                      // Use the precise pin saved with this
+                                      // address when it has one; older
+                                      // addresses saved before pinning was
+                                      // required fall back to geocoding the
+                                      // typed text, same as before.
+                                      _currentLat = address.latitude;
+                                      _currentLng = address.longitude;
                                     });
                                     Navigator.pop(sheetContext);
                                   },

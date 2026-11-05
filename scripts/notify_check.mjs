@@ -193,11 +193,12 @@ async function sendPush(accessToken, token, title, body, data) {
 async function main() {
   const [idToken, accessToken] = await Promise.all([signInIdToken(), getFcmAccessToken()]);
 
-  const [users, orders, inventory, messages] = await Promise.all([
+  const [users, orders, inventory, messages, cashOuts] = await Promise.all([
     listDocuments(idToken, 'users'),
     listDocuments(idToken, 'orders'),
     listDocuments(idToken, 'inventory'),
     listCollectionGroup(idToken, 'messages'),
+    listDocuments(idToken, 'rider_cashouts'),
   ]);
   // Needed to resolve each message's recipient — read once, reused below.
   const conversations = await listDocuments(idToken, 'conversations');
@@ -342,9 +343,29 @@ async function main() {
     console.log(`Notified: chat message in ${conversationId}`);
   }
 
+  // Rider cash-out settlements — closeRiderCashOut() writes status:
+  // 'completed' immediately (it's staff physically counting the rider's
+  // cash at the counter, not a pending request), so every doc here is
+  // already a finished settlement the rest of the team should know about.
+  const newCashOuts = cashOuts.filter((c) => !field(c, 'notified'));
+  for (const cashOut of newCashOuts) {
+    const discrepancy = field(cashOut, 'discrepancy') ?? 0;
+    const discrepancyNote = discrepancy === 0
+      ? 'matched exactly'
+      : `${discrepancy > 0 ? 'over' : 'short'} by ₱${Math.abs(discrepancy).toFixed(2)}`;
+    const title = 'Rider cash-out closed';
+    const body = `${field(cashOut, 'riderName') ?? 'A rider'} handed over ₱${(field(cashOut, 'cashHandedOver') ?? 0).toFixed(2)} — ${discrepancyNote}.`;
+    if (!(await pushToDispatchQueue(title, body, { cashOutId: docId(cashOut) }))) {
+      console.error(`Skipping markNotified for cash-out ${docId(cashOut)} - every push failed, will retry next run.`);
+      continue;
+    }
+    await patchField(idToken, `rider_cashouts/${docId(cashOut)}`, 'notified', true);
+    console.log(`Notified: ${title} - ${field(cashOut, 'riderName')}`);
+  }
+
   if (
     unassigned.length === 0 && lowStock.length === 0 && newOrders.length === 0
-    && statusChanges.length === 0 && newMessages.length === 0
+    && statusChanges.length === 0 && newMessages.length === 0 && newCashOuts.length === 0
   ) {
     console.log('Nothing to notify.');
   }

@@ -105,6 +105,12 @@ service cloud.firestore {
     match /rider_cashouts/{cashOutId} {
       allow read: if isStaff();
       allow create: if isStaff();
+      // Narrow exception for scripts/notify_check.mjs to mark a cash-out
+      // as already pushed to the dispatch queue — same pattern as the
+      // 'notified' flag on messages, orders, and inventory.
+      allow update: if isStaff()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['notified'])
+        && request.resource.data.notified is bool;
     }
 
     match /refund_requests/{refundId} {

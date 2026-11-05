@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -42,10 +43,74 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
   bool _isApproximateLocation = false;
   String? _statusMessage;
 
+  // Keeps this screen's own position live without the rider having to tap
+  // "recenter" themselves — ticks every 20s; every 3rd tick (~60s) also
+  // re-fetches the OSRM route/ETA, since re-requesting the free public
+  // OSRM instance every 20s is unnecessary (the road itself doesn't
+  // change, only the rider's progress along it) and risks rate limits.
+  Timer? _autoRefreshTimer;
+  int _autoRefreshTicks = 0;
+
   @override
   void initState() {
     super.initState();
     _initializeRoute();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 20), (_) => _autoRefresh());
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _autoRefresh() async {
+    if (!mounted || _loading) return;
+    _autoRefreshTicks++;
+    try {
+      final pos = await _locationService.getCurrentPosition();
+      if (!mounted) return;
+      setState(() => _riderPos = LatLng(pos.latitude, pos.longitude));
+    } catch (_) {
+      // Silent — this is a background refresh, not a user-initiated action;
+      // the manual recenter button still shows its own error if tapped.
+      return;
+    }
+    if (_autoRefreshTicks % 3 == 0) {
+      await _refreshRouteAndEta();
+    }
+  }
+
+  Future<void> _refreshRouteAndEta() async {
+    final start = _riderPos;
+    final dest = _destination;
+    if (start == null || dest == null) return;
+    try {
+      final uri = Uri.parse(
+        'https://router.project-osrm.org/route/v1/driving/'
+            '${start.longitude},${start.latitude};'
+            '${dest.longitude},${dest.latitude}'
+            '?overview=full&geometries=geojson',
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 12));
+      if (response.statusCode != 200) return;
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final routes = data['routes'] as List?;
+      if (routes == null || routes.isEmpty) return;
+      final route = routes.first as Map<String, dynamic>;
+      final geometry = route['geometry'] as Map<String, dynamic>;
+      final coords = (geometry['coordinates'] as List)
+          .map((c) => LatLng((c as List)[1] as double, c[0] as double))
+          .toList();
+      final durationSeconds = (route['duration'] as num).toDouble();
+      if (!mounted) return;
+      setState(() {
+        _routePoints = coords;
+        _etaMinutes = (durationSeconds / 60).ceil();
+      });
+    } catch (_) {
+      // Stale route/ETA is better than none — just keep what we had.
+    }
   }
 
   Future<void> _initializeRoute() async {

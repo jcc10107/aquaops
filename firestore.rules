@@ -125,6 +125,24 @@ service cloud.firestore {
         && resource.data.status == 'pending';
     }
 
+    match /emergency_requests/{requestId} {
+      // A rider files their own road-assistance request (createEmergencyRequest)
+      // and can read/cancel only their own pending one; staff/owner review the
+      // full live queue and decline or resolve+transfer it.
+      allow read: if isStaff()
+        || (isRider() && resource.data.riderId == request.auth.uid);
+      allow create: if isRider()
+        && request.resource.data.riderId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      // Covers the rider cancelling their own still-pending request, and
+      // staff/owner declining or resolving it (incl. the batched order
+      // reassignment in resolveEmergencyRequestAndTransfer) — left broad
+      // like this project's other staff writes (orders, inventory) rather
+      // than enumerating every field.
+      allow update: if isStaff()
+        || (isRider() && resource.data.riderId == request.auth.uid && resource.data.status == 'pending');
+    }
+
     match /refund_requests/{refundId} {
       // Staff/owner review all claims; a customer only ever sees their own.
       allow read: if isStaff()

@@ -21,6 +21,8 @@ class _RiderEmergencyRequestModalState extends State<RiderEmergencyRequestModal>
   final Set<String> _selectedOrderIds = <String>{};
   bool _initializedSelection = false;
   bool _isSubmitting = false;
+  String? _orderSelectionError;
+  String? _descError;
 
   final List<Map<String, dynamic>> _reasons = const [
     {'label': 'Bike Breakdown', 'icon': Icons.build_circle_outlined},
@@ -45,25 +47,13 @@ class _RiderEmergencyRequestModalState extends State<RiderEmergencyRequestModal>
       return;
     }
 
-    if (_selectedOrderIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select at least one delivery order to hand off.'),
-          backgroundColor: AppColors.coralAlert,
-        ),
-      );
-      return;
-    }
-
-    if (_reason == 'Other' && _descCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please describe the emergency situation under "Other".'),
-          backgroundColor: AppColors.coralAlert,
-        ),
-      );
-      return;
-    }
+    setState(() {
+      _orderSelectionError = _selectedOrderIds.isEmpty ? 'Select at least one delivery order to hand off.' : null;
+      _descError = (_reason == 'Other' && _descCtrl.text.trim().isEmpty)
+          ? 'Please describe the emergency situation under "Other".'
+          : null;
+    });
+    if (_orderSelectionError != null || _descError != null) return;
 
     setState(() => _isSubmitting = true);
 
@@ -302,7 +292,10 @@ class _RiderEmergencyRequestModalState extends State<RiderEmergencyRequestModal>
                 final bool active = _reason == label;
 
                 return InkWell(
-                  onTap: () => setState(() => _reason = label),
+                  onTap: () => setState(() {
+                    _reason = label;
+                    if (label != 'Other') _descError = null;
+                  }),
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
                     width: itemWidth,
@@ -398,6 +391,7 @@ class _RiderEmergencyRequestModalState extends State<RiderEmergencyRequestModal>
                   } else {
                     _selectedOrderIds.addAll(orders.map((o) => o.id));
                   }
+                  if (_orderSelectionError != null) _orderSelectionError = null;
                 });
               },
               style: TextButton.styleFrom(
@@ -416,6 +410,14 @@ class _RiderEmergencyRequestModalState extends State<RiderEmergencyRequestModal>
             ),
           ],
         ),
+        if (_orderSelectionError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 4),
+            child: Text(
+              _orderSelectionError!,
+              style: const TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.coralAlert),
+            ),
+          ),
         const SizedBox(height: 8),
         ...orders.map((order) {
           final isChecked = _selectedOrderIds.contains(order.id);
@@ -431,6 +433,7 @@ class _RiderEmergencyRequestModalState extends State<RiderEmergencyRequestModal>
                   } else {
                     _selectedOrderIds.add(order.id);
                   }
+                  if (_orderSelectionError != null) _orderSelectionError = null;
                 });
               },
               borderRadius: BorderRadius.circular(12),
@@ -548,6 +551,9 @@ class _RiderEmergencyRequestModalState extends State<RiderEmergencyRequestModal>
         TextField(
           controller: _descCtrl,
           maxLines: 3,
+          onChanged: (_) {
+            if (_descError != null) setState(() => _descError = null);
+          },
           style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
           decoration: InputDecoration(
             hintText: isOther
@@ -557,17 +563,18 @@ class _RiderEmergencyRequestModalState extends State<RiderEmergencyRequestModal>
             filled: true,
             fillColor: Colors.white,
             contentPadding: const EdgeInsets.all(12),
+            errorText: _descError,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.slate200),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.slate200),
+              borderSide: BorderSide(color: _descError != null ? AppColors.coralAlert : AppColors.slate200),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.primarySky),
+              borderSide: BorderSide(color: _descError != null ? AppColors.coralAlert : AppColors.primarySky),
             ),
           ),
         ),

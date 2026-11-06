@@ -21,7 +21,8 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   void _showEditDeliveryFeeDialog(BuildContext context, double currentBaseFee, double currentRatePerKm) {
     final baseCtrl = TextEditingController(text: currentBaseFee.toStringAsFixed(2));
     final rateCtrl = TextEditingController(text: currentRatePerKm.toStringAsFixed(2));
-    String? error;
+    String? baseError;
+    String? rateError;
 
     showDialog<void>(
       context: context,
@@ -43,9 +44,13 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                 TextField(
                   controller: baseCtrl,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) {
+                    if (baseError != null) setDialogState(() => baseError = null);
+                  },
                   decoration: InputDecoration(
                     prefixText: '₱ ',
                     hintText: 'e.g. 15.00',
+                    errorText: baseError,
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
@@ -57,10 +62,13 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                 TextField(
                   controller: rateCtrl,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) {
+                    if (rateError != null) setDialogState(() => rateError = null);
+                  },
                   decoration: InputDecoration(
                     prefixText: '₱ ',
                     hintText: 'e.g. 5.00',
-                    errorText: error,
+                    errorText: rateError,
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
@@ -79,11 +87,12 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                 onPressed: () async {
                   final base = double.tryParse(baseCtrl.text.trim());
                   final rate = double.tryParse(rateCtrl.text.trim());
-                  if (base == null || base < 0 || rate == null || rate < 0) {
-                    setDialogState(() => error = 'Enter valid, non-negative amounts.');
-                    return;
-                  }
-                  await _firestoreService.setDeliveryFeeConfig(baseFee: base, ratePerKm: rate);
+                  setDialogState(() {
+                    baseError = (base == null || base < 0) ? 'Enter a valid, non-negative amount.' : null;
+                    rateError = (rate == null || rate < 0) ? 'Enter a valid, non-negative amount.' : null;
+                  });
+                  if (baseError != null || rateError != null) return;
+                  await _firestoreService.setDeliveryFeeConfig(baseFee: base!, ratePerKm: rate!);
                   if (dialogContext.mounted) Navigator.pop(dialogContext);
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primarySky, foregroundColor: Colors.white),

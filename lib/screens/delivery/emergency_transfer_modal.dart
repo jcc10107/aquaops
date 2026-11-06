@@ -520,32 +520,33 @@ class _EmergencyTransferModalState extends State<EmergencyTransferModal> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: source.id,
-                    dropdownColor: AppColors.surfaceIce,
-                    borderRadius: BorderRadius.circular(12),
-                    icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.slate400, size: 20),
-                    items: ridersWithLoad.map((r) {
-                      return DropdownMenuItem(
-                        value: r.id,
-                        child: Text(
-                          r.name,
-                          style: const TextStyle(
-                            fontFamily: _font,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textLight,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (v) => setState(() {
-                      _sourceRiderId = v;
-                      if (_targetRiderId == v) _targetRiderId = null;
-                    }),
+                child: DropdownMenu<String>(
+                  key: ValueKey(source.id),
+                  initialSelection: source.id,
+                  expandedInsets: EdgeInsets.zero,
+                  menuHeight: 300,
+                  enableFilter: true,
+                  requestFocusOnTap: true,
+                  textStyle: const TextStyle(
+                    fontFamily: _font,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textLight,
                   ),
+                  inputDecorationTheme: InputDecorationTheme(
+                    filled: true,
+                    fillColor: Colors.white,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primarySky)),
+                  ),
+                  dropdownMenuEntries: ridersWithLoad.map((r) => DropdownMenuEntry(value: r.id, label: r.name)).toList(),
+                  onSelected: (v) => setState(() {
+                    _sourceRiderId = v;
+                    if (_targetRiderId == v) _targetRiderId = null;
+                  }),
                 ),
               ),
             ],
@@ -667,29 +668,30 @@ class _EmergencyTransferModalState extends State<EmergencyTransferModal> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: target.id,
-                    dropdownColor: AppColors.surfaceIce,
-                    borderRadius: BorderRadius.circular(12),
-                    icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.slate400, size: 20),
-                    items: targetCandidates.map((r) {
-                      return DropdownMenuItem(
-                        value: r.id,
-                        child: Text(
-                          r.name,
-                          style: const TextStyle(
-                            fontFamily: _font,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textLight,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (v) => setState(() => _targetRiderId = v),
+                child: DropdownMenu<String>(
+                  key: ValueKey(target.id),
+                  initialSelection: target.id,
+                  expandedInsets: EdgeInsets.zero,
+                  menuHeight: 300,
+                  enableFilter: true,
+                  requestFocusOnTap: true,
+                  textStyle: const TextStyle(
+                    fontFamily: _font,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textLight,
                   ),
+                  inputDecorationTheme: InputDecorationTheme(
+                    filled: true,
+                    fillColor: Colors.white,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primarySky)),
+                  ),
+                  dropdownMenuEntries: targetCandidates.map((r) => DropdownMenuEntry(value: r.id, label: r.name)).toList(),
+                  onSelected: (v) => setState(() => _targetRiderId = v),
                 ),
               ),
             ],

@@ -26,6 +26,8 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
   String? _selectedOrderId;
   bool _isSubmitting = false;
 
+  static const String _noOrderValue = '__none__';
+
   final List<String> _topics = const [
     'Refill Delivery Issue',
     'Payment & GCash Inquiries',
@@ -291,29 +293,34 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
                             return const SizedBox.shrink();
                           }
 
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.slate200),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String?>(
-                                isExpanded: true,
-                                value: _selectedOrderId,
-                                hint: const Text('Select related delivery...', style: TextStyle(fontFamily: _font, fontSize: 13)),
-                                items: [
-                                  const DropdownMenuItem(value: null, child: Text('No specific order', style: TextStyle(fontFamily: _font, fontSize: 13))),
-                                  ...orders.map((o) => DropdownMenuItem(
-                                    value: o.id,
-                                    child: Text(
-                                      '#${o.orderNumber} • ₱${o.totalAmount.toStringAsFixed(2)} (${o.status.name})',
-                                      style: const TextStyle(fontFamily: _font, fontSize: 13),
-                                    ),
-                                  )),
-                                ],
-                                onChanged: (val) => setState(() => _selectedOrderId = val),
+                          return SizedBox(
+                            width: double.infinity,
+                            child: DropdownMenu<String>(
+                              key: ValueKey(_selectedOrderId),
+                              initialSelection: _selectedOrderId ?? _noOrderValue,
+                              menuHeight: 300,
+                              enableFilter: true,
+                              requestFocusOnTap: true,
+                              hintText: 'Search your orders...',
+                              textStyle: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
+                              inputDecorationTheme: InputDecorationTheme(
+                                filled: true,
+                                fillColor: Colors.white,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primarySky)),
+                              ),
+                              dropdownMenuEntries: [
+                                const DropdownMenuEntry(value: _noOrderValue, label: 'No specific order'),
+                                ...orders.map((o) => DropdownMenuEntry(
+                                  value: o.id,
+                                  label: '#${o.orderNumber} • ₱${o.totalAmount.toStringAsFixed(2)} (${o.status.name})',
+                                )),
+                              ],
+                              onSelected: (val) => setState(
+                                    () => _selectedOrderId = (val == null || val == _noOrderValue) ? null : val,
                               ),
                             ),
                           );

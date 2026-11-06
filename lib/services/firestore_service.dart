@@ -176,6 +176,13 @@ class FirestoreService {
     return OrderModel.fromMap(data, id);
   }
 
+  Future<OrderModel?> getOrderOnce(String orderId) async {
+    final doc = await _db.collection(_colOrders).doc(orderId).get();
+    final data = doc.data();
+    if (data == null) return null;
+    return _orderFromData(data, doc.id);
+  }
+
   Stream<List<OrderModel>> getActiveOrdersStream() {
     return _db.collection(_colOrders).snapshots().map((snapshot) {
       final orders = snapshot.docs
@@ -1198,6 +1205,13 @@ class FirestoreService {
     return refunds;
   }
 
+  Future<RefundModel?> getRefundOnce(String refundId) async {
+    final doc = await _db.collection(_colRefundRequests).doc(refundId).get();
+    final data = doc.data();
+    if (data == null) return null;
+    return RefundModel.fromMap(data, doc.id);
+  }
+
   Stream<List<RefundModel>> getRefundRequestsStream() {
     return _db.collection(_colRefundRequests).snapshots().map(_mapRefundRequestsSnapshot);
   }
@@ -1223,7 +1237,7 @@ class FirestoreService {
     String itemsSummary = '',
     String? photoUrl,
   }) async {
-    await _db.collection(_colRefundRequests).add({
+    final docRef = await _db.collection(_colRefundRequests).add({
       'orderId': orderId,
       'orderNumber': orderNumber,
       'customerId': customerId,
@@ -1238,6 +1252,12 @@ class FirestoreService {
       'status': 'pending',
       'requestedAt': FieldValue.serverTimestamp(),
     });
+
+    unawaited(_push.notifyDispatchQueue(
+      title: 'Refund request submitted',
+      body: '$customerName requested a refund for $orderNumber — $reason.',
+      data: {'refundId': docRef.id},
+    ));
   }
 
   Future<void> processRefundRequest({
@@ -1249,6 +1269,11 @@ class FirestoreService {
     String? gcashRefNumber,
     DateTime? redeliveryScheduledAt,
   }) async {
+    final existing = await _db.collection(_colRefundRequests).doc(refundId).get();
+    final existingData = existing.data();
+    final customerId = existingData?['customerId'] as String?;
+    final orderNumber = existingData?['orderNumber'] as String?;
+
     await _db.collection(_colRefundRequests).doc(refundId).update({
       'status': status,
       'processedByName': processedByName,
@@ -1258,6 +1283,32 @@ class FirestoreService {
       'processedAt': FieldValue.serverTimestamp(),
       if (rejectionReason != null) 'rejectionReason': rejectionReason,
     });
+
+    if (customerId != null && customerId.isNotEmpty) {
+      final orderLabel = orderNumber ?? 'your order';
+      String body;
+      switch (status) {
+        case 'rejected':
+          body = 'Your refund request for $orderLabel was declined${rejectionReason != null ? ': $rejectionReason' : '.'}';
+          break;
+        case 'approved':
+          body = resolutionType == 'refund'
+              ? 'Your refund for $orderLabel was approved — the GCash transfer is being processed.'
+              : 'Your refund request for $orderLabel was approved — a free redelivery has been scheduled.';
+          break;
+        case 'processed':
+          body = 'Your refund for $orderLabel has been sent via GCash${gcashRefNumber != null ? ' (Ref #$gcashRefNumber)' : '.'}';
+          break;
+        default:
+          body = 'There\'s an update on your refund request for $orderLabel.';
+      }
+      unawaited(_push.notifyUser(
+        uid: customerId,
+        title: 'Refund update',
+        body: body,
+        data: {'refundId': refundId},
+      ));
+    }
   }
 
   // ── Settings ──────────────────────────────────────────────────────

@@ -7,12 +7,19 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'core/constants/app_colors.dart';
 import 'firebase_options.dart';
+import 'models/order_model.dart';
+import 'models/user_model.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/customer/customer_main_screen.dart';
+import 'screens/customer/customer_map_screen.dart';
+import 'screens/delivery/fulfill_delivery_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/messaging/chat_conversation_screen.dart';
 import 'screens/profile/profile_screen.dart';
+import 'screens/refund/owner_request_screen.dart';
+import 'services/auth_service.dart';
+import 'services/firestore_service.dart';
 import 'services/messaging_service.dart';
 import 'services/offline_queue_service.dart';
 
@@ -41,27 +48,99 @@ void main() async {
   runApp(const AquaOpsApp());
 }
 
-// Opens the relevant conversation when the user taps a chat push
-// notification — covers both "app was backgrounded, tap brings it to the
-// foreground" (onMessageOpenedApp) and "app was fully closed, tap launches
-// it" (getInitialMessage, checked once at startup). Silently does nothing
-// for notifications with no conversationId (e.g. the low-stock/unassigned
-// -order alerts from the GitHub Actions notifier) or once functions/'s
-// chat trigger isn't deployed yet.
+// Opens the relevant screen when the user taps a push notification —
+// covers both "app was backgrounded, tap brings it to the foreground"
+// (onMessageOpenedApp) and "app was fully closed, tap launches it"
+// (getInitialMessage, checked once at startup).
 void _wireNotificationTapRouting() {
-  Future<void> openConversation(RemoteMessage message) async {
-    final conversationId = message.data['conversationId'] as String?;
-    if (conversationId == null) return;
-    final conversation = await MessagingService().getConversationOnce(conversationId);
-    if (conversation == null) return;
-    navigatorKey.currentState?.push(
-      MaterialPageRoute(builder: (_) => ChatConversationScreen(conversation: conversation)),
-    );
+  Future<void> handleTap(RemoteMessage message) async {
+    final data = message.data;
+    final nav = navigatorKey.currentState;
+    if (nav == null) return;
+
+    final conversationId = data['conversationId'] as String?;
+    if (conversationId != null) {
+      final conversation = await MessagingService().getConversationOnce(conversationId);
+      if (conversation != null) {
+        nav.push(MaterialPageRoute(builder: (_) => ChatConversationScreen(conversation: conversation)));
+      }
+      return;
+    }
+
+    final role = UserRole.fromString(currentUserRoleNotifier.value);
+    final fs = FirestoreService();
+
+    final orderId = data['orderId'] as String?;
+    if (orderId != null) {
+      final order = await fs.getOrderOnce(orderId);
+      if (order == null) return;
+      final orderActive = order.status != OrderStatus.delivered && order.status != OrderStatus.cancelled;
+      switch (role) {
+        case UserRole.rider:
+          if (orderActive && order.assignedRiderId == AuthService().currentUserId) {
+            nav.push(MaterialPageRoute(builder: (_) => FulfillDeliveryScreen(order: order)));
+          } else {
+            nav.push(MaterialPageRoute(builder: (_) => const MainShell(initialIndex: 0)));
+          }
+          break;
+        case UserRole.owner:
+          nav.push(MaterialPageRoute(builder: (_) => const MainShell(initialIndex: 2)));
+          break;
+        case UserRole.staff:
+          // Staff has no dispatch-queue tab in this app's shell today —
+          // matches the same role rule already used by the in-app
+          // notification center (NotificationScreen._destinationFor).
+          break;
+        case UserRole.customer:
+          if (order.status == OrderStatus.outForDelivery) {
+            nav.push(MaterialPageRoute(builder: (_) => CustomerMapScreen(order: order)));
+          } else {
+            nav.push(MaterialPageRoute(builder: (_) => const CustomerMainScreen(initialTab: 1)));
+          }
+          break;
+      }
+      return;
+    }
+
+    final refundId = data['refundId'] as String?;
+    if (refundId != null) {
+      switch (role) {
+        case UserRole.owner:
+        case UserRole.staff:
+          nav.push(MaterialPageRoute(builder: (_) => const OwnerRequestScreen()));
+          break;
+        case UserRole.customer:
+          nav.push(MaterialPageRoute(builder: (_) => const CustomerMainScreen(initialTab: 1)));
+          break;
+        case UserRole.rider:
+          break;
+      }
+      return;
+    }
+
+    // Cash-out and emergency-transfer review both live inside the dispatch
+    // queue (delivery_queue_screen.dart), reachable for owner/rider via the
+    // shell's queue tab. Staff has no queue tab, same as orders above.
+    final cashOutId = data['cashOutId'] as String?;
+    final emergencyRequestId = data['emergencyRequestId'] as String?;
+    if (cashOutId != null || emergencyRequestId != null) {
+      switch (role) {
+        case UserRole.owner:
+          nav.push(MaterialPageRoute(builder: (_) => const MainShell(initialIndex: 2)));
+          break;
+        case UserRole.rider:
+          nav.push(MaterialPageRoute(builder: (_) => const MainShell(initialIndex: 0)));
+          break;
+        case UserRole.staff:
+        case UserRole.customer:
+          break;
+      }
+    }
   }
 
-  FirebaseMessaging.onMessageOpenedApp.listen(openConversation);
+  FirebaseMessaging.onMessageOpenedApp.listen(handleTap);
   FirebaseMessaging.instance.getInitialMessage().then((message) {
-    if (message != null) openConversation(message);
+    if (message != null) handleTap(message);
   });
 }
 

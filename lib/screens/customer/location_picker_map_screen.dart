@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/zones.dart';
 import '../../services/location_service.dart';
 
 // An interactive "pin on map" picker: the map pans freely beneath a fixed
@@ -28,6 +29,10 @@ class _LocationPickerMapScreenState extends State<LocationPickerMapScreen> {
   final LocationService _locationService = LocationService();
   bool _confirming = false;
   bool _locating = false;
+  // Customer's own choice for this pin — not an owner-level setting. Some
+  // customers' real delivery address falls outside San Pablo City, so they
+  // need a way to say so themselves instead of being hard-blocked.
+  bool _sanPabloOnly = true;
 
   @override
   void initState() {
@@ -44,6 +49,20 @@ class _LocationPickerMapScreenState extends State<LocationPickerMapScreen> {
         _center.latitude,
         _center.longitude,
       );
+      if (!mounted) return;
+
+      if (_sanPabloOnly && !address.toLowerCase().contains('san pablo')) {
+        if (!mounted) return;
+        setState(() => _confirming = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pin is outside San Pablo City. Move it within the city, or switch to "Outside San Pablo" above.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+
       if (!mounted) return;
       Navigator.pop(
         context,
@@ -90,6 +109,38 @@ class _LocationPickerMapScreenState extends State<LocationPickerMapScreen> {
         ),
       );
     }
+  }
+
+  Widget _areaChoiceChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.sky50 : AppColors.surfaceCanvas,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? AppColors.primarySky : AppColors.slate200,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontFamily: _font,
+            fontSize: 12.5,
+            fontWeight: FontWeight.bold,
+            color: selected ? AppColors.primarySky : AppColors.textSecondary,
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _roundMapButton({
@@ -158,6 +209,16 @@ class _LocationPickerMapScreenState extends State<LocationPickerMapScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.aquaops.app',
                 maxNativeZoom: 19,
+              ),
+              PolygonLayer(
+                polygons: [
+                  Polygon(
+                    points: sanPabloCityBoundary,
+                    color: AppColors.primarySky.withValues(alpha: 0.06),
+                    borderColor: AppColors.primarySky,
+                    borderStrokeWidth: 2,
+                  ),
+                ],
               ),
             ],
           ),
@@ -340,7 +401,29 @@ class _LocationPickerMapScreenState extends State<LocationPickerMapScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 16),
+
+                        // Delivery Area Choice
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _areaChoiceChip(
+                                label: 'San Pablo City',
+                                selected: _sanPabloOnly,
+                                onTap: () => setState(() => _sanPabloOnly = true),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _areaChoiceChip(
+                                label: 'Outside San Pablo',
+                                selected: !_sanPabloOnly,
+                                onTap: () => setState(() => _sanPabloOnly = false),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
 
                         // Confirmation Button
                         SizedBox(

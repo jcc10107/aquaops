@@ -72,6 +72,14 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
   String? _streetError;
   String? _locationError;
   PreciseLocation? _pinnedLocation;
+  // True once a pinned location fails to match any San Pablo barangay — the
+  // customer picked "Outside San Pablo" on the map picker, or just pinned
+  // somewhere outside the city. Forces the barangay field to free text
+  // regardless of the owner's global service-area setting, since the pin's
+  // actual coordinates already say this address isn't in San Pablo — letting
+  // the dropdown stay up would force a fake San Pablo barangay onto a
+  // real out-of-town address.
+  bool _addressOutsideSanPablo = false;
 
   final TextEditingController _streetCtrl = TextEditingController();
   final TextEditingController _landmarkCtrl = TextEditingController();
@@ -110,10 +118,14 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
         _streetCtrl.text = result.address;
       }
       final matchedBarangay = _matchBarangay(result.address);
+      _addressOutsideSanPablo = matchedBarangay == null;
       if (matchedBarangay != null) {
         _barangay = matchedBarangay;
         _barangayError = null;
         _barangayFreeTextCtrl.text = matchedBarangay;
+      } else {
+        _barangay = null;
+        _barangayFreeTextCtrl.text = '';
       }
     });
   }
@@ -317,7 +329,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                       StreamBuilder<bool>(
                         stream: _firestoreService.getServiceAreaRestrictedStream(),
                         builder: (context, snapshot) {
-                          final restricted = snapshot.data ?? true;
+                          final restricted = (snapshot.data ?? true) && !_addressOutsideSanPablo;
                           if (!restricted) {
                             return TextField(
                               controller: _barangayFreeTextCtrl,

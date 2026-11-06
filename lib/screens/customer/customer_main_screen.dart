@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/zones.dart';
 import '../../widgets/aqua_bottom_nav.dart';
 import '../../widgets/bottom_sheet_chrome.dart';
 import '../../widgets/custom_header.dart';
@@ -220,8 +221,22 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
       if (!mounted) return;
       setSheetState(() => _fetchingLocation = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not get your location: $e')),
+        SnackBar(content: Text('Could not get your location: $e. Falling back to map — you can pin it manually or tap the GPS button there.')),
       );
+      if (!sheetContext.mounted) return;
+      final result = await Navigator.push<PreciseLocation>(
+        sheetContext,
+        MaterialPageRoute(
+          builder: (_) => const LocationPickerMapScreen(initialLat: stationLat, initialLng: stationLng),
+        ),
+      );
+      if (result == null || !mounted) return;
+      setState(() {
+        _currentAddress = result.address;
+        _currentLat = result.latitude;
+        _currentLng = result.longitude;
+      });
+      if (sheetContext.mounted) Navigator.pop(sheetContext);
     }
   }
 

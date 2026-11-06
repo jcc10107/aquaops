@@ -21,7 +21,10 @@ class LocationService {
   Future<Position> getCurrentPosition() async {
     bool serviceEnabled = true;
     try {
-      serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      // Every await here gets its own timeout — a stuck permission prompt
+      // or browser API call must not hang this forever, since the only
+      // timeout before this fix was on the final getCurrentPosition call.
+      serviceEnabled = await Geolocator.isLocationServiceEnabled().timeout(const Duration(seconds: 5));
     } catch (_) {
       serviceEnabled = true;
     }
@@ -30,9 +33,12 @@ class LocationService {
       throw Exception('Location services are disabled.');
     }
 
-    LocationPermission permission = await Geolocator.checkPermission();
+    LocationPermission permission = await Geolocator.checkPermission().timeout(const Duration(seconds: 5));
     if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+      permission = await Geolocator.requestPermission().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception('Location permission prompt timed out — check if it\'s hidden behind another window, or blocked in your browser\'s site settings.'),
+      );
       if (permission == LocationPermission.denied) {
         throw Exception('Location permission denied.');
       }
@@ -41,9 +47,16 @@ class LocationService {
       throw Exception('Location permission permanently denied. Enable it in your browser/phone settings.');
     }
 
+    // .high: phones have a real GPS chip and resolve this in 1-3s, and the
+    // app's real users are overwhelmingly on phones — accuracy matters more
+    // here than shaving a couple seconds. .medium on a phone was falling
+    // back to coarse cell/WiFi positioning that landed several km off.
+    // Desktop/laptop testing (no GPS chip at all) still can't stall forever
+    // now that every step above has its own timeout — it just fails fast
+    // and falls back to manual map pinning instead.
     return Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    ).timeout(const Duration(seconds: 20));
+    ).timeout(const Duration(seconds: 12));
   }
 
   /// Fetches polyline road route coordinates between two points via OSRM.

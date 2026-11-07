@@ -918,6 +918,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget build(BuildContext context) {
     final currentRole = UserRole.fromString(currentUserRoleNotifier.value);
     final isOwner = currentRole == UserRole.owner;
+    final isStaff = currentRole == UserRole.staff;
 
     return Align(
       alignment: Alignment.topCenter,
@@ -1133,7 +1134,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                 ),
                               ],
                             ),
-                            if (isOwner)
+                            if (isOwner || isStaff)
                               OutlinedButton.icon(
                                 onPressed: _showAddMaintenanceAlertDialog,
                                 icon: const Icon(Icons.add, size: 14),

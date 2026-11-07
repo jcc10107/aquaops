@@ -84,12 +84,8 @@ void _wireNotificationTapRouting() {
           }
           break;
         case UserRole.owner:
-          nav.push(MaterialPageRoute(builder: (_) => const MainShell(initialIndex: 2)));
-          break;
         case UserRole.staff:
-          // Staff has no dispatch-queue tab in this app's shell today —
-          // matches the same role rule already used by the in-app
-          // notification center (NotificationScreen._destinationFor).
+          nav.push(MaterialPageRoute(builder: (_) => shellAt(ShellTab.queue)));
           break;
         case UserRole.customer:
           if (order.status == OrderStatus.outForDelivery) {
@@ -119,19 +115,16 @@ void _wireNotificationTapRouting() {
     }
 
     // Cash-out and emergency-transfer review both live inside the dispatch
-    // queue (delivery_queue_screen.dart), reachable for owner/rider via the
-    // shell's queue tab. Staff has no queue tab, same as orders above.
+    // queue (delivery_queue_screen.dart), reachable via the shell's queue tab.
     final cashOutId = data['cashOutId'] as String?;
     final emergencyRequestId = data['emergencyRequestId'] as String?;
     if (cashOutId != null || emergencyRequestId != null) {
       switch (role) {
         case UserRole.owner:
-          nav.push(MaterialPageRoute(builder: (_) => const MainShell(initialIndex: 2)));
-          break;
-        case UserRole.rider:
-          nav.push(MaterialPageRoute(builder: (_) => const MainShell(initialIndex: 0)));
-          break;
         case UserRole.staff:
+        case UserRole.rider:
+          nav.push(MaterialPageRoute(builder: (_) => shellAt(ShellTab.queue)));
+          break;
         case UserRole.customer:
           break;
       }
@@ -157,8 +150,10 @@ const Map<String, Map<ShellTab, int>> _roleTabMapping = {
   },
   'staff': {
     ShellTab.pos: 0,
-    ShellTab.stock: 1,
-    ShellTab.profile: 2,
+    ShellTab.queue: 1,
+    ShellTab.stock: 2,
+    ShellTab.refund: 3,
+    ShellTab.profile: 4,
   },
   'rider': {
     ShellTab.queue: 0,

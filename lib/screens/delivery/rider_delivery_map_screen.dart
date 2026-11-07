@@ -9,6 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/zones.dart';
 import '../../models/order_model.dart';
+import '../../services/auth_service.dart';
+import '../../services/firestore_service.dart';
 import '../../services/location_service.dart';
 import 'fulfill_delivery_screen.dart';
 
@@ -28,6 +30,14 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
   static const String _font = 'Plus Jakarta Sans';
   final MapController _mapController = MapController();
   final LocationService _locationService = LocationService();
+  final FirestoreService _firestoreService = FirestoreService();
+
+  // Only the rider actually assigned to this order is physically the one
+  // riding it — anyone else opening this screen (owner/staff checking in)
+  // must not have their own device GPS mislabeled as "the rider's
+  // position." They see the rider's last broadcast location instead.
+  late final bool _isAssignedRider =
+      AuthService().currentUserId != null && AuthService().currentUserId == widget.order.assignedRiderId;
 
   static const LatLng _station = LatLng(stationLat, stationLng);
   // Default fallback center for San Pablo City
@@ -68,14 +78,26 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
   Future<void> _autoRefresh() async {
     if (!mounted || _loading) return;
     _autoRefreshTicks++;
-    try {
-      final pos = await _locationService.getCurrentPosition();
-      if (!mounted) return;
-      setState(() => _riderPos = LatLng(pos.latitude, pos.longitude));
-    } catch (_) {
-      // Silent — this is a background refresh, not a user-initiated action;
-      // the manual recenter button still shows its own error if tapped.
-      return;
+    if (_isAssignedRider) {
+      try {
+        final pos = await _locationService.getCurrentPosition();
+        if (!mounted) return;
+        setState(() => _riderPos = LatLng(pos.latitude, pos.longitude));
+      } catch (_) {
+        // Silent — this is a background refresh, not a user-initiated action;
+        // the manual recenter button still shows its own error if tapped.
+        return;
+      }
+    } else {
+      // Not the assigned rider — re-fetch their last broadcast position
+      // instead of touching this device's own GPS at all.
+      try {
+        final fresh = await _firestoreService.getOrderOnce(widget.order.id);
+        if (!mounted || fresh?.riderLat == null || fresh?.riderLng == null) return;
+        setState(() => _riderPos = LatLng(fresh!.riderLat!, fresh.riderLng!));
+      } catch (_) {
+        return;
+      }
     }
     if (_autoRefreshTicks % 3 == 0) {
       await _refreshRouteAndEta();
@@ -122,11 +144,18 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
     });
 
     try {
-      // 1. Get current rider GPS position
-      try {
-        final pos = await _locationService.getCurrentPosition();
-        _riderPos = LatLng(pos.latitude, pos.longitude);
-      } catch (_) {
+      // 1. Get the rider's position — live self-GPS if this device IS the
+      // assigned rider, otherwise the rider's last broadcast location.
+      if (_isAssignedRider) {
+        try {
+          final pos = await _locationService.getCurrentPosition();
+          _riderPos = LatLng(pos.latitude, pos.longitude);
+        } catch (_) {
+          _riderPos = _station;
+        }
+      } else if (widget.order.riderLat != null && widget.order.riderLng != null) {
+        _riderPos = LatLng(widget.order.riderLat!, widget.order.riderLng!);
+      } else {
         _riderPos = _station;
       }
 
@@ -222,9 +251,18 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
     if (_locating) return;
     setState(() => _locating = true);
     try {
-      final pos = await _locationService.getCurrentPosition();
+      LatLng current;
+      if (_isAssignedRider) {
+        final pos = await _locationService.getCurrentPosition();
+        current = LatLng(pos.latitude, pos.longitude);
+      } else {
+        final fresh = await _firestoreService.getOrderOnce(widget.order.id);
+        if (fresh?.riderLat == null || fresh?.riderLng == null) {
+          throw Exception('No live location from the rider yet.');
+        }
+        current = LatLng(fresh!.riderLat!, fresh.riderLng!);
+      }
       if (!mounted) return;
-      final current = LatLng(pos.latitude, pos.longitude);
       setState(() {
         _riderPos = current;
         _locating = false;
@@ -234,7 +272,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
       if (!mounted) return;
       setState(() => _locating = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not update your current GPS location.')),
+        SnackBar(content: Text(_isAssignedRider ? 'Could not update your current GPS location.' : 'Could not get the rider\'s current location.')),
       );
     }
   }
@@ -253,7 +291,11 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
       _mapController.move(_riderPos!, 17);
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Navigation started — the customer can now see your live location.')),
+      SnackBar(
+        content: Text(_isAssignedRider
+            ? 'Navigation started — the customer can now see your live location.'
+            : 'Refreshed the rider\'s live location.'),
+      ),
     );
   }
 

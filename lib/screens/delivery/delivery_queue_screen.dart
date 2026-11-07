@@ -1127,6 +1127,14 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
+            // An unassigned order has no rider actually en route — opening
+            // the live navigation map would show the viewer's own GPS
+            // position mislabeled as "the rider." Route to assignment
+            // instead, which is the actual next step for this order.
+            if (order.assignedRiderId == null) {
+              if (canReassign) _showAssignRiderSheet(order, riders);
+              return;
+            }
             if (order.status != OrderStatus.delivered && order.status != OrderStatus.cancelled) {
               Navigator.push(
                 context,

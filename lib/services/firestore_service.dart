@@ -557,10 +557,15 @@ class FirestoreService {
   }
 
   Future<void> saveFcmToken(String uid, String token) async {
-    // merge: true so this never throws NOT_FOUND if it runs before the
-    // user's profile doc exists yet (e.g. a signup race) — the token just
-    // waits as an orphan field until the rest of the profile is written.
-    await _db.collection(_colUsers).doc(uid).set({'fcmToken': token}, SetOptions(merge: true));
+    // arrayUnion so each device this account logs into keeps its own slot
+    // instead of overwriting the last one — otherwise only the most
+    // recently logged-in device ever gets notified. merge: true so this
+    // never throws NOT_FOUND if it runs before the user's profile doc
+    // exists yet (e.g. a signup race) — the token just waits as an orphan
+    // field until the rest of the profile is written.
+    await _db.collection(_colUsers).doc(uid).set({
+      'fcmTokens': FieldValue.arrayUnion([token]),
+    }, SetOptions(merge: true));
   }
 
   Future<void> deleteUserProfile(String uid) async {

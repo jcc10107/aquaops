@@ -24,7 +24,7 @@ const CORS_HEADERS = {
 };
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
@@ -74,7 +74,10 @@ export default {
       );
       const firestoreHeaders = { Authorization: `Bearer ${accessToken}` };
 
-      // 3. Resolve the target uid(s) to FCM tokens.
+      // 3. Resolve the target uid(s) to FCM tokens. Each uid may have
+      // several tokens (one per device it's logged into) — keep uid
+      // alongside each token so a bad one can be cleaned up afterward
+      // without touching another device's registration.
       let uids;
       if (broadcastRoles) {
         uids = await queryUidsByRole(env.FIREBASE_PROJECT_ID, firestoreHeaders, broadcastRoles);
@@ -82,21 +85,35 @@ export default {
         uids = recipientIds ?? [recipientId];
       }
 
-      const tokens = (
-        await Promise.all(uids.map((uid) => getFcmToken(env.FIREBASE_PROJECT_ID, firestoreHeaders, uid)))
-      ).filter(Boolean);
+      const perUidTokens = await Promise.all(
+        uids.map(async (uid) => ({ uid, tokens: await getFcmTokens(env.FIREBASE_PROJECT_ID, firestoreHeaders, uid) })),
+      );
+      const pairs = perUidTokens.flatMap(({ uid, tokens }) => tokens.map((token) => ({ uid, token })));
 
-      if (tokens.length === 0) {
+      if (pairs.length === 0) {
         return new Response(JSON.stringify({ message: 'No registered FCM token(s) found for the given recipient(s)' }), {
           status: 200,
           headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
         });
       }
 
-      // 4. Send FCM Push Notification(s) via Google HTTP v1, in parallel.
+      // 4. Send FCM Push Notification(s) via Google HTTP v1, in parallel, to
+      // every device of every matched recipient.
       const results = await Promise.all(
-        tokens.map((token) => sendFcm(env.FIREBASE_PROJECT_ID, accessToken, token, title, messageText, conversationId, data)),
+        pairs.map(({ token }) => sendFcm(env.FIREBASE_PROJECT_ID, accessToken, token, title, messageText, conversationId, data)),
       );
+
+      // 5. Best-effort cleanup — a device that's uninstalled the app or
+      // whose token otherwise expired leaves a permanent dead entry
+      // otherwise, since nothing else ever prunes it. Doesn't delay the
+      // response; runs after it's already sent.
+      const stale = pairs.filter((_, i) => isInvalidTokenError(results[i]));
+      if (stale.length > 0) {
+        const cleanup = Promise.all(
+          stale.map(({ uid, token }) => removeFcmToken(env.FIREBASE_PROJECT_ID, firestoreHeaders, uid, token)),
+        );
+        if (ctx?.waitUntil) ctx.waitUntil(cleanup); else await cleanup;
+      }
 
       return new Response(JSON.stringify({ success: true, sent: results.length, results }), {
         status: 200,
@@ -112,14 +129,53 @@ export default {
   },
 };
 
-async function getFcmToken(projectId, firestoreHeaders, uid) {
-  const res = await fetch(
-    `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`,
-    { headers: firestoreHeaders },
-  );
-  if (!res.ok) return null;
+function userDocUrl(projectId, uid) {
+  return `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`;
+}
+
+// Reads every token registered for this user (one per device) — falls back
+// to the old single-token field too, so a user who hasn't re-logged-in since
+// the fcmToken -> fcmTokens migration still gets notified on their one
+// existing device.
+async function getFcmTokens(projectId, firestoreHeaders, uid) {
+  const res = await fetch(userDocUrl(projectId, uid), { headers: firestoreHeaders });
+  if (!res.ok) return [];
   const data = await res.json();
-  return data.fields?.fcmToken?.stringValue ?? null;
+  const multi = (data.fields?.fcmTokens?.arrayValue?.values ?? [])
+    .map((v) => v.stringValue)
+    .filter(Boolean);
+  if (multi.length > 0) return multi;
+  const legacy = data.fields?.fcmToken?.stringValue;
+  return legacy ? [legacy] : [];
+}
+
+// FCM's HTTP v1 error shape for a token that's gone (app uninstalled, token
+// rotated out, etc.) — safe to stop sending to it.
+function isInvalidTokenError(fcmResult) {
+  const status = fcmResult?.error?.status;
+  const errorCode = fcmResult?.error?.details?.find((d) => d.errorCode)?.errorCode;
+  return status === 'NOT_FOUND' || status === 'INVALID_ARGUMENT' || errorCode === 'UNREGISTERED';
+}
+
+async function removeFcmToken(projectId, firestoreHeaders, uid, badToken) {
+  try {
+    const url = userDocUrl(projectId, uid);
+    const res = await fetch(url, { headers: firestoreHeaders });
+    if (!res.ok) return;
+    const data = await res.json();
+    const remaining = (data.fields?.fcmTokens?.arrayValue?.values ?? [])
+      .map((v) => v.stringValue)
+      .filter((t) => t && t !== badToken);
+    await fetch(`${url}?updateMask.fieldPaths=fcmTokens`, {
+      method: 'PATCH',
+      headers: { ...firestoreHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fields: { fcmTokens: { arrayValue: { values: remaining.map((t) => ({ stringValue: t })) } } },
+      }),
+    });
+  } catch (_) {
+    // Best-effort — a missed cleanup just leaves one dead token behind.
+  }
 }
 
 async function queryUidsByRole(projectId, firestoreHeaders, roles) {

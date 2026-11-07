@@ -162,23 +162,6 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                           ),
                         ),
                         _buildDivider(),
-                        StreamBuilder<bool>(
-                          stream: _firestoreService.getServiceAreaRestrictedStream(),
-                          builder: (context, snapshot) {
-                            final restricted = snapshot.data ?? true;
-                            return _buildListTile(
-                              'Service Area Coverage',
-                              restricted ? 'Restricted: San Pablo City Only' : 'Open: Any Address Accepted',
-                              Icons.map_outlined,
-                              AppColors.primarySky,
-                              trailing: _buildSwitchTile(
-                                value: restricted,
-                                onTap: () => _firestoreService.setServiceAreaRestricted(!restricted),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildDivider(),
                         StreamBuilder<({double baseFee, double ratePerKm})>(
                           stream: _firestoreService.getDeliveryFeeConfigStream(),
                           builder: (context, snapshot) {
@@ -465,30 +448,4 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   }
 
   Widget _buildDivider() => const Divider(height: 1, color: AppColors.slate100);
-
-  Widget _buildSwitchTile({required bool value, VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 48,
-        height: 28,
-        padding: const EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(100),
-          color: value ? AppColors.primarySky : AppColors.slate300,
-        ),
-        child: AnimatedAlign(
-          duration: const Duration(milliseconds: 200),
-          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            width: 24,
-            height: 24,
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-            child: value ? const Icon(Icons.check, size: 13, color: AppColors.primarySky) : null,
-          ),
-        ),
-      ),
-    );
-  }
 }

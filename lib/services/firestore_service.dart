@@ -38,7 +38,6 @@ class FirestoreService {
 
   // ── Settings doc IDs ──────────────────────────────────────────────
   static const String _docTermsPrivacy = 'terms_privacy';
-  static const String _docServiceArea = 'service_area';
   static const String _docDeliveryFee = 'delivery_fee';
   static const String _docGcashAccount = 'gcash_account';
 
@@ -1325,21 +1324,6 @@ class FirestoreService {
   Future<void> updateTermsPrivacy(Map<String, dynamic> data) async {
     await _db.collection(_colSettings).doc(_docTermsPrivacy).set({
       ...data,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  Stream<bool> getServiceAreaRestrictedStream() {
-    return _db.collection(_colSettings).doc(_docServiceArea).snapshots().map((doc) {
-      final data = doc.data();
-      if (data == null || data['sanPabloOnly'] == null) return true;
-      return data['sanPabloOnly'] as bool;
-    });
-  }
-
-  Future<void> setServiceAreaRestricted(bool sanPabloOnly) async {
-    await _db.collection(_colSettings).doc(_docServiceArea).set({
-      'sanPabloOnly': sanPabloOnly,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }

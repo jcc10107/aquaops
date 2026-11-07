@@ -64,7 +64,6 @@ class _AddAddressSheet extends StatefulWidget {
 }
 
 class _AddAddressSheetState extends State<_AddAddressSheet> {
-  final FirestoreService _firestoreService = FirestoreService();
   String _tag = 'Home';
   String? _barangay;
   bool _isPrimary = false;
@@ -326,10 +325,13 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
 
                       const Text('Barangay (San Pablo City) *', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
                       const SizedBox(height: 6),
-                      StreamBuilder<bool>(
-                        stream: _firestoreService.getServiceAreaRestrictedStream(),
-                        builder: (context, snapshot) {
-                          final restricted = (snapshot.data ?? true) && !_addressOutsideSanPablo;
+                      Builder(
+                        builder: (context) {
+                          // Driven purely by the map pin itself now — not an
+                          // owner-level setting — so the dropdown only ever
+                          // stays up when the pinned location actually
+                          // matched a San Pablo barangay.
+                          final restricted = !_addressOutsideSanPablo;
                           if (!restricted) {
                             return TextField(
                               controller: _barangayFreeTextCtrl,

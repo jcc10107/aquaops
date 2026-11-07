@@ -40,6 +40,10 @@ class _PosScreenState extends State<PosScreen> {
   String? _deliveryPhoneError;
   String? _deliveryAddressError;
   String? _deliveryZoneError;
+  // Per-order choice, decided by whoever is taking this walk-in/phone order
+  // — not an owner-wide setting, since staff need to switch per customer
+  // without leaving this screen.
+  bool _zoneSanPabloOnly = true;
 
   final TextEditingController _tenderCtrl = TextEditingController(text: '35');
   final TextEditingController _gcashRefCtrl = TextEditingController();
@@ -771,6 +775,37 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
+  Widget _zoneChoiceChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.sky50 : AppColors.slate50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? AppColors.primarySky : AppColors.slate200,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.bold,
+            color: selected ? AppColors.primarySky : AppColors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDeliverySection() {
     return _buildFlatCard(
       child: Column(
@@ -821,10 +856,32 @@ class _PosScreenState extends State<PosScreen> {
           const SizedBox(height: 16),
           const Text('Area Zone / Barangay (San Pablo City)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
           const SizedBox(height: 6),
-          StreamBuilder<bool>(
-            stream: _firestoreService.getServiceAreaRestrictedStream(),
-            builder: (context, snapshot) {
-              final restricted = snapshot.data ?? true;
+          Row(
+            children: [
+              Expanded(
+                child: _zoneChoiceChip(
+                  label: 'San Pablo City',
+                  selected: _zoneSanPabloOnly,
+                  onTap: () => setState(() => _zoneSanPabloOnly = true),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _zoneChoiceChip(
+                  label: 'Outside San Pablo',
+                  selected: !_zoneSanPabloOnly,
+                  onTap: () => setState(() {
+                    _zoneSanPabloOnly = false;
+                    _zoneValue = null;
+                  }),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Builder(
+            builder: (context) {
+              final restricted = _zoneSanPabloOnly;
               return restricted
                   ? LayoutBuilder(
                 builder: (context, menuConstraints) {

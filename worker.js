@@ -11,12 +11,28 @@
  * Exactly one of recipientId / recipientIds / broadcastRoles is required.
  */
 
+// The app calls this worker directly from the browser (Flutter web) with a
+// custom Authorization header, which makes every request a CORS "preflight"
+// one — the browser sends an OPTIONS request first and silently blocks the
+// real POST if this worker doesn't answer it with the right headers. There's
+// no cookie/credential involved (auth is the shared-secret header, checked
+// below), so a wide-open '*' origin is fine here.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
 export default {
   async fetch(request, env) {
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+
     if (request.method !== 'POST') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
         status: 405,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
       });
     }
 
@@ -27,7 +43,7 @@ export default {
       if (secret !== env.WORKER_SECRET) {
         return new Response(JSON.stringify({ error: 'Unauthorized request' }), {
           status: 401,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
         });
       }
 
@@ -37,13 +53,13 @@ export default {
       if (!messageText) {
         return new Response(JSON.stringify({ error: 'Missing messageText' }), {
           status: 400,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
         });
       }
       if (!recipientId && !recipientIds && !broadcastRoles) {
         return new Response(JSON.stringify({ error: 'Provide recipientId, recipientIds, or broadcastRoles' }), {
           status: 400,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
         });
       }
 
@@ -73,7 +89,7 @@ export default {
       if (tokens.length === 0) {
         return new Response(JSON.stringify({ message: 'No registered FCM token(s) found for the given recipient(s)' }), {
           status: 200,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
         });
       }
 
@@ -84,13 +100,13 @@ export default {
 
       return new Response(JSON.stringify({ success: true, sent: results.length, results }), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       });
 
     } catch (err) {
       return new Response(JSON.stringify({ error: err.message }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
       });
     }
   },

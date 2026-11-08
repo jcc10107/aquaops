@@ -378,6 +378,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
               ),
               if (!isReadOnly && widget.conversation.isDelivery)
                 DeliveryQuickReplies(
+                  isRider: _currentUserRole == UserRole.rider,
                   onSelect: (reply) {
                     _textCtrl.text = reply;
                   },

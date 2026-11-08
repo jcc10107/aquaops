@@ -61,9 +61,6 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
   // change, only the rider's progress along it) and risks rate limits.
   Timer? _autoRefreshTimer;
   int _autoRefreshTicks = 0;
-  // TEMP DEBUG — remove once the "rider icon doesn't move" reports are
-  // resolved.
-  String _debugInfo = '';
 
   @override
   void initState() {
@@ -85,10 +82,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
       try {
         final pos = await _locationService.getCurrentPosition();
         if (!mounted) return;
-        setState(() {
-          _riderPos = LatLng(pos.latitude, pos.longitude);
-          _debugInfo = 'tick=$_autoRefreshTicks assigned=true pos=${pos.latitude.toStringAsFixed(5)},${pos.longitude.toStringAsFixed(5)} @${TimeOfDay.now().format(context)}';
-        });
+        setState(() => _riderPos = LatLng(pos.latitude, pos.longitude));
         // RiderLocationService (driven from the Delivery Queue list screen)
         // stops broadcasting the moment this screen is opened instead —
         // without this, the customer's live tracking map freezes exactly
@@ -98,12 +92,9 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
           lat: pos.latitude,
           lng: pos.longitude,
         ));
-      } catch (e) {
-        if (!mounted) return;
-        setState(() => _debugInfo = 'tick=$_autoRefreshTicks assigned=true GPS ERROR: $e');
-        // Silent otherwise — this is a background refresh, not a
-        // user-initiated action; the manual recenter button still shows
-        // its own error if tapped.
+      } catch (_) {
+        // Silent — this is a background refresh, not a user-initiated action;
+        // the manual recenter button still shows its own error if tapped.
         return;
       }
     } else {
@@ -111,18 +102,9 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
       // instead of touching this device's own GPS at all.
       try {
         final fresh = await _firestoreService.getOrderOnce(widget.order.id);
-        if (!mounted) return;
-        if (fresh?.riderLat == null || fresh?.riderLng == null) {
-          setState(() => _debugInfo = 'tick=$_autoRefreshTicks assigned=false — no riderLat/Lng on order yet');
-          return;
-        }
-        setState(() {
-          _riderPos = LatLng(fresh!.riderLat!, fresh.riderLng!);
-          _debugInfo = 'tick=$_autoRefreshTicks assigned=false pos=${fresh.riderLat!.toStringAsFixed(5)},${fresh.riderLng!.toStringAsFixed(5)}';
-        });
-      } catch (e) {
-        if (!mounted) return;
-        setState(() => _debugInfo = 'tick=$_autoRefreshTicks assigned=false ERROR: $e');
+        if (!mounted || fresh?.riderLat == null || fresh?.riderLng == null) return;
+        setState(() => _riderPos = LatLng(fresh!.riderLat!, fresh.riderLng!));
+      } catch (_) {
         return;
       }
     }
@@ -560,26 +542,6 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
               ),
             ),
           ),
-
-          // TEMP DEBUG overlay — remove once "rider icon doesn't move" is resolved.
-          if (_debugInfo.isNotEmpty || !_loading)
-            Positioned(
-              bottom: 8,
-              left: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.75),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'DEBUG isAssignedRider=$_isAssignedRider myUid=${AuthService().currentUserId} orderRiderId=${widget.order.assignedRiderId}\n'
-                  '$_debugInfo',
-                  style: const TextStyle(color: Colors.white, fontSize: 9),
-                ),
-              ),
-            ),
 
           // 3. Status Pill in Map Center
           if (_loading || _statusMessage != null || _isApproximateLocation)

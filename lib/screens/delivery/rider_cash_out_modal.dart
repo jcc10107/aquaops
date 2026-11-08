@@ -798,27 +798,38 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
 
   void _showRejectDialog(Map<String, dynamic> item) {
     final reasonCtrl = TextEditingController();
+    String? reasonError;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
         backgroundColor: AppColors.surfaceCanvas,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Return Turnover to Rider', style: TextStyle(fontFamily: _font, fontSize: 16, fontWeight: FontWeight.bold)),
         content: TextField(
           controller: reasonCtrl,
           maxLines: 3,
+          onChanged: (_) {
+            if (reasonError != null) setDialogState(() => reasonError = null);
+          },
           decoration: InputDecoration(
             hintText: 'Reason for returning (e.g., Cash count mismatch, short by ₱100)...',
+            errorText: reasonError,
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: reasonError != null ? AppColors.coralAlert : AppColors.slate200)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: reasonError != null ? AppColors.coralAlert : AppColors.primarySky, width: 2)),
           ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () async {
-              if (reasonCtrl.text.trim().isEmpty) return;
+              if (reasonCtrl.text.trim().isEmpty) {
+                setDialogState(() => reasonError = 'Please enter a reason for returning this turnover.');
+                return;
+              }
               Navigator.pop(ctx);
               try {
                 await _firestoreService.rejectRiderCashOut(
@@ -839,6 +850,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
             child: const Text('Confirm Return'),
           ),
         ],
+        ),
       ),
     );
   }

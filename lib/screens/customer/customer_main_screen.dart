@@ -37,6 +37,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   double? _currentLat;
   double? _currentLng;
   bool _fetchingLocation = false;
+  String? _quickAddAddressError;
 
   late final Future<UserModel?> _userFuture;
   late final Stream<List<OrderModel>> _ordersStream;
@@ -137,62 +138,83 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
     });
   }
 
-  Widget _buildQuickAddAddress(BuildContext sheetContext) {
+  Widget _buildQuickAddAddress(BuildContext sheetContext, StateSetter setSheetState) {
     final addressCtrl = TextEditingController();
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: TextField(
-            controller: addressCtrl,
-            decoration: InputDecoration(
-              hintText: 'Type your address...',
-              contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              filled: true,
-              fillColor: AppColors.surfaceContainerLow,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: addressCtrl,
+                onChanged: (_) {
+                  if (_quickAddAddressError != null) setSheetState(() => _quickAddAddressError = null);
+                },
+                decoration: InputDecoration(
+                  hintText: 'Type your address...',
+                  contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  filled: true,
+                  fillColor: AppColors.surfaceContainerLow,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _quickAddAddressError != null ? AppColors.error : Colors.transparent),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _quickAddAddressError != null ? AppColors.error : Colors.transparent),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Material(
-          color: AppColors.primary,
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () async {
-              final text = addressCtrl.text.trim();
-              final uid = AuthService().currentUserId;
-              if (text.isEmpty || uid == null) return;
-              final navigator = Navigator.of(sheetContext);
-              final messenger = ScaffoldMessenger.of(sheetContext);
-              try {
-                await _firestoreService.addSavedAddress(
-                  uid: uid,
-                  label: 'Home',
-                  addressText: text,
-                );
-                setState(() {
-                  _currentAddress = text;
-                  _currentLat = null;
-                  _currentLng = null;
-                });
-                navigator.pop();
-              } catch (e) {
-                messenger.showSnackBar(
-                  SnackBar(content: Text('Failed to save address: $e')),
-                );
-              }
-            },
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Icon(Icons.check, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Material(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () async {
+                  final text = addressCtrl.text.trim();
+                  if (text.isEmpty) {
+                    setSheetState(() => _quickAddAddressError = 'Please type an address.');
+                    return;
+                  }
+                  final uid = AuthService().currentUserId;
+                  if (uid == null) return;
+                  final navigator = Navigator.of(sheetContext);
+                  final messenger = ScaffoldMessenger.of(sheetContext);
+                  try {
+                    await _firestoreService.addSavedAddress(
+                      uid: uid,
+                      label: 'Home',
+                      addressText: text,
+                    );
+                    setState(() {
+                      _currentAddress = text;
+                      _currentLat = null;
+                      _currentLng = null;
+                    });
+                    navigator.pop();
+                  } catch (e) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('Failed to save address: $e')),
+                    );
+                  }
+                },
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Icon(Icons.check, color: Colors.white, size: 20),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
+        if (_quickAddAddressError != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 4),
+            child: Text(_quickAddAddressError!, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: AppColors.error)),
+          ),
       ],
     );
   }
@@ -347,7 +369,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 12),
-                                _buildQuickAddAddress(sheetContext),
+                                _buildQuickAddAddress(sheetContext, setSheetState),
                               ],
                             ),
                           );

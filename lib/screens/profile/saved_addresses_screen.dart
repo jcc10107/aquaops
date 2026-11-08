@@ -556,41 +556,55 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
 
   void _showEditAddressLabelDialog(String uid, SavedAddressModel address) {
     final labelCtrl = TextEditingController(text: address.label);
+    String? labelError;
 
     showDialog(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: AppColors.surfaceCanvas,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Edit Address Label', style: TextStyle(fontFamily: _font, fontSize: 16, fontWeight: FontWeight.bold)),
-          content: TextField(
-            controller: labelCtrl,
-            style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
-            decoration: InputDecoration(
-              hintText: 'e.g. Home, Work, Apartment',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                final label = labelCtrl.text.trim();
-                if (label.isEmpty) return;
-                Navigator.pop(dialogContext);
-                try {
-                  await _firestoreService.updateSavedAddressLabel(uid: uid, addressId: address.id, label: label);
-                } catch (e) {
-                  if (mounted) AppToast.showError(context, 'Failed to update label: $e');
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primarySky, foregroundColor: Colors.white),
-              child: const Text('Save'),
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.surfaceCanvas,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Edit Address Label', style: TextStyle(fontFamily: _font, fontSize: 16, fontWeight: FontWeight.bold)),
+              content: TextField(
+                controller: labelCtrl,
+                style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
+                onChanged: (_) {
+                  if (labelError != null) setDialogState(() => labelError = null);
+                },
+                decoration: InputDecoration(
+                  hintText: 'e.g. Home, Work, Apartment',
+                  errorText: labelError,
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: labelError != null ? AppColors.coralAlert : AppColors.slate200)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: labelError != null ? AppColors.coralAlert : AppColors.primarySky)),
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+                ElevatedButton(
+                  onPressed: () async {
+                    final label = labelCtrl.text.trim();
+                    if (label.isEmpty) {
+                      setDialogState(() => labelError = 'Please enter a label for this address.');
+                      return;
+                    }
+                    Navigator.pop(dialogContext);
+                    try {
+                      await _firestoreService.updateSavedAddressLabel(uid: uid, addressId: address.id, label: label);
+                    } catch (e) {
+                      if (mounted) AppToast.showError(context, 'Failed to update label: $e');
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primarySky, foregroundColor: Colors.white),
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

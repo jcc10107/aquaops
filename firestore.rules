@@ -364,7 +364,8 @@ service cloud.firestore {
     function isConversationParticipant(conversationId) {
       let conv = messagingParentConversation(conversationId);
       return conv.customerId == request.auth.uid
-        || (conv.type == 'delivery' && 'assignedRiderId' in conv && conv.assignedRiderId == request.auth.uid);
+        || (conv.type == 'delivery' && 'assignedRiderId' in conv && conv.assignedRiderId == request.auth.uid)
+        || (conv.type == 'delivery' && riderIsAssignedToConversationOrder(conv));
     }
 
     function isValidMessage(conversationId) {
@@ -379,13 +380,27 @@ service cloud.firestore {
         && d.createdAt is timestamp;
     }
 
+    // A delivery conversation's own assignedRiderId can be stale right after
+    // an emergency transfer (it only gets synced once someone re-opens the
+    // chat — see getOrCreateDeliveryConversation). Cross-checking the real
+    // order lets the NEWLY assigned rider still read the existing doc so
+    // that sync step itself can run, instead of being locked out before it
+    // ever gets the chance to fix the stale field.
+    function riderIsAssignedToConversationOrder(conv) {
+      return 'orderId' in conv
+        && get(/databases/$(database)/documents/orders/$(conv.orderId)).data.assignedRiderId == request.auth.uid;
+    }
+
     match /conversations/{conversationId} {
       // Delivery chats are private to the customer and their assigned rider
       // only — staff/owner have no read/write access to them (support
       // tickets remain a separate, staff-visible channel).
       allow read: if (isStaff() && resource.data.type == 'support')
         || (isSignedIn() && resource.data.customerId == request.auth.uid)
-        || (isRider() && resource.data.type == 'delivery' && 'assignedRiderId' in resource.data && resource.data.assignedRiderId == request.auth.uid);
+        || (isRider() && resource.data.type == 'delivery' && (
+              ('assignedRiderId' in resource.data && resource.data.assignedRiderId == request.auth.uid)
+              || riderIsAssignedToConversationOrder(resource.data)
+           ));
 
       allow create: if isValidNewConversation() && (
           (request.resource.data.type == 'support' && request.resource.data.customerId == request.auth.uid)

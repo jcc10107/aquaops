@@ -8,6 +8,8 @@ import '../../core/constants/zones.dart';
 import '../../models/order_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/location_service.dart';
+import '../../services/messaging_service.dart';
+import '../messaging/chat_conversation_screen.dart';
 
 class CustomerMapScreen extends StatefulWidget {
   final OrderModel order;
@@ -27,6 +29,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
   final MapController _mapController = MapController();
   final LocationService _locationService = LocationService();
   final FirestoreService _firestoreService = FirestoreService();
+  final MessagingService _messagingService = MessagingService();
 
   static const LatLng _station = LatLng(stationLat, stationLng);
   static const String _font = 'Plus Jakarta Sans';
@@ -54,6 +57,22 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
   void dispose() {
     _pulseController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openDeliveryChat() async {
+    try {
+      final convo = await _messagingService.getOrCreateDeliveryConversation(order: widget.order);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => ChatConversationScreen(conversation: convo)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to open chat: $e'), backgroundColor: AppColors.coralAlert),
+      );
+    }
   }
 
   Future<void> _loadRoute() async {
@@ -769,13 +788,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
             width: double.infinity,
             height: 42,
             child: OutlinedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('In-app messaging is coming soon. Please contact the water station for updates.'),
-                  ),
-                );
-              },
+              onPressed: _openDeliveryChat,
               icon: const Icon(Icons.chat_outlined, size: 16),
               label: const Text(
                 'Send Message',

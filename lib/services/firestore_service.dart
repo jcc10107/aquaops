@@ -29,6 +29,7 @@ class FirestoreService {
   static const String _colSettings = 'settings';
   static const String _colBranches = 'branches';
   static const String _colEmergencyRequests = 'emergency_requests';
+  static const String _colCounters = 'counters';
 
   // ── Inventory doc IDs ─────────────────────────────────────────────
   static const String _invWaterRound = 'inv_water_round';
@@ -47,9 +48,26 @@ class FirestoreService {
     return _db.collection(_colUsers).doc(uid).collection(_colAddresses);
   }
 
-  String _generateOrderNumber(String prefix) {
-    final docId = _db.collection(_colOrders).doc().id;
-    return '$prefix-${docId.substring(0, 6).toUpperCase()}';
+  // Atomically bumps a shared counter doc and returns the new value — one
+  // sequence shared by every order-creation path (POS, customer delivery,
+  // counter delivery), so numbers run 1, 2, 3... across all of them instead
+  // of each getting their own series.
+  Future<int> _nextOrderSequence() {
+    final counterRef = _db.collection(_colCounters).doc('orders');
+    return _db.runTransaction<int>((transaction) async {
+      final snap = await transaction.get(counterRef);
+      final next = ((snap.data()?['lastNumber'] as num?)?.toInt() ?? 0) + 1;
+      transaction.set(counterRef, {'lastNumber': next}, SetOptions(merge: true));
+      return next;
+    });
+  }
+
+  // Prefix is kept (not just the number) because order_model.dart and
+  // notification_feed.dart both key behavior off orderNumber.startsWith('POS-')
+  // to tell a walk-in POS sale apart from a delivery order.
+  Future<String> _generateOrderNumber(String prefix) async {
+    final next = await _nextOrderSequence();
+    return '$prefix-$next';
   }
 
   ({int actualDeduction, bool shortfall}) _calculateStockAdjustment(
@@ -124,7 +142,7 @@ class FirestoreService {
   }) async {
     final batch = _db.batch();
     final orderRef = _db.collection(_colOrders).doc();
-    final orderNumber = _generateOrderNumber('POS');
+    final orderNumber = await _generateOrderNumber('POS');
 
     batch.set(orderRef, {
       'orderNumber': orderNumber,
@@ -228,7 +246,7 @@ class FirestoreService {
     double deliveryFee = 0,
   }) async {
     final orderRef = _db.collection(_colOrders).doc();
-    final orderNumber = _generateOrderNumber('ORD');
+    final orderNumber = await _generateOrderNumber('ORD');
 
     await orderRef.set({
       'orderNumber': orderNumber,
@@ -276,7 +294,7 @@ class FirestoreService {
     double deliveryFee = 0,
   }) async {
     final orderRef = _db.collection(_colOrders).doc();
-    final orderNumber = _generateOrderNumber('ORD');
+    final orderNumber = await _generateOrderNumber('ORD');
     final bool isCounterPaid = paymentChoice == 'counter';
 
     await orderRef.set({

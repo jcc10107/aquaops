@@ -33,6 +33,12 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   bool _isSending = false;
   String? _currentUserName;
   UserRole _currentUserRole = UserRole.customer;
+  // Tracks the newest message id we've already marked read, so staying on
+  // this screen while a new message streams in still clears the unread
+  // count right away — _markRead() alone only fires once, on open, so
+  // without this the sender only sees "Seen" after the other side leaves
+  // and re-enters the conversation.
+  String? _lastMarkedMessageId;
 
   @override
   void initState() {
@@ -337,6 +343,14 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                           if (isCustomer && m.isInternalNote) return false;
                           return true;
                         }).toList();
+
+                        if (messages.isNotEmpty) {
+                          final latest = messages.last;
+                          if (latest.id != _lastMarkedMessageId && latest.senderId != currentUserId) {
+                            _lastMarkedMessageId = latest.id;
+                            _markRead();
+                          }
+                        }
 
                         WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 

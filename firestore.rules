@@ -301,7 +301,13 @@ service cloud.firestore {
     function isValidRiderConversationUpdate() {
       return conversationUnchangedCore()
         && resource.data.type == 'delivery'
-        && resource.data.assignedRiderId == request.auth.uid
+        // Falls back to the real order's current assignedRiderId too — a
+        // rider who was reassigned via emergency transfer and completes
+        // the delivery without ever having opened the chat first (so the
+        // conversation doc's own assignedRiderId is still stale) must
+        // still be able to mark it completed, same reasoning as the read
+        // rule and isValidRiderReassignmentSync below.
+        && (resource.data.assignedRiderId == request.auth.uid || riderIsAssignedToConversationOrder(resource.data))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'status', 'updatedAt', 'lastMessageText', 'lastMessageSenderId',
             'lastMessageAt', 'staffOrRiderUnreadCount', 'customerUnreadCount'

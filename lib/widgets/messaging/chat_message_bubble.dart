@@ -7,11 +7,13 @@ const String _font = 'Plus Jakarta Sans';
 class ChatMessageBubble extends StatelessWidget {
   final ChatMessageModel message;
   final bool isMe;
+  final bool showSeen;
 
   const ChatMessageBubble({
     super.key,
     required this.message,
     required this.isMe,
+    this.showSeen = false,
   });
 
   String _formatTime(DateTime dt) {
@@ -119,6 +121,19 @@ class ChatMessageBubble extends StatelessWidget {
               ],
             ),
           ),
+          if (showSeen)
+            Padding(
+              padding: const EdgeInsets.only(right: 4, top: 2),
+              child: Text(
+                'Seen',
+                style: TextStyle(
+                  fontFamily: _font,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.slate400,
+                ),
+              ),
+            ),
         ],
       ),
     );

@@ -304,6 +304,20 @@ service cloud.firestore {
         && isValidUnreadDelta('staffOrRiderUnreadCount');
     }
 
+    // Lets the newly-assigned rider sync a delivery conversation's
+    // assignedRiderId/assignedRiderName after an emergency transfer —
+    // mirrors getOrCreateDeliveryConversation's own sync step, the only
+    // place these fields ever change post-creation. Narrowly scoped to
+    // just those two fields, and only to the caller's own uid, verified
+    // against the real order so a rider can't hijack someone else's chat.
+    function isValidRiderReassignmentSync() {
+      return resource.data.type == 'delivery'
+        && isRider()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assignedRiderId', 'assignedRiderName'])
+        && request.resource.data.assignedRiderId == request.auth.uid
+        && get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.assignedRiderId == request.auth.uid;
+    }
+
     function isValidStaffConversationUpdate() {
       return conversationUnchangedCore()
         && request.resource.data.status in conversationStatusValues()
@@ -366,29 +380,33 @@ service cloud.firestore {
     }
 
     match /conversations/{conversationId} {
-      allow read: if isStaff()
+      // Delivery chats are private to the customer and their assigned rider
+      // only — staff/owner have no read/write access to them (support
+      // tickets remain a separate, staff-visible channel).
+      allow read: if (isStaff() && resource.data.type == 'support')
         || (isSignedIn() && resource.data.customerId == request.auth.uid)
         || (isRider() && resource.data.type == 'delivery' && 'assignedRiderId' in resource.data && resource.data.assignedRiderId == request.auth.uid);
 
       allow create: if isValidNewConversation() && (
           (request.resource.data.type == 'support' && request.resource.data.customerId == request.auth.uid)
           || (request.resource.data.type == 'delivery' && (
-              isStaff()
-              || (isRider() && 'assignedRiderId' in request.resource.data && request.resource.data.assignedRiderId == request.auth.uid
+              (isRider() && 'assignedRiderId' in request.resource.data && request.resource.data.assignedRiderId == request.auth.uid
                   && riderMatchesNewDeliveryConversation())
               || (isSignedIn() && request.resource.data.customerId == request.auth.uid
                   && customerMatchesNewDeliveryConversation())
             ))
         );
 
-      allow update: if (isStaff() && isValidStaffConversationUpdate())
+      allow update: if (isStaff() && resource.data.type == 'support' && isValidStaffConversationUpdate())
         || isValidCustomerConversationUpdate()
-        || isValidRiderConversationUpdate();
+        || isValidRiderConversationUpdate()
+        || isValidRiderReassignmentSync();
 
       // No delete — conversations are kept as permanent history.
 
       match /messages/{messageId} {
-        allow read: if isStaff() || isConversationParticipant(conversationId);
+        allow read: if (isStaff() && messagingParentConversation(conversationId).type == 'support')
+          || isConversationParticipant(conversationId);
 
         allow create: if isValidMessage(conversationId) && (
             // A normal user-authored message from a real conversation participant.
@@ -398,14 +416,14 @@ service cloud.firestore {
             (request.resource.data.senderId == request.auth.uid
               && request.resource.data.type in ['text', 'internalNote']
               && (request.resource.data.type != 'internalNote' || isStaff())
-              && (isStaff() || isConversationParticipant(conversationId))
+              && ((isStaff() && messagingParentConversation(conversationId).type == 'support') || isConversationParticipant(conversationId))
               && (messagingParentConversation(conversationId).type != 'delivery'
                   || messagingParentConversation(conversationId).status != 'completed'))
             // Automated system message — see the KNOWN SIMPLIFICATION note above.
             || (request.resource.data.senderId == 'system'
                 && request.resource.data.senderRole == 'system'
                 && request.resource.data.type == 'system'
-                && (isStaff() || isConversationParticipant(conversationId)))
+                && ((isStaff() && messagingParentConversation(conversationId).type == 'support') || isConversationParticipant(conversationId)))
           );
 
         // Content is immutable once sent — the one exception is the

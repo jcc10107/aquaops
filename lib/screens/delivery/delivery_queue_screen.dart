@@ -1171,16 +1171,19 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                       child: Text(statusTitle, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: statusBadgeText)),
                     ),
                     const Spacer(),
-                    // Chat Action Button with Customer
-                    IconButton(
-                      tooltip: 'Message Customer',
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: AppColors.primarySky),
-                      onPressed: () => _openDeliveryChat(order),
-                    ),
-                    const SizedBox(width: 4),
+                    // Chat with the customer is private to them and the
+                    // assigned rider — staff/owner don't get a button here.
+                    if (isRider) ...[
+                      IconButton(
+                        tooltip: 'Message Customer',
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: AppColors.primarySky),
+                        onPressed: () => _openDeliveryChat(order),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
                     Text(_formatOrderTime(order.createdAt), style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                     const SizedBox(width: 6),
                     const Icon(Icons.chevron_right, size: 18, color: AppColors.slate400),

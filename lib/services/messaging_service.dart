@@ -66,6 +66,14 @@ class MessagingService {
     });
   }
 
+  /// Live stream of a single conversation doc — used to react in real time
+  /// to the other participant reading the chat (powers the "Seen" label).
+  Stream<ChatConversationModel?> watchConversation(String conversationId) {
+    return _db.collection(_colConversations).doc(conversationId).snapshots().map(
+          (snap) => snap.exists ? ChatConversationModel.fromFirestore(snap) : null,
+        );
+  }
+
   /// One-shot fetch of a single conversation, used to resolve a
   /// conversationId (e.g. from a tapped push notification's data payload)
   /// into the full model ChatConversationScreen needs. Returns null if the

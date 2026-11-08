@@ -40,6 +40,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
   List<LatLng> _routePoints = [];
   double? _distanceKm;
   int? _etaMinutes;
+  bool _isApproximateLocation = false;
 
   @override
   void initState() {
@@ -86,11 +87,25 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
 
   Future<void> _loadRoute() async {
     try {
-      final destination = await _locationService.resolveDestination(
+      // Same tiered fallback as the rider's own delivery map — Tier A/B
+      // (exact pin, then the full free-text address) often can't resolve
+      // messy real-world addresses on their own; falling back to the
+      // barangay's approximate location means the customer still sees
+      // roughly where their rider is heading instead of nothing at all.
+      LatLng? destination = await _locationService.resolveDestination(
         lat: widget.order.deliveryLat,
         lng: widget.order.deliveryLng,
         address: widget.order.deliveryAddress,
       );
+      bool approximate = false;
+
+      if (destination == null && widget.order.areaZone.trim().isNotEmpty) {
+        final zoneName = zoneLabel(widget.order.areaZone);
+        destination = await _locationService.resolveDestination(
+          address: '$zoneName, San Pablo City, Laguna',
+        );
+        approximate = true;
+      }
 
       if (destination == null) {
         if (!mounted) return;
@@ -131,6 +146,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
         _distanceKm = distanceMeters / 1000;
         _etaMinutes = (durationSeconds / 60).ceil();
         _loadingRoute = false;
+        _isApproximateLocation = approximate;
       });
 
       WidgetsBinding.instance.addPostFrameCallback((_) => _fitRoute());
@@ -530,6 +546,32 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                         _routeError!,
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.textSecondary),
+                      ),
+                    ),
+                  )
+                else if (_isApproximateLocation)
+                  Positioned(
+                    top: 10,
+                    left: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(100),
+                        border: Border.all(color: AppColors.slate200),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.info_outline, size: 14, color: AppColors.primarySky),
+                          SizedBox(width: 6),
+                          Text(
+                            'Showing the approximate barangay area',
+                            style: TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.textSecondary),
+                          ),
+                        ],
                       ),
                     ),
                   ),

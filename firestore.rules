@@ -395,7 +395,18 @@ service cloud.firestore {
       // Delivery chats are private to the customer and their assigned rider
       // only — staff/owner have no read/write access to them (support
       // tickets remain a separate, staff-visible channel).
-      allow read: if (isStaff() && resource.data.type == 'support')
+      //
+      // resource == null first: get-or-create (getOrCreateDeliveryConversation)
+      // always does a .get() before deciding whether to create — on a brand
+      // new conversation that .get() targets a document that doesn't exist
+      // yet, where `resource` is null. Every other clause here reads
+      // resource.data, which errors on a null resource, so without this an
+      // error, not a clean true/false; the FIRST-EVER open of a chat (by
+      // either side) was being denied before it could even reach the create
+      // step. Safe to allow — confirming "nothing exists at this id" leaks
+      // nothing.
+      allow read: if (resource == null && isSignedIn())
+        || (isStaff() && resource.data.type == 'support')
         || (isSignedIn() && resource.data.customerId == request.auth.uid)
         || (isRider() && resource.data.type == 'delivery' && (
               ('assignedRiderId' in resource.data && resource.data.assignedRiderId == request.auth.uid)

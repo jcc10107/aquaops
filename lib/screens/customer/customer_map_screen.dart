@@ -69,8 +69,17 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
       );
     } catch (e) {
       if (!mounted) return;
+      // TEMP DEBUG — extra context to diagnose the permission-denied reports;
+      // revert to the plain message once resolved.
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to open chat: $e'), backgroundColor: AppColors.coralAlert),
+        SnackBar(
+          content: Text(
+            'Failed to open chat: $e\n'
+            'orderId=${widget.order.id} customerId=${widget.order.customerId} assignedRiderId=${widget.order.assignedRiderId}',
+          ),
+          backgroundColor: AppColors.coralAlert,
+          duration: const Duration(seconds: 12),
+        ),
       );
     }
   }

@@ -428,8 +428,18 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
       );
     } catch (e) {
       if (!mounted) return;
+      // TEMP DEBUG — extra context to diagnose the permission-denied reports;
+      // revert to the plain message once resolved.
+      final myUid = AuthService().currentUserId;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to open chat: $e'), backgroundColor: AppColors.coralAlert),
+        SnackBar(
+          content: Text(
+            'Failed to open chat: $e\n'
+            'orderId=${order.id} order.assignedRiderId=${order.assignedRiderId} myUid=$myUid',
+          ),
+          backgroundColor: AppColors.coralAlert,
+          duration: const Duration(seconds: 12),
+        ),
       );
     }
   }

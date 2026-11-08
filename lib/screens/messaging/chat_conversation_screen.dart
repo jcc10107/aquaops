@@ -153,8 +153,13 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     final isDelivery = widget.conversation.isDelivery;
     final isStaffOrOwner = _currentUserRole == UserRole.staff || _currentUserRole == UserRole.owner;
 
+    // Always show the OTHER participant, not whoever's currently viewing —
+    // a rider opening their own delivery chat should see the customer's
+    // name here, not their own.
     final title = isDelivery
-        ? (widget.conversation.assignedRiderName ?? 'Assigned Rider')
+        ? (_currentUserRole == UserRole.rider
+            ? widget.conversation.customerName
+            : (widget.conversation.assignedRiderName ?? 'Assigned Rider'))
         : (widget.conversation.supportTopic ?? 'Aqua Ops Support');
 
     final subtitle = isDelivery
@@ -309,6 +314,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                     final otherSideHasRead = isCustomer
                         ? (liveConvo?.staffOrRiderUnreadCount ?? 1) == 0
                         : (liveConvo?.customerUnreadCount ?? 1) == 0;
+                    final otherSideName = isCustomer
+                        ? widget.conversation.assignedRiderName
+                        : widget.conversation.customerName;
 
                     return StreamBuilder<List<ChatMessageModel>>(
                       stream: _messagingService.watchMessages(widget.conversation.id),
@@ -345,6 +353,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                               message: msg,
                               isMe: isMe,
                               showSeen: isMe && isLast && otherSideHasRead,
+                              seenByName: otherSideName,
                             );
                           },
                         );

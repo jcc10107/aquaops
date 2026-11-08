@@ -41,6 +41,12 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
   double? _distanceKm;
   int? _etaMinutes;
   bool _isApproximateLocation = false;
+  // Tracks where the currently-drawn route line was last computed FROM, so
+  // it can be redrawn from the rider's live position once they're moving —
+  // without this it stays a fixed station→destination reference line
+  // forever, never actually following the rider.
+  LatLng? _routeOrigin;
+  bool _refreshingRoute = false;
 
   @override
   void initState() {
@@ -85,6 +91,33 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
     }
   }
 
+  Future<({List<LatLng> points, double distanceKm, int etaMinutes})?> _fetchOsrmRoute(
+    LatLng from,
+    LatLng to,
+  ) async {
+    final uri = Uri.parse(
+      'https://router.project-osrm.org/route/v1/driving/'
+          '${from.longitude},${from.latitude};'
+          '${to.longitude},${to.latitude}'
+          '?overview=full&geometries=geojson',
+    );
+    final response = await http.get(uri).timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) return null;
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final routes = data['routes'] as List?;
+    if (routes == null || routes.isEmpty) return null;
+    final route = routes.first as Map<String, dynamic>;
+    final geometry = route['geometry'] as Map<String, dynamic>;
+    final coords = (geometry['coordinates'] as List)
+        .map((c) => LatLng((c as List)[1] as double, c[0] as double))
+        .toList();
+    return (
+      points: coords,
+      distanceKm: (route['distance'] as num).toDouble() / 1000,
+      etaMinutes: ((route['duration'] as num).toDouble() / 60).ceil(),
+    );
+  }
+
   Future<void> _loadRoute() async {
     try {
       // Same tiered fallback as the rider's own delivery map — Tier A/B
@@ -116,37 +149,21 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
         return;
       }
 
-      final uri = Uri.parse(
-        'https://router.project-osrm.org/route/v1/driving/'
-            '${_station.longitude},${_station.latitude};'
-            '${destination.longitude},${destination.latitude}'
-            '?overview=full&geometries=geojson',
-      );
-      final response = await http.get(uri).timeout(const Duration(seconds: 15));
-      if (response.statusCode != 200) {
-        throw Exception('Routing service returned ${response.statusCode}');
-      }
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final routes = data['routes'] as List?;
-      if (routes == null || routes.isEmpty) {
-        throw Exception('No route found');
-      }
-      final route = routes.first as Map<String, dynamic>;
-      final geometry = route['geometry'] as Map<String, dynamic>;
-      final coords = (geometry['coordinates'] as List)
-          .map((c) => LatLng((c as List)[1] as double, c[0] as double))
-          .toList();
-      final distanceMeters = (route['distance'] as num).toDouble();
-      final durationSeconds = (route['duration'] as num).toDouble();
+      // Initial line is a station→destination reference — gets replaced
+      // with a rider→destination one as soon as a live rider position
+      // comes in, by _refreshRouteFromRider below.
+      final result = await _fetchOsrmRoute(_station, destination);
+      if (result == null) throw Exception('No route found');
 
       if (!mounted) return;
       setState(() {
         _destination = destination;
-        _routePoints = coords;
-        _distanceKm = distanceMeters / 1000;
-        _etaMinutes = (durationSeconds / 60).ceil();
+        _routePoints = result.points;
+        _distanceKm = result.distanceKm;
+        _etaMinutes = result.etaMinutes;
         _loadingRoute = false;
         _isApproximateLocation = approximate;
+        _routeOrigin = _station;
       });
 
       WidgetsBinding.instance.addPostFrameCallback((_) => _fitRoute());
@@ -156,6 +173,35 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
         _loadingRoute = false;
         _routeError = 'Could not load the delivery route.';
       });
+    }
+  }
+
+  // Redraws the route line from the rider's actual current position instead
+  // of the fixed station — called whenever the live order stream reports a
+  // new riderLat/riderLng that differs from what the line was last drawn
+  // from. Silent no-op on failure: the existing line just stays as-is
+  // rather than disappearing over a flaky OSRM request.
+  Future<void> _refreshRouteFromRider(LatLng riderPosition) async {
+    if (_refreshingRoute || _destination == null) return;
+    if (_routeOrigin != null &&
+        (_routeOrigin!.latitude - riderPosition.latitude).abs() < 0.0001 &&
+        (_routeOrigin!.longitude - riderPosition.longitude).abs() < 0.0001) {
+      return;
+    }
+    _refreshingRoute = true;
+    try {
+      final result = await _fetchOsrmRoute(riderPosition, _destination!);
+      if (!mounted || result == null) return;
+      setState(() {
+        _routePoints = result.points;
+        _distanceKm = result.distanceKm;
+        _etaMinutes = result.etaMinutes;
+        _routeOrigin = riderPosition;
+      });
+    } catch (_) {
+      // Keep showing the last good route.
+    } finally {
+      _refreshingRoute = false;
     }
   }
 
@@ -452,6 +498,10 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                       final riderLng = liveOrder?.riderLng;
                       final hasLiveRider = riderLat != null && riderLng != null;
                       final riderPoint = hasLiveRider ? LatLng(riderLat, riderLng) : null;
+
+                      if (riderPoint != null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) => _refreshRouteFromRider(riderPoint));
+                      }
 
                       return FlutterMap(
                         mapController: _mapController,

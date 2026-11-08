@@ -83,6 +83,15 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
         final pos = await _locationService.getCurrentPosition();
         if (!mounted) return;
         setState(() => _riderPos = LatLng(pos.latitude, pos.longitude));
+        // RiderLocationService (driven from the Delivery Queue list screen)
+        // stops broadcasting the moment this screen is opened instead —
+        // without this, the customer's live tracking map freezes exactly
+        // when the rider actually starts navigating.
+        unawaited(_firestoreService.updateRiderLocation(
+          orderId: widget.order.id,
+          lat: pos.latitude,
+          lng: pos.longitude,
+        ));
       } catch (_) {
         // Silent — this is a background refresh, not a user-initiated action;
         // the manual recenter button still shows its own error if tapped.
@@ -150,6 +159,11 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
         try {
           final pos = await _locationService.getCurrentPosition();
           _riderPos = LatLng(pos.latitude, pos.longitude);
+          unawaited(_firestoreService.updateRiderLocation(
+            orderId: widget.order.id,
+            lat: pos.latitude,
+            lng: pos.longitude,
+          ));
         } catch (_) {
           _riderPos = _station;
         }
@@ -255,6 +269,11 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
       if (_isAssignedRider) {
         final pos = await _locationService.getCurrentPosition();
         current = LatLng(pos.latitude, pos.longitude);
+        unawaited(_firestoreService.updateRiderLocation(
+          orderId: widget.order.id,
+          lat: pos.latitude,
+          lng: pos.longitude,
+        ));
       } else {
         final fresh = await _firestoreService.getOrderOnce(widget.order.id);
         if (fresh?.riderLat == null || fresh?.riderLng == null) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../services/firestore_service.dart';
+import 'edit_product_photos_screen.dart';
 import 'gcash_account_editor_screen.dart';
 import 'manage_branches_screen.dart';
 import 'manage_team_screen.dart';
@@ -178,6 +179,17 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                               onTap: () => _showEditDeliveryFeeDialog(context, config.baseFee, config.ratePerKm),
                             );
                           },
+                        ),
+                        _buildDivider(),
+                        _buildListTile(
+                          'Manage Products',
+                          'Add, reprice, or remove items in the store catalog',
+                          Icons.photo_camera_outlined,
+                          AppColors.primarySky,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const EditProductPhotosScreen()),
+                          ),
                         ),
                       ]),
                       const SizedBox(height: 20),

@@ -177,6 +177,14 @@ service cloud.firestore {
       allow write: if isOwner();
     }
 
+    match /products/{productId} {
+      // The customer store catalog — readable by any signed-in user
+      // (customer store screen, POS, order history all need it), but only
+      // the owner can add, reprice, or remove an item.
+      allow read: if isSignedIn();
+      allow write: if isOwner();
+    }
+
     // ===============================================================
     // Messaging (conversations + nested messages)
     // ===============================================================

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/constants/products.dart';
 import '../core/constants/zones.dart';
 import '../models/branch_model.dart';
 import '../models/emergency_request_model.dart';
@@ -30,6 +31,7 @@ class FirestoreService {
   static const String _colBranches = 'branches';
   static const String _colEmergencyRequests = 'emergency_requests';
   static const String _colCounters = 'counters';
+  static const String _colProducts = 'products';
 
   // ── Inventory doc IDs ─────────────────────────────────────────────
   static const String _invWaterRound = 'inv_water_round';
@@ -41,6 +43,7 @@ class FirestoreService {
   static const String _docTermsPrivacy = 'terms_privacy';
   static const String _docDeliveryFee = 'delivery_fee';
   static const String _docGcashAccount = 'gcash_account';
+  static const String _docProductImages = 'product_images';
 
   // ── Helpers ───────────────────────────────────────────────────────
 
@@ -1385,6 +1388,84 @@ class FirestoreService {
       'qrImageUrl': qrImageUrl,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  // Lets the owner upload a real photo per product (customer store's
+  // catalog is a fixed constant list in code — just the image per id is
+  // swappable, without needing a full product-management system).
+  Stream<Map<String, String>> getProductImagesStream() {
+    return _db.collection(_colSettings).doc(_docProductImages).snapshots().map((doc) {
+      final raw = doc.data()?['images'] as Map<String, dynamic>?;
+      if (raw == null) return <String, String>{};
+      return raw.map((key, value) => MapEntry(key, value as String));
+    });
+  }
+
+  Future<void> setProductImage(String productId, String imageUrl) async {
+    await _db.collection(_colSettings).doc(_docProductImages).set({
+      'images': {productId: imageUrl},
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  // ── Products (customer store catalog) ─────────────────────────────
+
+  Stream<List<Map<String, dynamic>>> getProductsStream() {
+    return _db.collection(_colProducts).orderBy('createdAt').snapshots().map(
+      (snapshot) => snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'name': data['name'] as String? ?? '',
+          'price': (data['price'] as num?)?.toDouble() ?? 0.0,
+          'type': data['type'] as String? ?? '',
+        };
+      }).toList(),
+    );
+  }
+
+  // One-time migration from the old hardcoded catalog (lib/core/constants/products.dart)
+  // to Firestore, so existing order ids (r_slim, r_round, ...) keep matching.
+  // Safe to call on every owner session — only adds whichever catalog ids
+  // are still missing (e.g. a newly added default like bottle500), and
+  // never touches an id that already exists, so it won't clobber the
+  // owner's own edits to that product.
+  Future<void> seedDefaultProductsIfEmpty() async {
+    final existing = await _db.collection(_colProducts).get();
+    final existingIds = existing.docs.map((d) => d.id).toSet();
+    final missing = catalogProducts.where((p) => !existingIds.contains(p.id));
+    if (missing.isEmpty) return;
+    final batch = _db.batch();
+    for (final p in missing) {
+      batch.set(_db.collection(_colProducts).doc(p.id), {
+        'name': p.name,
+        'price': p.price,
+        'type': p.type,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+
+  Future<void> addProduct({required String name, required double price, required String type}) async {
+    await _db.collection(_colProducts).add({
+      'name': name,
+      'price': price,
+      'type': type,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> updateProduct(String productId, {required String name, required double price, required String type}) async {
+    await _db.collection(_colProducts).doc(productId).update({
+      'name': name,
+      'price': price,
+      'type': type,
+    });
+  }
+
+  Future<void> deleteProduct(String productId) async {
+    await _db.collection(_colProducts).doc(productId).delete();
   }
 
   // ── Branches ──────────────────────────────────────────────────────

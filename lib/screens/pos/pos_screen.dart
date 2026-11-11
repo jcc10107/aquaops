@@ -10,6 +10,7 @@ import '../../models/shift_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/location_service.dart';
+import '../../widgets/product_illustration.dart';
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -19,17 +20,17 @@ class PosScreen extends StatefulWidget {
 }
 
 class _PosScreenState extends State<PosScreen> {
-  static const double _roundPrice = 35.0;
-  static const double _slimPrice = 50.0;
-  static const double _newBottlePrice = 250.0;
-  static const double _bottle500Price = 15.0;
-
   final List<ZoneOption> _zoneOptions = buildZoneOptions();
 
-  int _round = 1;
-  int _slim = 0;
-  int _newB = 0;
-  int _bottle500 = 0;
+  // Live catalog — the same owner-managed products shown in the customer
+  // app's Store screen (Owner Settings > Manage Products), so walk-in
+  // pricing/items never drift from what customers see.
+  List<Map<String, dynamic>> _products = [];
+  Map<String, String> _productImages = {};
+  final Map<String, int> _quantities = {};
+  StreamSubscription<List<Map<String, dynamic>>>? _productsSub;
+  StreamSubscription<Map<String, String>>? _productImagesSub;
+
   String _pay = 'cash';
   bool _isCheckingOut = false;
   bool _deliveryMode = false;
@@ -66,6 +67,12 @@ class _PosScreenState extends State<PosScreen> {
       _deliveryFeeConfig = config;
       if (mounted) setState(() => _deliveryFee = config.baseFee);
     });
+    _productsSub = _firestoreService.getProductsStream().listen((products) {
+      if (mounted) setState(() => _products = products);
+    });
+    _productImagesSub = _firestoreService.getProductImagesStream().listen((images) {
+      if (mounted) setState(() => _productImages = images);
+    });
   }
 
   Future<void> _resolveDeliveryFeeForSubmit(String address, String zone) async {
@@ -101,13 +108,16 @@ class _PosScreenState extends State<PosScreen> {
     }
   }
 
-  int get _totalItems => _round + _slim + _newB + _bottle500;
+  int get _totalItems => _quantities.values.fold(0, (a, b) => a + b);
 
-  double get _subtotal =>
-      (_round * _roundPrice) +
-          (_slim * _slimPrice) +
-          (_newB * _newBottlePrice) +
-          (_bottle500 * _bottle500Price);
+  double get _subtotal {
+    double total = 0;
+    for (final product in _products) {
+      final qty = _quantities[product['id']] ?? 0;
+      if (qty > 0) total += (product['price'] as double) * qty;
+    }
+    return total;
+  }
 
   double get _tot => _subtotal + (_deliveryMode ? _deliveryFee : 0);
 
@@ -119,16 +129,18 @@ class _PosScreenState extends State<PosScreen> {
 
   String get _orderBreakdown {
     final List<String> parts = [];
-    if (_round > 0) parts.add('Round Refill x$_round');
-    if (_slim > 0) parts.add('Slim Refill x$_slim');
-    if (_newB > 0) parts.add('New Jug x$_newB');
-    if (_bottle500 > 0) parts.add('500ml x$_bottle500');
+    for (final product in _products) {
+      final qty = _quantities[product['id']] ?? 0;
+      if (qty > 0) parts.add('${product['name']} x$qty');
+    }
     return parts.isEmpty ? 'No items selected' : parts.join(', ');
   }
 
   @override
   void dispose() {
     _deliveryFeeConfigSub?.cancel();
+    _productsSub?.cancel();
+    _productImagesSub?.cancel();
     _tenderCtrl.dispose();
     _gcashRefCtrl.dispose();
     _phoneCtrl.dispose();
@@ -144,37 +156,49 @@ class _PosScreenState extends State<PosScreen> {
     });
   }
 
+  // 500ml is pre-sealed and never needs a cap/seal from packaging stock —
+  // every other catalog item does. productKey is left unset on purpose:
+  // FirestoreService._waterInventoryKeyFor already infers the right water
+  // SKU from the item name (same as the customer app's own checkout), so
+  // this stays correct automatically as the owner renames/adds products.
   List<OrderItem> _orderItems() {
     return [
-      if (_round > 0)
-        OrderItem(
-          name: '5-Gal Round Refill',
-          quantity: _round,
-          unitPrice: _roundPrice,
-          productKey: 'inv_water_round',
-        ),
-      if (_slim > 0)
-        OrderItem(
-          name: '5-Gal Slim Alkaline Refill',
-          quantity: _slim,
-          unitPrice: _slimPrice,
-          productKey: 'inv_water_slim',
-        ),
-      if (_newB > 0)
-        OrderItem(
-          name: 'New Bottle + Water (5-Gal)',
-          quantity: _newB,
-          unitPrice: _newBottlePrice,
-          productKey: 'inv_water_round',
-        ),
-      if (_bottle500 > 0)
-        OrderItem(
-          name: '500ml Bottled Water',
-          quantity: _bottle500,
-          unitPrice: _bottle500Price,
-          requiresPackaging: false,
-        ),
+      for (final product in _products)
+        if ((_quantities[product['id']] ?? 0) > 0)
+          OrderItem(
+            name: product['name'] as String,
+            quantity: _quantities[product['id']]!,
+            unitPrice: product['price'] as double,
+            requiresPackaging: product['id'] != 'bottle500',
+          ),
     ];
+  }
+
+  // Walk-in sales decrement inventory immediately (recordWalkInSale), unlike
+  // delivery orders which go through fulfillDelivery later — so unlike
+  // _orderItems above, these aggregates have to be computed up front here.
+  int _slimGallonsSelected() {
+    int total = 0;
+    for (final id in const ['r_slim', 'n_slim']) {
+      total += _quantities[id] ?? 0;
+    }
+    return total;
+  }
+
+  int _roundGallonsSelected() {
+    int total = 0;
+    for (final id in const ['r_round', 'n_round']) {
+      total += _quantities[id] ?? 0;
+    }
+    return total;
+  }
+
+  int _packagingUnitsSelected() {
+    int total = 0;
+    _quantities.forEach((id, qty) {
+      if (id != 'bottle500') total += qty;
+    });
+    return total;
   }
 
   Future<void> _triggerCheckout() async {
@@ -202,17 +226,14 @@ class _PosScreenState extends State<PosScreen> {
         gcashReference: _pay == 'gcash' && _gcashRefCtrl.text.trim().isNotEmpty
             ? _gcashRefCtrl.text.trim()
             : null,
-        roundGallons: _round + _newB,
-        slimGallons: _slim,
-        packagingUnits: _round + _slim + _newB,
+        roundGallons: _roundGallonsSelected(),
+        slimGallons: _slimGallonsSelected(),
+        packagingUnits: _packagingUnitsSelected(),
       );
       if (!mounted) return;
       setState(() {
         _isCheckingOut = false;
-        _round = 0;
-        _slim = 0;
-        _newB = 0;
-        _bottle500 = 0;
+        _quantities.clear();
         _tenderCtrl.text = '0';
         _gcashRefCtrl.clear();
       });
@@ -294,10 +315,7 @@ class _PosScreenState extends State<PosScreen> {
       if (!mounted) return;
       setState(() {
         _isCheckingOut = false;
-        _round = 0;
-        _slim = 0;
-        _newB = 0;
-        _bottle500 = 0;
+        _quantities.clear();
         _nameCtrl.clear();
         _phoneCtrl.clear();
         _addressCtrl.clear();
@@ -648,7 +666,7 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
-  Widget _buildGridCard(String title, String subtitle, double price, IconData icon, int qty, VoidCallback onDec, VoidCallback onInc) {
+  Widget _buildGridCard(String productId, String title, String subtitle, double price, String? imageUrl, int qty, VoidCallback onDec, VoidCallback onInc) {
     final bool selected = qty > 0;
     return Container(
       padding: const EdgeInsets.all(12),
@@ -667,13 +685,21 @@ class _PosScreenState extends State<PosScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                width: 64,
+                height: 64,
+                clipBehavior: Clip.hardEdge,
                 decoration: BoxDecoration(
-                  color: selected ? Colors.white : AppColors.slate50,
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.surfaceIce,
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: selected ? AppColors.primarySky.withValues(alpha: 0.2) : AppColors.slate200),
                 ),
-                child: Icon(icon, color: AppColors.primarySky, size: 20),
+                child: imageUrl != null && imageUrl.isNotEmpty
+                    ? Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => ProductIllustration(productId: productId),
+                      )
+                    : ProductIllustration(productId: productId),
               ),
               Text(
                 '₱${price.toStringAsFixed(0)}',
@@ -959,7 +985,7 @@ class _PosScreenState extends State<PosScreen> {
               _radioChoice(
                 label: 'Paid at Counter',
                 selected: _deliveryPaymentTiming == 'counter',
-                onTap: () => setState(() => _deliveryPaymentTiming == 'counter'),
+                onTap: () => setState(() => _deliveryPaymentTiming = 'counter'),
               ),
             ],
           ),
@@ -1357,22 +1383,31 @@ class _PosScreenState extends State<PosScreen> {
                     spacing: gap,
                     runSpacing: gap,
                     children: [
-                      SizedBox(
-                        width: itemWidth,
-                        child: _buildGridCard('5-Gal Round', 'Refill only', _roundPrice, Icons.local_drink, _round, () => setState(() => _round = _round > 0 ? _round - 1 : 0), () => setState(() => _round++)),
-                      ),
-                      SizedBox(
-                        width: itemWidth,
-                        child: _buildGridCard('5-Gal Slim', 'Alkaline Refill', _slimPrice, Icons.eco, _slim, () => setState(() => _slim = _slim > 0 ? _slim - 1 : 0), () => setState(() => _slim++)),
-                      ),
-                      SizedBox(
-                        width: itemWidth,
-                        child: _buildGridCard('New Bottle + Water', '5-Gal Poly', _newBottlePrice, Icons.inventory_2, _newB, () => setState(() => _newB = _newB > 0 ? _newB - 1 : 0), () => setState(() => _newB++)),
-                      ),
-                      SizedBox(
-                        width: itemWidth,
-                        child: _buildGridCard('500ml Bottled', 'PET Grab-and-go', _bottle500Price, Icons.sports_bar, _bottle500, () => setState(() => _bottle500 = _bottle500 > 0 ? _bottle500 - 1 : 0), () => setState(() => _bottle500++)),
-                      ),
+                      for (final product in _products)
+                        SizedBox(
+                          width: itemWidth,
+                          child: _buildGridCard(
+                            product['id'] as String,
+                            product['name'] as String,
+                            product['type'] as String,
+                            product['price'] as double,
+                            _productImages[product['id']],
+                            _quantities[product['id']] ?? 0,
+                            () => setState(() {
+                              final id = product['id'] as String;
+                              final current = _quantities[id] ?? 0;
+                              if (current > 1) {
+                                _quantities[id] = current - 1;
+                              } else {
+                                _quantities.remove(id);
+                              }
+                            }),
+                            () => setState(() {
+                              final id = product['id'] as String;
+                              _quantities[id] = (_quantities[id] ?? 0) + 1;
+                            }),
+                          ),
+                        ),
                     ],
                   );
                 },

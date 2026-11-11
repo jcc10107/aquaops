@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/products.dart';
 import '../../core/constants/zones.dart';
 import '../../widgets/aqua_bottom_nav.dart';
 import '../../widgets/bottom_sheet_chrome.dart';
@@ -50,32 +53,13 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
     'n_round': ['inv_water_round', 'inv_pkg_caps', 'inv_pkg_seals'],
   };
 
-  final List<Map<String, dynamic>> _products = const [
-    {
-      'id': 'r_slim',
-      'name': 'Slim Refill',
-      'price': 35.0,
-      'type': 'Refill exchange • Cap sanitized',
-    },
-    {
-      'id': 'r_round',
-      'name': 'Round Refill',
-      'price': 35.0,
-      'type': 'Refill exchange • Dispenser fit',
-    },
-    {
-      'id': 'n_slim',
-      'name': 'New Slim Gallon',
-      'price': 235.0,
-      'type': 'New Container + Pure Water',
-    },
-    {
-      'id': 'n_round',
-      'name': 'New Round Gallon',
-      'price': 255.0,
-      'type': 'New Container + Pure Water',
-    },
-  ];
+  // Seeded from the old hardcoded catalog so the store isn't empty for the
+  // one frame before the Firestore products stream (the owner-editable
+  // catalog) delivers its first snapshot.
+  List<Map<String, dynamic>> _products = catalogProducts
+      .map((p) => {'id': p.id, 'name': p.name, 'price': p.price, 'type': p.type})
+      .toList();
+  StreamSubscription<List<Map<String, dynamic>>>? _productsSub;
 
   double get _cartSubtotal {
     double total = 0;
@@ -97,6 +81,11 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
         ? const Stream.empty()
         : _firestoreService.getOrdersForCustomerStream(uid);
     _inventoryStream = _firestoreService.getInventoryStream();
+    _productsSub = _firestoreService.getProductsStream().listen((products) {
+      if (mounted && products.isNotEmpty) {
+        setState(() => _products = products);
+      }
+    });
     if (uid != null) {
       _firestoreService.getSavedAddressesStream(uid).first.then((addresses) {
         if (mounted && addresses.isNotEmpty) {
@@ -106,6 +95,12 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
         }
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _productsSub?.cancel();
+    super.dispose();
   }
 
   List<Map<String, dynamic>> _productsWithStock(List<InventoryModel> inventory) {

@@ -106,7 +106,7 @@ class _RiderEmergencyRequestModalState extends State<RiderEmergencyRequestModal>
                 _buildHeader(),
                 Expanded(
                   child: StreamBuilder<List<OrderModel>>(
-                    stream: _firestoreService.getActiveOrdersStream(),
+                    stream: _firestoreService.getActiveOrdersStream(riderId: currentUserId),
                     builder: (context, ordersSnapshot) {
                       if (ordersSnapshot.hasError) {
                         return Center(

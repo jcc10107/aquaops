@@ -203,8 +203,19 @@ class FirestoreService {
     return _orderFromData(data, doc.id);
   }
 
-  Stream<List<OrderModel>> getActiveOrdersStream() {
-    return _db.collection(_colOrders).snapshots().map((snapshot) {
+  // riderId scopes the query itself (not just a client-side filter) to
+  // that rider's own assigned orders. This matters because firestore.rules
+  // only lets a rider read orders where assignedRiderId == their own uid —
+  // an unfiltered collection() list query gets denied entirely the moment
+  // even one order in the collection belongs to someone else, it isn't
+  // silently filtered down. Staff/owner callers omit riderId and get
+  // every active order, same as before.
+  Stream<List<OrderModel>> getActiveOrdersStream({String? riderId}) {
+    Query<Map<String, dynamic>> query = _db.collection(_colOrders);
+    if (riderId != null) {
+      query = query.where('assignedRiderId', isEqualTo: riderId);
+    }
+    return query.snapshots().map((snapshot) {
       final orders = snapshot.docs
           .map(_orderFromDoc)
           .where((o) => o.status != OrderStatus.delivered && o.status != OrderStatus.cancelled)

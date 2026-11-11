@@ -1281,7 +1281,9 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
               final riders = riderSnapshot.data ?? const <UserModel>[];
 
               return StreamBuilder<List<OrderModel>>(
-                stream: _firestoreService.getActiveOrdersStream(),
+                stream: _firestoreService.getActiveOrdersStream(
+                  riderId: isRider ? AuthService().currentUserId : null,
+                ),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return Padding(

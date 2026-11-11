@@ -58,6 +58,11 @@ class AuthService {
     return error?.toString() ?? 'An unexpected authentication error occurred.';
   }
 
+  // Public wrapper so a restored session (app reload while already signed
+  // in — see main.dart's _AuthGate) can also register/refresh this
+  // device's push token, not just an explicit sign-in/sign-up call.
+  Future<void> ensurePushRegistered(String uid) => _registerForPushNotifications(uid);
+
   Future<void> _registerForPushNotifications(String uid) async {
     try {
       final messaging = FirebaseMessaging.instance;

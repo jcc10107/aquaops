@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../core/utils/app_toast.dart';
 import '../../widgets/sub_screen_header.dart';
+import '../messaging/support_request_screen.dart';
 
 class _Faq {
   final String question;
@@ -140,14 +139,11 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
     _setQuery(filter);
   }
 
-  Future<void> _copyHotline() async {
-    await Clipboard.setData(const ClipboardData(text: '(049) 562-8000'));
-    if (!mounted) return;
-    AppToast.showInfo(context, 'Hotline number copied to clipboard');
-  }
-
   void _openStationChat() {
-    AppToast.showInfo(context, 'Connecting to San Pablo station support...');
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SupportRequestScreen()),
+    );
   }
 
   Widget _buildTitleBlock() {
@@ -561,48 +557,6 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
             ],
           ),
           const SizedBox(height: 14),
-
-          // Hotline Box
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceCanvas,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.slate200),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.phone_in_talk_outlined, size: 18, color: AppColors.primarySky),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'DISPATCH HOTLINE',
-                        style: TextStyle(fontFamily: _font, fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.slate500),
-                      ),
-                      Text(
-                        '(049) 562-8000',
-                        style: TextStyle(fontFamily: _font, fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textLight),
-                      ),
-                    ],
-                  ),
-                ),
-                OutlinedButton(
-                  onPressed: _copyHotline,
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.slate300),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    minimumSize: Size.zero,
-                  ),
-                  child: const Text('Copy', style: TextStyle(fontFamily: _font, fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textLight)),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
 
           // Station Support Action
           SizedBox(

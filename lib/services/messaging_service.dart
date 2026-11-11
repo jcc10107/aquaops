@@ -34,7 +34,14 @@ class MessagingService {
         break;
       case UserRole.staff:
       case UserRole.owner:
-      // Staff and Owners can view all conversations or support queue
+        // Delivery chats are private to the customer and their assigned
+        // rider only (see firestore.rules) — staff/owner can only ever
+        // read support-type conversations, so the query must say so too.
+        // An unfiltered collection() read here gets denied outright by
+        // Firestore the moment even one delivery conversation exists,
+        // since list queries are rejected whole if any possible match
+        // would fail the security rule.
+        query = query.where('type', isEqualTo: ConversationType.support.name);
         break;
     }
 

@@ -1,4 +1,4 @@
-package com.aquaops.waterstation
+package ph.aquaops.app
 
 import io.flutter.embedding.android.FlutterActivity
 

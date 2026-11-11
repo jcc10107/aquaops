@@ -1,4 +1,4 @@
-package com.example.aquaops
+package ph.aquaops.app
 
 import io.flutter.embedding.android.FlutterActivity
 

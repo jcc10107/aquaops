@@ -7,6 +7,35 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:344330549483:android:3c6a17e43f10cf569fa6ae",
+        "android_client_info": {
+          "package_name": "com.aquaops.waterstation"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "344330549483-rn63r85vdji0hdgd2g7odnfomd3itf9l.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAycNB9kguvmRWPN2YONLhmB6Q9LLZ4H9U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "344330549483-rn63r85vdji0hdgd2g7odnfomd3itf9l.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:344330549483:android:56f97e2338b288569fa6ae",
         "android_client_info": {
           "package_name": "com.example.aquaops"
@@ -21,6 +50,35 @@
             "certificate_hash": "f66c40589cc6e75699936511aaa81856c268efbe"
           }
         },
+        {
+          "client_id": "344330549483-rn63r85vdji0hdgd2g7odnfomd3itf9l.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAycNB9kguvmRWPN2YONLhmB6Q9LLZ4H9U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "344330549483-rn63r85vdji0hdgd2g7odnfomd3itf9l.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:344330549483:android:dd9e17eefb5d5b669fa6ae",
+        "android_client_info": {
+          "package_name": "ph.aquaops.app"
+        }
+      },
+      "oauth_client": [
         {
           "client_id": "344330549483-rn63r85vdji0hdgd2g7odnfomd3itf9l.apps.googleusercontent.com",
           "client_type": 3

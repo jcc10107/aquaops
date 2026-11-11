@@ -97,14 +97,35 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
     }
   }
 
+  String _resolveOrderZone(OrderModel d) {
+    final rawZone = d.areaZone.trim();
+    if (rawZone.isNotEmpty) {
+      final lowerZone = rawZone.toLowerCase();
+      if (sanPabloZoneCodes.containsKey(lowerZone)) {
+        return lowerZone;
+      }
+      final fromZone = zoneGroupOf(rawZone);
+      if (fromZone != 'other') {
+        return fromZone;
+      }
+    }
+
+    final address = d.deliveryAddress?.trim() ?? '';
+    if (address.isNotEmpty) {
+      final fromAddress = zoneGroupOf(address);
+      if (fromAddress != 'other') {
+        return fromAddress;
+      }
+    }
+
+    return 'other';
+  }
+
   bool _matchesArea(OrderModel d, String area) {
     if (area == 'all') return true;
-    final group = zoneGroupOf(d.areaZone);
-    if (area == 'other') return !sanPabloZoneCodes.containsKey(group);
-    final query = area.toLowerCase();
-    return group == area ||
-        d.areaZone.toLowerCase().contains(query) ||
-        (d.deliveryAddress != null && d.deliveryAddress!.toLowerCase().contains(query));
+    final orderZone = _resolveOrderZone(d);
+    if (area == 'other') return orderZone == 'other';
+    return orderZone.toLowerCase() == area.toLowerCase();
   }
 
   bool _matchesStatus(OrderModel d, String status) {
@@ -138,7 +159,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
   String _getAreaLabel(String areaKey) {
     if (areaKey == 'all') return 'All Areas';
     if (areaKey == 'other') return 'Other Barangays';
-    return sanPabloZoneCodes[areaKey] ?? areaKey;
+    return zoneLabel(areaKey);
   }
 
   String _formatOrderTime(DateTime date) {
@@ -160,14 +181,17 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
           builder: (context, setModalState) {
             final allEntries = [
               const MapEntry('all', 'All Areas'),
-              ...sanPabloZoneCodes.entries,
+              ...buildZoneOptions().map((opt) => MapEntry(opt.value, opt.label)),
               const MapEntry('other', 'Other Barangays'),
             ];
 
             final filteredEntries = allEntries.where((entry) {
               if (searchQuery.trim().isEmpty) return true;
-              return entry.value.toLowerCase().contains(searchQuery.trim().toLowerCase()) ||
-                  entry.key.toLowerCase().contains(searchQuery.trim().toLowerCase());
+              final q = searchQuery.trim().toLowerCase();
+              final strippedQ = q.replaceFirst(RegExp(r'^(barangay|brgy\.?)\s+'), '');
+              return entry.value.toLowerCase().contains(q) ||
+                  entry.key.toLowerCase().contains(q) ||
+                  (strippedQ.isNotEmpty && entry.value.toLowerCase().contains(strippedQ));
             }).toList();
 
             return Align(
@@ -1127,10 +1151,6 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            // An unassigned order has no rider actually en route — opening
-            // the live navigation map would show the viewer's own GPS
-            // position mislabeled as "the rider." Route to assignment
-            // instead, which is the actual next step for this order.
             if (order.assignedRiderId == null) {
               if (canReassign) _showAssignRiderSheet(order, riders);
               return;
@@ -1171,8 +1191,6 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                       child: Text(statusTitle, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: statusBadgeText)),
                     ),
                     const Spacer(),
-                    // Chat with the customer is private to them and the
-                    // assigned rider — staff/owner don't get a button here.
                     if (isRider) ...[
                       IconButton(
                         tooltip: 'Message Customer',
@@ -1396,7 +1414,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                             suffixIcon: _searchCtrl.text.isEmpty
                                 ? null
                                 : IconButton(
-                              icon: const Icon(Icons.close, size: 16, color: AppColors.slate400),
+                              icon: const Icon(Icons.clear, size: 16, color: AppColors.slate400),
                               onPressed: () => setState(() => _searchCtrl.clear()),
                             ),
                             filled: true,

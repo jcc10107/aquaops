@@ -4,7 +4,7 @@
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFFFFF",
-    "theme_color": "#FFFFFF",
+    "theme_color": "#c9eefb",
     "description": "AquaOps - Water Refilling Station Management App",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,

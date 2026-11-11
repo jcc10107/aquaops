@@ -176,140 +176,11 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.45),
       builder: (sheetContext) {
-        String searchQuery = '';
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final allEntries = [
-              const MapEntry('all', 'All Areas'),
-              ...buildZoneOptions().map((opt) => MapEntry(opt.value, opt.label)),
-              const MapEntry('other', 'Other Barangays'),
-            ];
-
-            final filteredEntries = allEntries.where((entry) {
-              if (searchQuery.trim().isEmpty) return true;
-              final q = searchQuery.trim().toLowerCase();
-              final strippedQ = q.replaceFirst(RegExp(r'^(barangay|brgy\.?)\s+'), '');
-              return entry.value.toLowerCase().contains(q) ||
-                  entry.key.toLowerCase().contains(q) ||
-                  (strippedQ.isNotEmpty && entry.value.toLowerCase().contains(strippedQ));
-            }).toList();
-
-            return Align(
-              alignment: Alignment.bottomCenter,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: 800,
-                  maxHeight: MediaQuery.of(context).size.height * 0.82,
-                ),
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: AppColors.surfaceIce,
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(height: 12),
-                      const BottomSheetDragHandle(),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                        child: Row(
-                          children: [
-                            const Text(
-                              'Select Area',
-                              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textLight),
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              icon: const Icon(Icons.close, size: 20, color: AppColors.slate500),
-                              onPressed: () => Navigator.pop(sheetContext),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        child: TextField(
-                          style: const TextStyle(fontSize: 13, color: AppColors.textLight),
-                          onChanged: (val) => setModalState(() => searchQuery = val),
-                          decoration: InputDecoration(
-                            hintText: 'Search area or barangay...',
-                            hintStyle: const TextStyle(fontSize: 13, color: AppColors.slate400),
-                            prefixIcon: const Icon(Icons.search, size: 18, color: AppColors.slate400),
-                            suffixIcon: searchQuery.isEmpty
-                                ? null
-                                : IconButton(
-                              icon: const Icon(Icons.clear, size: 16, color: AppColors.slate400),
-                              onPressed: () => setModalState(() => searchQuery = ''),
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                            isDense: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
-                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
-                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primarySky)),
-                          ),
-                        ),
-                      ),
-                      const Divider(height: 1, color: AppColors.slate200),
-                      Flexible(
-                        child: filteredEntries.isEmpty
-                            ? const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 40),
-                          child: Text('No matching areas found', style: TextStyle(fontSize: 13, color: AppColors.slate400)),
-                        )
-                            : ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: filteredEntries.length,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          itemBuilder: (context, idx) {
-                            final item = filteredEntries[idx];
-                            final bool isSelected = _area == item.key;
-                            return InkWell(
-                              onTap: () {
-                                setState(() => _area = item.key);
-                                Navigator.pop(sheetContext);
-                              },
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                                decoration: BoxDecoration(
-                                  color: isSelected ? AppColors.primarySky.withValues(alpha: 0.1) : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      item.key == 'all' ? Icons.dashboard_outlined : Icons.location_on_outlined,
-                                      size: 18,
-                                      color: isSelected ? AppColors.primarySky : AppColors.slate400,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        item.value,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                          color: isSelected ? AppColors.primarySky : AppColors.textLight,
-                                        ),
-                                      ),
-                                    ),
-                                    if (isSelected) const Icon(Icons.check, size: 18, color: AppColors.primarySky),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
+        return _AreaPickerModal(
+          selectedArea: _area,
+          onSelected: (selectedKey) {
+            setState(() => _area = selectedKey);
+            Navigator.pop(sheetContext);
           },
         );
       },
@@ -526,7 +397,7 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
             Container(
               width: 38,
               height: 38,
-              decoration: BoxDecoration(color: iconBgColor, borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: iconBgColor, borderRadius: BorderRadius.circular(100)),
               child: Icon(icon, size: 20, color: iconColor),
             ),
             const SizedBox(width: 8),
@@ -1495,6 +1366,173 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                 },
               );
             },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AreaPickerModal extends StatefulWidget {
+  final String selectedArea;
+  final ValueChanged<String> onSelected;
+
+  const _AreaPickerModal({
+    required this.selectedArea,
+    required this.onSelected,
+  });
+
+  @override
+  State<_AreaPickerModal> createState() => _AreaPickerModalState();
+}
+
+class _AreaPickerModalState extends State<_AreaPickerModal> {
+  late final TextEditingController _searchCtrl;
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allEntries = [
+      const MapEntry('all', 'All Areas'),
+      ...buildZoneOptions().map((opt) => MapEntry(opt.value, opt.label)),
+      const MapEntry('other', 'Other Barangays'),
+    ];
+
+    final q = _searchQuery.trim().toLowerCase();
+    final strippedQ = q.replaceFirst(RegExp(r'^(barangay|brgy\.?)\s+'), '');
+
+    final filteredEntries = allEntries.where((entry) {
+      if (q.isEmpty) return true;
+      return entry.value.toLowerCase().contains(q) ||
+          entry.key.toLowerCase().contains(q) ||
+          (strippedQ.isNotEmpty && entry.value.toLowerCase().contains(strippedQ));
+    }).toList();
+
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 800,
+          maxHeight: MediaQuery.of(context).size.height * 0.82,
+        ),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: AppColors.surfaceIce,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              const BottomSheetDragHandle(),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Select Area',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textLight),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.close, size: 20, color: AppColors.slate500),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: TextField(
+                  controller: _searchCtrl,
+                  style: const TextStyle(fontSize: 13, color: AppColors.textLight),
+                  onChanged: (val) => setState(() => _searchQuery = val),
+                  decoration: InputDecoration(
+                    hintText: 'Search area or barangay...',
+                    hintStyle: const TextStyle(fontSize: 13, color: AppColors.slate400),
+                    prefixIcon: const Icon(Icons.search, size: 18, color: AppColors.slate400),
+                    suffixIcon: _searchQuery.isEmpty
+                        ? null
+                        : IconButton(
+                      icon: const Icon(Icons.clear, size: 16, color: AppColors.slate400),
+                      onPressed: () {
+                        _searchCtrl.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                    isDense: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primarySky)),
+                  ),
+                ),
+              ),
+              const Divider(height: 1, color: AppColors.slate200),
+              Flexible(
+                child: filteredEntries.isEmpty
+                    ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Text('No matching areas found', style: TextStyle(fontSize: 13, color: AppColors.slate400)),
+                )
+                    : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: filteredEntries.length,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  itemBuilder: (context, idx) {
+                    final item = filteredEntries[idx];
+                    final bool isSelected = widget.selectedArea == item.key;
+                    return InkWell(
+                      onTap: () => widget.onSelected(item.key),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.primarySky.withValues(alpha: 0.1) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              item.key == 'all' ? Icons.dashboard_outlined : Icons.location_on_outlined,
+                              size: 18,
+                              color: isSelected ? AppColors.primarySky : AppColors.slate400,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                item.value,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                  color: isSelected ? AppColors.primarySky : AppColors.textLight,
+                                ),
+                              ),
+                            ),
+                            if (isSelected) const Icon(Icons.check, size: 18, color: AppColors.primarySky),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ),
       ),

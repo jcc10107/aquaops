@@ -35,11 +35,18 @@ service cloud.firestore {
         isOwner()
       );
       allow read: if isSignedIn() && (request.auth.uid == userId || isStaff());
-      // Users can edit their own doc but never change their own role.
+      // Users can edit their own doc but never change their own role, and
+      // only through the fields the app actually lets them self-edit —
+      // not unreturnedContainers, activeDepositAmount, assignedArea, or
+      // any other operational field only staff/owner/rider-on-delivery
+      // should ever move.
       // A rider may only touch a customer's unreturnedContainers count —
       // that's the one field fulfillDelivery() adjusts on their behalf.
       allow update: if isSignedIn() && (
-        (request.auth.uid == userId && request.resource.data.role == resource.data.role) ||
+        (request.auth.uid == userId
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['name', 'phone', 'address', 'notificationsEnabled', 'fcmTokens'])) ||
         isOwner() ||
         (isRider() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unreturnedContainers']))
       );
@@ -52,9 +59,14 @@ service cloud.firestore {
 
     match /orders/{orderId} {
       // Customers only see their own orders (the app queries them with
-      // where customerId == uid). Riders still read all orders because the
-      // delivery queue subscribes to every active order.
-      allow read: if isStaff() || isRider()
+      // where customerId == uid). A rider only ever needs their OWN
+      // assigned orders — every rider-facing screen already filters to
+      // assignedRiderId == self client-side (delivery queue, emergency
+      // request modal), so this costs them nothing and stops a rider
+      // reading every other rider's customers' names/addresses/payment
+      // info via the same broad "all active orders" stream.
+      allow read: if isStaff()
+        || (isRider() && resource.data.assignedRiderId == request.auth.uid)
         || (isSignedIn() && resource.data.customerId == request.auth.uid);
       // Customers may only place their own unpaid, pending order; staff create
       // walk-in POS sales.
@@ -64,8 +76,11 @@ service cloud.firestore {
             && request.resource.data.status == 'pending'
             && request.resource.data.isPaid == false);
       // The assigned rider can update their own order (fulfill delivery, payment
-      // confirmation) but can't touch orders assigned to someone else or grab
-      // an unassigned one themselves — only staff/owner can assign via assignRider().
+      // confirmation, live location) but can't touch orders assigned to someone
+      // else or grab an unassigned one themselves — only staff/owner can assign
+      // via assignRider(). Field list mirrors exactly what fulfillDelivery() and
+      // updateRiderLocation() write — price, customer, and assignment fields
+      // (totalAmount, items, assignedRiderId, etc.) are never rider-writable.
       // A customer can only cancel their own order, nothing else.
       allow update: if isStaff()
         || (isSignedIn()
@@ -73,7 +88,13 @@ service cloud.firestore {
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
             && request.resource.data.status == 'cancelled'
             && resource.data.status != 'delivered')
-        || (isRider() && resource.data.assignedRiderId == request.auth.uid);
+        || (isRider() && resource.data.assignedRiderId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'status', 'riderConfirmedDelivery', 'gallonsDelivered', 'emptyGallonsReturned',
+                'unreturnedDiff', 'proofOfDeliveryUrl', 'recipientName', 'stockDeductedAt',
+                'stockShortfall', 'deliveredAt', 'isPaid', 'paymentMethod', 'paymentCollectedBy',
+                'paidAt', 'riderLat', 'riderLng'
+              ]));
       allow delete: if isStaff();
     }
 
@@ -147,10 +168,13 @@ service cloud.firestore {
       // Staff/owner review all claims; a customer only ever sees their own.
       allow read: if isStaff()
         || (isSignedIn() && resource.data.customerId == request.auth.uid);
-      // A customer can only file a new claim for themselves, starting as pending.
+      // A customer can only file a new claim for themselves, starting as
+      // pending, and only against an order that's actually theirs — not
+      // just any orderId they type in.
       allow create: if isSignedIn()
         && request.resource.data.customerId == request.auth.uid
-        && request.resource.data.status == 'pending';
+        && request.resource.data.status == 'pending'
+        && get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.customerId == request.auth.uid;
       // Only staff/owner can move a claim to approved/rejected/processed.
       allow update: if isStaff();
     }
@@ -158,9 +182,15 @@ service cloud.firestore {
     match /counters/{counterId} {
       // A shared sequence (e.g. the global order-number counter) — any
       // signed-in user who's allowed to create the thing being numbered
-      // needs to bump it. Just an integer; trusted like this project's
-      // other client-trusted writes (orders, rider_cashouts).
-      allow read, write: if isSignedIn();
+      // needs to bump it (both customer checkout and staff POS call
+      // _generateOrderNumber()). But the value may only ever advance by
+      // exactly 1 per write, so a malicious client can't reset, skip
+      // ahead, or corrupt order numbering for everyone else.
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['lastNumber'])
+        && request.resource.data.lastNumber is int
+        && request.resource.data.lastNumber == (resource == null ? 0 : resource.data.lastNumber) + 1;
     }
 
     match /settings/{docId} {

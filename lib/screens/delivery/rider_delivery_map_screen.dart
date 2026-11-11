@@ -51,7 +51,11 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
   bool _loading = true;
   bool _locating = false;
   bool _isApproximateLocation = false;
-  bool _navigationStarted = false;
+  // If the rider already started navigation in an earlier session (closed
+  // the app mid-delivery and came back), the order is already past
+  // 'refilling' — don't make them think they need to tap Start again, and
+  // don't re-block the Fulfill Order button.
+  late bool _navigationStarted = widget.order.status != OrderStatus.refilling;
   String? _statusMessage;
 
   // Keeps this screen's own position live without the rider having to tap
@@ -305,6 +309,12 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
   Future<void> _startInAppNavigation() async {
     setState(() => _navigationStarted = true);
     await _autoRefresh();
+    if (_isAssignedRider) {
+      // Only now does the order actually leave the station — see
+      // startRiderNavigation()'s doc comment for why this moved here
+      // instead of firing the moment staff/owner assigns the rider.
+      unawaited(_firestoreService.startRiderNavigation(widget.order.id));
+    }
     if (!mounted) return;
     if (_riderPos != null) {
       _mapController.move(_riderPos!, 17);
@@ -774,12 +784,13 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                             child: SizedBox(
                               height: 48,
                               child: ElevatedButton.icon(
-                                onPressed: _proceedToFulfillment,
+                                onPressed: (!_isAssignedRider || _navigationStarted) ? _proceedToFulfillment : null,
                                 icon: const Icon(Icons.check_circle_outline, size: 18),
                                 label: const Text('Fulfill Order', style: TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.bold)),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primarySky,
                                   foregroundColor: Colors.white,
+                                  disabledBackgroundColor: AppColors.slate200,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),

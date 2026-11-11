@@ -545,6 +545,10 @@ class FirestoreService {
     );
   }
 
+  // Assigning a rider only starts the refill, not the actual trip — the
+  // order only becomes outForDelivery (and the customer only gets told
+  // it's "out for delivery") once the rider taps Start Navigation; see
+  // startRiderNavigation() below.
   Future<void> assignRider({
     required String orderId,
     required String riderId,
@@ -554,15 +558,37 @@ class FirestoreService {
     await orderRef.update({
       'assignedRiderId': riderId,
       'assignedRiderName': riderName,
-      'status': 'outForDelivery',
+      'status': 'refilling',
     });
 
     final snap = await orderRef.get();
     final data = snap.data();
     if (data == null) return;
     final orderNumber = data['orderNumber'] as String? ?? '';
-    final customerId = data['customerId'] as String?;
 
+    unawaited(_push.notifyUser(
+      uid: riderId,
+      title: 'New delivery assigned',
+      body: 'You\'ve been assigned $orderNumber.',
+      data: {'orderId': orderId},
+    ));
+  }
+
+  // Called when the assigned rider taps "Start Navigation" — this is the
+  // actual moment the order leaves the station, so it's when the order
+  // flips to outForDelivery and the customer first hears "out for
+  // delivery", not back when they were merely assigned a rider.
+  Future<void> startRiderNavigation(String orderId) async {
+    final orderRef = _db.collection(_colOrders).doc(orderId);
+    final snap = await orderRef.get();
+    final data = snap.data();
+    if (data == null) return;
+    if (data['status'] != 'refilling') return;
+
+    await orderRef.update({'status': 'outForDelivery'});
+
+    final orderNumber = data['orderNumber'] as String? ?? '';
+    final customerId = data['customerId'] as String?;
     if (customerId != null && customerId.isNotEmpty) {
       unawaited(_push.notifyUser(
         uid: customerId,
@@ -571,12 +597,6 @@ class FirestoreService {
         data: {'orderId': orderId},
       ));
     }
-    unawaited(_push.notifyUser(
-      uid: riderId,
-      title: 'New delivery assigned',
-      body: 'You\'ve been assigned $orderNumber.',
-      data: {'orderId': orderId},
-    ));
   }
 
   // ── Users ─────────────────────────────────────────────────────────

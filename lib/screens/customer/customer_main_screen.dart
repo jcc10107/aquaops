@@ -64,8 +64,12 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   double get _cartSubtotal {
     double total = 0;
     _cart.forEach((id, qty) {
-      final product = _products.firstWhere((p) => p['id'] == id);
-      total += (product['price'] as double) * qty;
+      // The owner can delete a product while it's still sitting in a
+      // customer's cart — skip it instead of crashing the whole screen
+      // with a StateError from firstWhere finding nothing.
+      final matches = _products.where((p) => p['id'] == id);
+      if (matches.isEmpty) return;
+      total += (matches.first['price'] as double) * qty;
     });
     return total;
   }
@@ -82,9 +86,12 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
         : _firestoreService.getOrdersForCustomerStream(uid);
     _inventoryStream = _firestoreService.getInventoryStream();
     _productsSub = _firestoreService.getProductsStream().listen((products) {
-      if (mounted && products.isNotEmpty) {
-        setState(() => _products = products);
-      }
+      // Always reflect Firestore's current state, including a genuinely
+      // empty catalog (the owner removed every product) — the previous
+      // isNotEmpty guard, meant only to avoid a flash of "0 Products"
+      // before the one-time seed finished, was instead leaving a stale,
+      // possibly-deleted catalog on screen indefinitely.
+      if (mounted) setState(() => _products = products);
     });
     if (uid != null) {
       _firestoreService.getSavedAddressesStream(uid).first.then((addresses) {

@@ -303,6 +303,8 @@ class CustomerStoreScreen extends StatelessWidget {
     final String id = p['id'] as String;
     final bool isRefill = id == 'r_slim' || id == 'r_round';
     final bool inStock = (p['inStock'] as bool?) ?? true;
+    final int maxQty = (p['maxQty'] as int?) ?? 1 << 30;
+    final bool canAddMore = inStock && qty < maxQty;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -463,13 +465,13 @@ class CustomerStoreScreen extends StatelessWidget {
                     ),
                   ),
                   InkWell(
-                    onTap: inStock ? () => onAddToCart(id) : null,
+                    onTap: canAddMore ? () => onAddToCart(id) : null,
                     borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
-                    child: const SizedBox(
+                    child: SizedBox(
                       width: 32,
                       height: 36,
                       child: Center(
-                        child: Icon(Icons.add, size: 16, color: AppColors.primarySky),
+                        child: Icon(Icons.add, size: 16, color: canAddMore ? AppColors.primarySky : AppColors.slate300),
                       ),
                     ),
                   ),

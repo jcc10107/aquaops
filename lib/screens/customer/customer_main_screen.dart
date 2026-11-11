@@ -112,10 +112,37 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
 
   List<Map<String, dynamic>> _productsWithStock(List<InventoryModel> inventory) {
     final stockById = {for (final item in inventory) item.id: item.currentStock};
+
+    // Two products can share the same underlying SKU (e.g. r_round and
+    // n_round both draw from inv_water_round) — track what's already
+    // committed to each SKU across the whole cart so adding more of one
+    // product can't push the shared total past what's actually in stock.
+    final Map<String, int> committed = {};
+    for (final product in _products) {
+      final id = product['id'] as String;
+      final qty = _cart[id] ?? 0;
+      if (qty <= 0) continue;
+      for (final skuId in _stockDependsOn[id] ?? const <String>[]) {
+        committed[skuId] = (committed[skuId] ?? 0) + qty;
+      }
+    }
+
     return _products.map((product) {
-      final deps = _stockDependsOn[product['id']] ?? const <String>[];
-      final inStock = deps.every((skuId) => (stockById[skuId] ?? 0) > 0);
-      return {...product, 'inStock': inStock};
+      final id = product['id'] as String;
+      final deps = _stockDependsOn[id] ?? const <String>[];
+      if (deps.isEmpty) {
+        return {...product, 'inStock': true, 'maxQty': 1 << 30};
+      }
+      final myQty = _cart[id] ?? 0;
+      int maxQty = 1 << 30;
+      for (final skuId in deps) {
+        final stock = stockById[skuId] ?? 0;
+        final othersCommitted = (committed[skuId] ?? 0) - myQty;
+        final available = stock - othersCommitted;
+        if (available < maxQty) maxQty = available;
+      }
+      if (maxQty < 0) maxQty = 0;
+      return {...product, 'inStock': maxQty > 0, 'maxQty': maxQty};
     }).toList();
   }
 

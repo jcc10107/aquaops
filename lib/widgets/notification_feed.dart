@@ -187,6 +187,11 @@ class _NotificationFeedState extends State<NotificationFeed> {
         _inventory = _fs.getInventoryStream();
         _maintenance = _fs.getMaintenanceAlertsStream();
         _orders = _fs.getAllOrdersStream();
+        // Staff gets the exact same notification feed as owner — refund
+        // requests were previously owner-only here even though staff can
+        // already read refund_requests under firestore.rules (isStaff()
+        // covers both) and can act on them via Owner Request screen.
+        _refunds = _fs.getRefundRequestsStream();
         break;
       case 'rider':
         _orders = uid == null ? null : _fs.getAllOrdersStream(riderId: uid);
@@ -252,7 +257,13 @@ class _NotificationFeedState extends State<NotificationFeed> {
         break;
       case 'staff':
         items.addAll(_stockItems(inv, maint, now));
+        // Staff dispatches riders and reviews refunds the same as owner
+        // does (see assignRider()/Owner Request screen) — the unassigned
+        // delivery / transfer / cancellation alerts and pending refunds
+        // were previously owner-only here with no functional reason.
+        items.addAll(_ownerOrderItems(orders, now));
         items.addAll(_posItems(orders, now));
+        items.addAll(_ownerRefundItems(refunds));
         break;
       case 'rider':
         items.addAll(_riderItems(orders, now));

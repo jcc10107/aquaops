@@ -48,6 +48,17 @@ export default {
       }
 
       const body = await request.json();
+
+      // Cloudinary signed-upload request — a different request shape
+      // sharing this same worker + shared-secret auth, so the Cloudinary
+      // API secret needed to produce a valid signature never has to leave
+      // the server (the client previously used an *unsigned* upload
+      // preset, which anyone who extracted the cloud name/preset from the
+      // compiled app could call directly, with no auth at all).
+      if (body.cloudinarySign) {
+        return handleCloudinarySign(body, env);
+      }
+
       const { recipientId, recipientIds, broadcastRoles, title, messageText, conversationId, data } = body;
 
       if (!messageText) {
@@ -128,6 +139,39 @@ export default {
     }
   },
 };
+
+async function handleCloudinarySign(body, env) {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const params = { timestamp };
+  if (body.folder) params.folder = body.folder;
+
+  // Cloudinary's signing rule: every param that will be sent with the
+  // upload (except file/cloud_name/api_key/resource_type), sorted
+  // alphabetically by key, joined as key=value with &, API secret appended,
+  // then SHA-1 the whole string. Cloudinary recomputes this same thing
+  // server-side and rejects the upload if it doesn't match.
+  const toSign = `${Object.keys(params)
+    .sort()
+    .map((k) => `${k}=${params[k]}`)
+    .join('&')}${env.CLOUDINARY_API_SECRET}`;
+
+  const signature = await sha1Hex(toSign);
+
+  return new Response(
+    JSON.stringify({
+      signature,
+      timestamp,
+      apiKey: env.CLOUDINARY_API_KEY,
+      folder: body.folder ?? null,
+    }),
+    { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
+  );
+}
+
+async function sha1Hex(message) {
+  const bytes = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(message));
+  return Array.from(new Uint8Array(bytes)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 function userDocUrl(projectId, uid) {
   return `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`;

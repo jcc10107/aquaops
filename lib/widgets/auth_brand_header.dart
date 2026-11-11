@@ -11,7 +11,7 @@ class AuthBrandHeader extends StatelessWidget {
     super.key,
     required this.title,
     required this.subtitle,
-    this.logoSize = 80.0,
+    this.logoSize = 120.0, // Increased default size to accommodate the new stacked wordmark
   });
 
   static const String _fontFamily = 'Plus Jakarta Sans';
@@ -22,7 +22,7 @@ class AuthBrandHeader extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        AquaLogo(size: logoSize),
+        AquaOpsLogo(size: logoSize),
         const SizedBox(height: 16),
         Text(
           title,

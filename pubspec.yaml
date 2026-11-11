@@ -38,17 +38,26 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.3
+  flutter_native_splash: ^2.4.4
 
 flutter:
   uses-material-design: true
   assets:
     - assets/icon/
+    - assets/images/ # Registered directory for the full logo
 
+# --- APP ICON CONFIGURATION ---
 flutter_launcher_icons:
   android: true
-  ios: false
+  ios: true
   image_path: "assets/icon/app_icon.png"
   min_sdk_android: 21
-  # Water-drop icon on the app's primary blue — placeholder until a real
-  # AquaOps logo is ready; swap assets/icon/app_icon.png and re-run
-  # `dart run flutter_launcher_icons` to update.
+  remove_alpha_ios: true # Required by Apple (removes transparency for iOS icons)
+
+# --- SPLASH SCREEN CONFIGURATION ---
+flutter_native_splash:
+  color: "#FFFFFF" # White background for the splash screen
+  image: "assets/icon/app_icon.png"
+  android_12:
+    image: "assets/icon/app_icon.png"
+    color: "#FFFFFF"

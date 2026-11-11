@@ -118,7 +118,7 @@ class _ManageProfileScreenState extends State<ManageProfileScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            const AquaLogo(size: 72),
+                            const AquaOpsLogo(size: 72),
                             const SizedBox(height: 12),
                             const Text(
                               'Manage Profile',

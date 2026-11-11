@@ -131,16 +131,20 @@ class _CustomHeaderState extends State<CustomHeader> {
       children: [
         RichText(
           text: TextSpan(
-            style: TextStyle(
-              fontSize: 20,
+            style: const TextStyle(
+              fontFamily: 'Montserrat', // Aligned with the new logo's font styling
+              fontSize: 19,
               fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-              color: isDark ? Colors.white : AppColors.textLight,
+              letterSpacing: 0.5, // Slightly opened kerning to match logo proportions
             ),
-            children: const [
-              TextSpan(text: 'Aqua'),
+            children: [
               TextSpan(
-                text: 'Ops',
+                text: 'AQUA',
+                // Uses primarySkyDark in light mode for the deep blue, adapts to white in dark mode
+                style: TextStyle(color: isDark ? Colors.white : AppColors.primarySkyDark),
+              ),
+              const TextSpan(
+                text: 'OPS',
                 style: TextStyle(color: AppColors.primarySky),
               ),
             ],

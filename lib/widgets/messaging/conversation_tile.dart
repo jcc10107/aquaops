@@ -37,8 +37,11 @@ class ConversationTile extends StatelessWidget {
         : conversation.staffOrRiderUnreadCount;
     final isDelivery = conversation.isDelivery;
 
+    // Show whoever the VIEWER isn't — a customer wants to see their
+    // rider's name, while a rider/staff viewing the same delivery chat
+    // needs to see the customer's name, not their own.
     final title = isDelivery
-        ? (conversation.assignedRiderName ?? 'Delivery Rider')
+        ? (isCustomer ? (conversation.assignedRiderName ?? 'Delivery Rider') : conversation.customerName)
         : (conversation.supportTopic ?? 'Support Request');
 
     final subtitle = conversation.lastMessageText ?? 'No messages yet';

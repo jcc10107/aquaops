@@ -380,7 +380,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                 final since = lastCashOutSnap.data?.closedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
 
                 return StreamBuilder<List<OrderModel>>(
-                  stream: _firestoreService.getAllOrdersStream(),
+                  stream: _firestoreService.getAllOrdersStream(riderId: currentUserId),
                   builder: (context, ordersSnap) {
                     final allOrders = ordersSnap.data ?? const <OrderModel>[];
 

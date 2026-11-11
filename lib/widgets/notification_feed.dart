@@ -189,7 +189,7 @@ class _NotificationFeedState extends State<NotificationFeed> {
         _orders = _fs.getAllOrdersStream();
         break;
       case 'rider':
-        _orders = _fs.getAllOrdersStream();
+        _orders = uid == null ? null : _fs.getAllOrdersStream(riderId: uid);
         break;
       default:
         if (uid != null) {

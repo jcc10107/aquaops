@@ -225,8 +225,15 @@ class FirestoreService {
     });
   }
 
-  Stream<List<OrderModel>> getAllOrdersStream() {
-    return _db.collection(_colOrders).snapshots().map(
+  // Same reasoning as getActiveOrdersStream's riderId param — an
+  // unfiltered list query is denied outright for a rider the moment any
+  // other rider's order exists in the collection.
+  Stream<List<OrderModel>> getAllOrdersStream({String? riderId}) {
+    Query<Map<String, dynamic>> query = _db.collection(_colOrders);
+    if (riderId != null) {
+      query = query.where('assignedRiderId', isEqualTo: riderId);
+    }
+    return query.snapshots().map(
           (snapshot) => snapshot.docs.map(_orderFromDoc).toList(),
     );
   }

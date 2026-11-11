@@ -33,6 +33,12 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   bool _isSending = false;
   String? _currentUserName;
   UserRole _currentUserRole = UserRole.customer;
+  // Tracks the newest message id we've already marked read, so staying on
+  // this screen while a new message streams in still clears the unread
+  // count right away — _markRead() alone only fires once, on open, so
+  // without this the sender only sees "Seen" after the other side leaves
+  // and re-enters the conversation.
+  String? _lastMarkedMessageId;
 
   @override
   void initState() {
@@ -153,8 +159,13 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     final isDelivery = widget.conversation.isDelivery;
     final isStaffOrOwner = _currentUserRole == UserRole.staff || _currentUserRole == UserRole.owner;
 
+    // Always show the OTHER participant, not whoever's currently viewing —
+    // a rider opening their own delivery chat should see the customer's
+    // name here, not their own.
     final title = isDelivery
-        ? (widget.conversation.assignedRiderName ?? 'Assigned Rider')
+        ? (_currentUserRole == UserRole.rider
+            ? widget.conversation.customerName
+            : (widget.conversation.assignedRiderName ?? 'Assigned Rider'))
         : (widget.conversation.supportTopic ?? 'Aqua Ops Support');
 
     final subtitle = isDelivery
@@ -298,37 +309,68 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
               if (isCustomer && isResolved && widget.conversation.isSupport)
                 _buildCustomerReopenBanner(),
               Expanded(
-                child: StreamBuilder<List<ChatMessageModel>>(
-                  stream: _messagingService.watchMessages(widget.conversation.id),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return Center(
-                        child: Text(
-                          'Error loading messages: ${snapshot.error}',
-                          style: const TextStyle(color: AppColors.coralAlert),
-                        ),
-                      );
-                    }
-                    if (!snapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+                child: StreamBuilder<ChatConversationModel?>(
+                  stream: _messagingService.watchConversation(widget.conversation.id),
+                  builder: (context, convoSnapshot) {
+                    // The other side's unread count hitting 0 means they've
+                    // read up to (and including) the latest message — reuses
+                    // the existing unread-count fields instead of adding new
+                    // per-message read state.
+                    final liveConvo = convoSnapshot.data;
+                    final otherSideHasRead = isCustomer
+                        ? (liveConvo?.staffOrRiderUnreadCount ?? 1) == 0
+                        : (liveConvo?.customerUnreadCount ?? 1) == 0;
+                    final otherSideName = isCustomer
+                        ? widget.conversation.assignedRiderName
+                        : widget.conversation.customerName;
 
-                    final messages = snapshot.data!.where((m) {
-                      if (isCustomer && m.isInternalNote) return false;
-                      return true;
-                    }).toList();
+                    return StreamBuilder<List<ChatMessageModel>>(
+                      stream: _messagingService.watchMessages(widget.conversation.id),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text(
+                              'Error loading messages: ${snapshot.error}',
+                              style: const TextStyle(color: AppColors.coralAlert),
+                            ),
+                          );
+                        }
+                        if (!snapshot.hasData) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
 
-                    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+                        final messages = snapshot.data!.where((m) {
+                          if (isCustomer && m.isInternalNote) return false;
+                          return true;
+                        }).toList();
 
-                    return ListView.builder(
-                      controller: _scrollController,
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                      itemCount: messages.length,
-                      itemBuilder: (context, index) {
-                        final msg = messages[index];
-                        final isMe = msg.senderId == currentUserId;
-                        return ChatMessageBubble(message: msg, isMe: isMe);
+                        if (messages.isNotEmpty) {
+                          final latest = messages.last;
+                          if (latest.id != _lastMarkedMessageId && latest.senderId != currentUserId) {
+                            _lastMarkedMessageId = latest.id;
+                            _markRead();
+                          }
+                        }
+
+                        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+
+                        return ListView.builder(
+                          controller: _scrollController,
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                          itemCount: messages.length,
+                          itemBuilder: (context, index) {
+                            final msg = messages[index];
+                            final isMe = msg.senderId == currentUserId;
+                            final isLast = index == messages.length - 1;
+                            return ChatMessageBubble(
+                              message: msg,
+                              isMe: isMe,
+                              showSeen: isMe && isLast && otherSideHasRead,
+                              seenByName: otherSideName,
+                            );
+                          },
+                        );
                       },
                     );
                   },
@@ -336,6 +378,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
               ),
               if (!isReadOnly && widget.conversation.isDelivery)
                 DeliveryQuickReplies(
+                  isRider: _currentUserRole == UserRole.rider,
                   onSelect: (reply) {
                     _textCtrl.text = reply;
                   },

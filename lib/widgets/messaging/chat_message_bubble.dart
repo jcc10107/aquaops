@@ -7,12 +7,23 @@ const String _font = 'Plus Jakarta Sans';
 class ChatMessageBubble extends StatelessWidget {
   final ChatMessageModel message;
   final bool isMe;
+  final bool showSeen;
+  final String? seenByName;
 
   const ChatMessageBubble({
     super.key,
     required this.message,
     required this.isMe,
+    this.showSeen = false,
+    this.seenByName,
   });
+
+  String _initialsOf(String name) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.length > 1) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    if (parts.isNotEmpty) return parts[0][0].toUpperCase();
+    return '?';
+  }
 
   String _formatTime(DateTime dt) {
     final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
@@ -119,6 +130,45 @@ class ChatMessageBubble extends StatelessWidget {
               ],
             ),
           ),
+          if (showSeen)
+            Padding(
+              padding: const EdgeInsets.only(right: 4, top: 3),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Seen',
+                    style: TextStyle(
+                      fontFamily: _font,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.slate400,
+                    ),
+                  ),
+                  if (seenByName != null && seenByName!.trim().isNotEmpty) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      width: 14,
+                      height: 14,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: AppColors.slate300,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        _initialsOf(seenByName!),
+                        style: const TextStyle(
+                          fontFamily: _font,
+                          fontSize: 7,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
         ],
       ),
     );

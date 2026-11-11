@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -8,6 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/zones.dart';
 import '../../models/order_model.dart';
+import '../../services/auth_service.dart';
+import '../../services/firestore_service.dart';
 import '../../services/location_service.dart';
 import 'fulfill_delivery_screen.dart';
 
@@ -27,6 +30,14 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
   static const String _font = 'Plus Jakarta Sans';
   final MapController _mapController = MapController();
   final LocationService _locationService = LocationService();
+  final FirestoreService _firestoreService = FirestoreService();
+
+  // Only the rider actually assigned to this order is physically the one
+  // riding it — anyone else opening this screen (owner/staff checking in)
+  // must not have their own device GPS mislabeled as "the rider's
+  // position." They see the rider's last broadcast location instead.
+  late final bool _isAssignedRider =
+      AuthService().currentUserId != null && AuthService().currentUserId == widget.order.assignedRiderId;
 
   static const LatLng _station = LatLng(stationLat, stationLng);
   // Default fallback center for San Pablo City
@@ -40,12 +51,98 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
   bool _loading = true;
   bool _locating = false;
   bool _isApproximateLocation = false;
+  bool _navigationStarted = false;
   String? _statusMessage;
+
+  // Keeps this screen's own position live without the rider having to tap
+  // "recenter" themselves — ticks every 20s; every 3rd tick (~60s) also
+  // re-fetches the OSRM route/ETA, since re-requesting the free public
+  // OSRM instance every 20s is unnecessary (the road itself doesn't
+  // change, only the rider's progress along it) and risks rate limits.
+  Timer? _autoRefreshTimer;
+  int _autoRefreshTicks = 0;
 
   @override
   void initState() {
     super.initState();
     _initializeRoute();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 20), (_) => _autoRefresh());
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _autoRefresh() async {
+    if (!mounted || _loading) return;
+    _autoRefreshTicks++;
+    if (_isAssignedRider) {
+      try {
+        final pos = await _locationService.getCurrentPosition();
+        if (!mounted) return;
+        setState(() => _riderPos = LatLng(pos.latitude, pos.longitude));
+        // RiderLocationService (driven from the Delivery Queue list screen)
+        // stops broadcasting the moment this screen is opened instead —
+        // without this, the customer's live tracking map freezes exactly
+        // when the rider actually starts navigating.
+        unawaited(_firestoreService.updateRiderLocation(
+          orderId: widget.order.id,
+          lat: pos.latitude,
+          lng: pos.longitude,
+        ));
+      } catch (_) {
+        // Silent — this is a background refresh, not a user-initiated action;
+        // the manual recenter button still shows its own error if tapped.
+        return;
+      }
+    } else {
+      // Not the assigned rider — re-fetch their last broadcast position
+      // instead of touching this device's own GPS at all.
+      try {
+        final fresh = await _firestoreService.getOrderOnce(widget.order.id);
+        if (!mounted || fresh?.riderLat == null || fresh?.riderLng == null) return;
+        setState(() => _riderPos = LatLng(fresh!.riderLat!, fresh.riderLng!));
+      } catch (_) {
+        return;
+      }
+    }
+    if (_autoRefreshTicks % 3 == 0) {
+      await _refreshRouteAndEta();
+    }
+  }
+
+  Future<void> _refreshRouteAndEta() async {
+    final start = _riderPos;
+    final dest = _destination;
+    if (start == null || dest == null) return;
+    try {
+      final uri = Uri.parse(
+        'https://router.project-osrm.org/route/v1/driving/'
+            '${start.longitude},${start.latitude};'
+            '${dest.longitude},${dest.latitude}'
+            '?overview=full&geometries=geojson',
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 12));
+      if (response.statusCode != 200) return;
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final routes = data['routes'] as List?;
+      if (routes == null || routes.isEmpty) return;
+      final route = routes.first as Map<String, dynamic>;
+      final geometry = route['geometry'] as Map<String, dynamic>;
+      final coords = (geometry['coordinates'] as List)
+          .map((c) => LatLng((c as List)[1] as double, c[0] as double))
+          .toList();
+      final durationSeconds = (route['duration'] as num).toDouble();
+      if (!mounted) return;
+      setState(() {
+        _routePoints = coords;
+        _etaMinutes = (durationSeconds / 60).ceil();
+      });
+    } catch (_) {
+      // Stale route/ETA is better than none — just keep what we had.
+    }
   }
 
   Future<void> _initializeRoute() async {
@@ -56,11 +153,23 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
     });
 
     try {
-      // 1. Get current rider GPS position
-      try {
-        final pos = await _locationService.getCurrentPosition();
-        _riderPos = LatLng(pos.latitude, pos.longitude);
-      } catch (_) {
+      // 1. Get the rider's position — live self-GPS if this device IS the
+      // assigned rider, otherwise the rider's last broadcast location.
+      if (_isAssignedRider) {
+        try {
+          final pos = await _locationService.getCurrentPosition();
+          _riderPos = LatLng(pos.latitude, pos.longitude);
+          unawaited(_firestoreService.updateRiderLocation(
+            orderId: widget.order.id,
+            lat: pos.latitude,
+            lng: pos.longitude,
+          ));
+        } catch (_) {
+          _riderPos = _station;
+        }
+      } else if (widget.order.riderLat != null && widget.order.riderLng != null) {
+        _riderPos = LatLng(widget.order.riderLat!, widget.order.riderLng!);
+      } else {
         _riderPos = _station;
       }
 
@@ -156,9 +265,23 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
     if (_locating) return;
     setState(() => _locating = true);
     try {
-      final pos = await _locationService.getCurrentPosition();
+      LatLng current;
+      if (_isAssignedRider) {
+        final pos = await _locationService.getCurrentPosition();
+        current = LatLng(pos.latitude, pos.longitude);
+        unawaited(_firestoreService.updateRiderLocation(
+          orderId: widget.order.id,
+          lat: pos.latitude,
+          lng: pos.longitude,
+        ));
+      } else {
+        final fresh = await _firestoreService.getOrderOnce(widget.order.id);
+        if (fresh?.riderLat == null || fresh?.riderLng == null) {
+          throw Exception('No live location from the rider yet.');
+        }
+        current = LatLng(fresh!.riderLat!, fresh.riderLng!);
+      }
       if (!mounted) return;
-      final current = LatLng(pos.latitude, pos.longitude);
       setState(() {
         _riderPos = current;
         _locating = false;
@@ -168,61 +291,31 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
       if (!mounted) return;
       setState(() => _locating = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not update your current GPS location.')),
+        SnackBar(content: Text(_isAssignedRider ? 'Could not update your current GPS location.' : 'Could not get the rider\'s current location.')),
       );
     }
   }
 
-  Future<void> _startExternalNavigation() async {
-    final dest = _destination;
-    final fullAddress = widget.order.deliveryAddress?.trim() ?? '';
-
-    Uri navUri;
-    Uri webUri;
-
-    // If exact coordinates are available, launch via lat/lng
-    if (dest != null && !_isApproximateLocation) {
-      final double lat = dest.latitude;
-      final double lng = dest.longitude;
-      navUri = Uri.parse('google.navigation:q=$lat,$lng&mode=d');
-      webUri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
-    } else if (fullAddress.isNotEmpty) {
-      // If address is unparsed, pass the query directly to Google Maps
-      final encodedQuery = Uri.encodeComponent('$fullAddress, San Pablo City');
-      navUri = Uri.parse('google.navigation:q=$encodedQuery&mode=d');
-      webUri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$encodedQuery');
-    } else {
-      final double lat = dest?.latitude ?? _sanPabloCenter.latitude;
-      final double lng = dest?.longitude ?? _sanPabloCenter.longitude;
-      navUri = Uri.parse('google.navigation:q=$lat,$lng&mode=d');
-      webUri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+  // Stays entirely in-app — the live map above this button (with
+  // auto-refreshing position/route from _autoRefresh) IS the navigation
+  // view. This just forces an immediate refresh instead of waiting for
+  // the next 20s tick, re-centers on the rider, and gives clear
+  // confirmation that the customer can now see them moving. No hand-off
+  // to an external maps app.
+  Future<void> _startInAppNavigation() async {
+    setState(() => _navigationStarted = true);
+    await _autoRefresh();
+    if (!mounted) return;
+    if (_riderPos != null) {
+      _mapController.move(_riderPos!, 17);
     }
-
-    try {
-      if (await canLaunchUrl(navUri)) {
-        await launchUrl(navUri);
-      } else if (await canLaunchUrl(webUri)) {
-        await launchUrl(webUri, mode: LaunchMode.externalApplication);
-      } else {
-        throw 'No navigation app found';
-      }
-    } catch (_) {
-      // Safe fallback: open in browser search
-      if (fullAddress.isNotEmpty) {
-        final searchUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(fullAddress)}');
-        if (await canLaunchUrl(searchUri)) {
-          await launchUrl(searchUri, mode: LaunchMode.externalApplication);
-          return;
-        }
-      }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open navigation application.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_isAssignedRider
+            ? 'Navigation started — the customer can now see your live location.'
+            : 'Refreshed the rider\'s live location.'),
+      ),
+    );
   }
 
   Future<void> _callCustomer() async {
@@ -661,9 +754,12 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                             child: SizedBox(
                               height: 48,
                               child: OutlinedButton.icon(
-                                onPressed: _startExternalNavigation,
-                                icon: const Icon(Icons.navigation_outlined, size: 18),
-                                label: const Text('Start Navigation', style: TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.bold)),
+                                onPressed: _navigationStarted ? null : _startInAppNavigation,
+                                icon: Icon(_navigationStarted ? Icons.navigation : Icons.navigation_outlined, size: 18),
+                                label: Text(
+                                  _navigationStarted ? 'Navigating…' : 'Start Navigation',
+                                  style: const TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.bold),
+                                ),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppColors.primarySky,
                                   side: const BorderSide(color: AppColors.primarySky, width: 1.5),

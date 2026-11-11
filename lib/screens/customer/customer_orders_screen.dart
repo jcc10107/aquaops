@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
@@ -6,6 +8,7 @@ import '../../models/order_model.dart';
 import '../../models/refund_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/messaging_service.dart';
 import '../../widgets/custom_header.dart';
 import '../../widgets/proof_of_delivery_dialog.dart';
 import 'customer_map_screen.dart';
@@ -36,6 +39,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
   String _orderHistoryFilter = 'all';
   final TextEditingController _historySearchCtrl = TextEditingController();
   final FirestoreService _firestoreService = FirestoreService();
+  final MessagingService _messagingService = MessagingService();
 
   final Set<String> _confirmedOrderIds = {};
   final Set<String> _confirmingOrderIds = {};
@@ -176,6 +180,9 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await _firestoreService.cancelOrder(orderId);
+      // Best-effort — see lockDeliveryConversationAsCompleted's own note on
+      // the lazy fallback if this doesn't succeed.
+      unawaited(_messagingService.lockDeliveryConversationAsCompleted(orderId));
       messenger.showSnackBar(
         const SnackBar(content: Text('Order Cancelled.'), backgroundColor: AppColors.error),
       );

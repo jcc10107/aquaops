@@ -21,6 +21,7 @@ class OwnerRequestScreen extends StatefulWidget {
 class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
   String _activeFilter = 'all';
   final FirestoreService _firestoreService = FirestoreService();
+  final TextEditingController _searchCtrl = TextEditingController();
   String _currentUserName = 'Owner';
 
   final Set<String> _underReviewIds = {};
@@ -60,6 +61,7 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
     for (final c in _declineControllers.values) {
       c.dispose();
     }
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -82,11 +84,25 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
   }
 
   bool _visible(RefundModel r) {
-    if (_activeFilter == 'all') return true;
-    if (r.status == RefundStatus.pending) return _isPendingVisible(r, _activeFilter);
-    if (_activeFilter == 'approved') return r.status == RefundStatus.approved || r.status == RefundStatus.processed;
-    if (_activeFilter == 'declined') return r.status == RefundStatus.rejected;
-    return false;
+    bool statusMatch;
+    if (_activeFilter == 'all') {
+      statusMatch = true;
+    } else if (r.status == RefundStatus.pending) {
+      statusMatch = _isPendingVisible(r, _activeFilter);
+    } else if (_activeFilter == 'approved') {
+      statusMatch = r.status == RefundStatus.approved || r.status == RefundStatus.processed;
+    } else if (_activeFilter == 'declined') {
+      statusMatch = r.status == RefundStatus.rejected;
+    } else {
+      statusMatch = false;
+    }
+    if (!statusMatch) return false;
+
+    final q = _searchCtrl.text.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    return r.customerName.toLowerCase().contains(q)
+        || r.orderNumber.toLowerCase().contains(q)
+        || r.reason.toLowerCase().contains(q);
   }
 
   int _awaitingCount(List<RefundModel> refunds) {
@@ -950,6 +966,29 @@ class _OwnerRequestScreenState extends State<OwnerRequestScreen> {
                       // Metrics Summary
                       _buildMetricsBar(refunds),
                       const SizedBox(height: 16),
+
+                      // Search
+                      Container(
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.slate200),
+                        ),
+                        child: TextField(
+                          controller: _searchCtrl,
+                          onChanged: (_) => setState(() {}),
+                          style: _ts(size: 13, color: AppColors.textLight),
+                          decoration: InputDecoration(
+                            hintText: 'Search customer, order #, or reason...',
+                            hintStyle: _ts(size: 13, color: AppColors.slate400),
+                            prefixIcon: const Icon(Icons.search, size: 18, color: AppColors.slate400),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
 
                       // Filter Rail
                       _buildFilterRail(refunds),

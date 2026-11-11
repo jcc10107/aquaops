@@ -10,7 +10,6 @@ import '../../widgets/notification_feed.dart';
 import '../customer/customer_map_screen.dart';
 import '../customer/customer_main_screen.dart';
 import '../delivery/fulfill_delivery_screen.dart';
-import '../main_shell.dart';
 import '../refund/owner_request_screen.dart';
 
 class _ChipDef {
@@ -380,11 +379,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
     final OrderModel? order = n.trackOrder;
     if (order == null) {
-      if (role == UserRole.owner && n.category == NotificationCategory.system) {
-        return const MainShell(initialIndex: 3);
-      }
-      if (role == UserRole.staff && n.category == NotificationCategory.system) {
-        return const MainShell(initialIndex: 1);
+      if ((role == UserRole.owner || role == UserRole.staff) && n.category == NotificationCategory.system) {
+        return shellAt(ShellTab.stock);
       }
       return null;
     }
@@ -393,13 +389,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
       if (orderActive && order.assignedRiderId == AuthService().currentUserId) {
         return FulfillDeliveryScreen(order: order);
       }
-      return const MainShell(initialIndex: 0);
+      return shellAt(ShellTab.queue);
     }
-    if (role == UserRole.owner) {
-      return const MainShell(initialIndex: 2);
-    }
-    if (role == UserRole.staff) {
-      return null;
+    if (role == UserRole.owner || role == UserRole.staff) {
+      return shellAt(ShellTab.queue);
     }
     if (order.status == OrderStatus.outForDelivery) {
       return CustomerMapScreen(order: order);

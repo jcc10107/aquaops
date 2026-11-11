@@ -32,6 +32,8 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
   bool _isSubmitting = false;
   bool _isDone = false;
   double? _lastDiscrepancy;
+  String? _cashError;
+  String? _verifierError;
 
   int _ownerTabIndex = 0;
 
@@ -105,16 +107,13 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
   Future<void> _verifyPendingCashOut(Map<String, dynamic> pendingReq) async {
     final cashOutId = pendingReq['id'] as String;
     final actualCash = double.tryParse(_cashHandedOverCtrl.text);
-    if (actualCash == null) {
-      AppToast.showError(context, 'Please enter the counted cash amount received.');
-      return;
-    }
-
     final verifierName = _verifiedByCtrl.text.trim();
-    if (verifierName.isEmpty) {
-      AppToast.showError(context, 'Please enter the verifying staff name.');
-      return;
-    }
+
+    setState(() {
+      _cashError = actualCash == null ? 'Enter the counted cash amount received.' : null;
+      _verifierError = verifierName.isEmpty ? 'Enter the verifying staff name.' : null;
+    });
+    if (_cashError != null || _verifierError != null) return;
 
     final verifierId = AuthService().currentUserId ?? '';
 
@@ -122,7 +121,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
     try {
       final discrepancy = await _firestoreService.verifyAndCloseRiderCashOut(
         cashOutId: cashOutId,
-        actualCashReceived: actualCash,
+        actualCashReceived: actualCash!,
         verifiedByName: verifierName,
         verifiedById: verifierId,
       );
@@ -143,14 +142,13 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
   Future<void> _closeCashOutDirect(UserModel rider, DateTime since) async {
     if (!_certified) return;
     final handedOver = double.tryParse(_cashHandedOverCtrl.text);
-    if (handedOver == null) {
-      AppToast.showError(context, 'Please enter the counted cash amount.');
-      return;
-    }
-    if (_verifiedByCtrl.text.trim().isEmpty) {
-      AppToast.showError(context, 'Please enter the verifying staff name.');
-      return;
-    }
+    final verifierName = _verifiedByCtrl.text.trim();
+
+    setState(() {
+      _cashError = handedOver == null ? 'Enter the counted cash amount.' : null;
+      _verifierError = verifierName.isEmpty ? 'Enter the verifying staff name.' : null;
+    });
+    if (_cashError != null || _verifierError != null) return;
 
     setState(() => _isSubmitting = true);
     try {
@@ -158,8 +156,8 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
         riderId: rider.id,
         riderName: rider.name,
         since: since,
-        cashHandedOver: handedOver,
-        verifiedByName: _verifiedByCtrl.text.trim(),
+        cashHandedOver: handedOver!,
+        verifiedByName: verifierName,
       );
       if (!mounted) return;
       setState(() {
@@ -800,27 +798,38 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
 
   void _showRejectDialog(Map<String, dynamic> item) {
     final reasonCtrl = TextEditingController();
+    String? reasonError;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
         backgroundColor: AppColors.surfaceCanvas,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Return Turnover to Rider', style: TextStyle(fontFamily: _font, fontSize: 16, fontWeight: FontWeight.bold)),
         content: TextField(
           controller: reasonCtrl,
           maxLines: 3,
+          onChanged: (_) {
+            if (reasonError != null) setDialogState(() => reasonError = null);
+          },
           decoration: InputDecoration(
             hintText: 'Reason for returning (e.g., Cash count mismatch, short by ₱100)...',
+            errorText: reasonError,
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: reasonError != null ? AppColors.coralAlert : AppColors.slate200)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: reasonError != null ? AppColors.coralAlert : AppColors.primarySky, width: 2)),
           ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () async {
-              if (reasonCtrl.text.trim().isEmpty) return;
+              if (reasonCtrl.text.trim().isEmpty) {
+                setDialogState(() => reasonError = 'Please enter a reason for returning this turnover.');
+                return;
+              }
               Navigator.pop(ctx);
               try {
                 await _firestoreService.rejectRiderCashOut(
@@ -841,6 +850,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
             child: const Text('Confirm Return'),
           ),
         ],
+        ),
       ),
     );
   }
@@ -1157,7 +1167,7 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
             decoration: BoxDecoration(
               color: AppColors.surfaceCanvas,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.slate200),
+              border: Border.all(color: _cashError != null ? AppColors.coralAlert : AppColors.slate200),
             ),
             child: Row(
               children: [
@@ -1167,6 +1177,9 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
                     controller: _cashHandedOverCtrl,
                     focusNode: _cashFocus,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) {
+                      if (_cashError != null) setState(() => _cashError = null);
+                    },
                     style: _mono(17, weight: FontWeight.bold),
                     decoration: InputDecoration(
                       border: InputBorder.none,
@@ -1180,6 +1193,11 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
               ],
             ),
           ),
+          if (_cashError != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 4, top: 4),
+              child: Text(_cashError!, style: const TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.coralAlert)),
+            ),
           if (variance != null) ...[
             const SizedBox(height: 12),
             _buildVarianceBanner(variance),
@@ -1189,14 +1207,18 @@ class _RiderCashOutModalState extends State<RiderCashOutModal> {
           const SizedBox(height: 6),
           TextFormField(
             controller: _verifiedByCtrl,
+            onChanged: (_) {
+              if (_verifierError != null) setState(() => _verifierError = null);
+            },
             style: const TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textLight),
             decoration: InputDecoration(
               filled: true,
               fillColor: AppColors.surfaceCanvas,
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              errorText: _verifierError,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.emerald600, width: 1.5)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _verifierError != null ? AppColors.coralAlert : AppColors.slate200)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _verifierError != null ? AppColors.coralAlert : AppColors.emerald600, width: 1.5)),
             ),
           ),
         ],

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
+import '../../services/firestore_service.dart';
 import '../../widgets/custom_header.dart';
+import '../../widgets/product_illustration.dart';
 
 class CustomerStoreScreen extends StatelessWidget {
   final Future<UserModel?> userFuture;
@@ -24,19 +26,6 @@ class CustomerStoreScreen extends StatelessWidget {
   });
 
   static const String _font = 'Plus Jakarta Sans';
-
-  IconData _iconFor(String id) {
-    switch (id) {
-      case 'r_slim':
-        return Icons.water_drop_outlined;
-      case 'r_round':
-        return Icons.local_drink_outlined;
-      case 'n_slim':
-        return Icons.propane_tank_outlined;
-      default:
-        return Icons.inventory_2_outlined;
-    }
-  }
 
   Widget _buildGreeting() {
     return Column(
@@ -310,7 +299,7 @@ class CustomerStoreScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProductCard(Map<String, dynamic> p, int qty) {
+  Widget _buildProductCard(Map<String, dynamic> p, int qty, String? imageUrl) {
     final String id = p['id'] as String;
     final bool isRefill = id == 'r_slim' || id == 'r_round';
     final bool inStock = (p['inStock'] as bool?) ?? true;
@@ -331,15 +320,16 @@ class CustomerStoreScreen extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
+          Expanded(
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
+              Expanded(
+                child: Container(
                 width: double.infinity,
-                height: 88,
                 margin: const EdgeInsets.only(bottom: 10),
+                clipBehavior: Clip.hardEdge,
                 decoration: BoxDecoration(
                   color: AppColors.surfaceIce,
                   borderRadius: BorderRadius.circular(12),
@@ -347,6 +337,16 @@ class CustomerStoreScreen extends StatelessWidget {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
+                    if (imageUrl != null && imageUrl.isNotEmpty)
+                      Positioned.fill(
+                        child: Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => ProductIllustration(productId: id),
+                        ),
+                      )
+                    else
+                      Positioned.fill(child: ProductIllustration(productId: id)),
                     Positioned(
                       top: 6,
                       left: 6,
@@ -371,12 +371,8 @@ class CustomerStoreScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Icon(
-                      _iconFor(id),
-                      size: 40,
-                      color: inStock ? AppColors.primarySky : AppColors.slate400,
-                    ),
                   ],
+                ),
                 ),
               ),
               Text(
@@ -413,12 +409,25 @@ class CustomerStoreScreen extends StatelessWidget {
                 ),
               ),
             ],
+            ),
           ),
           const SizedBox(height: 8),
 
           // Add to cart / Quantity controller
-          if (qty > 0)
-            Container(
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.92, end: 1.0).animate(animation),
+                child: child,
+              ),
+            ),
+            child: qty > 0
+                ? Container(
+              key: const ValueKey('stepper'),
               height: 36,
               decoration: BoxDecoration(
                 color: AppColors.sky50,
@@ -439,13 +448,18 @@ class CustomerStoreScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Text(
-                    '$qty',
-                    style: const TextStyle(
-                      fontFamily: _font,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primarySky,
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+                    child: Text(
+                      '$qty',
+                      key: ValueKey(qty),
+                      style: const TextStyle(
+                        fontFamily: _font,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primarySky,
+                      ),
                     ),
                   ),
                   InkWell(
@@ -462,8 +476,8 @@ class CustomerStoreScreen extends StatelessWidget {
                 ],
               ),
             )
-          else
-            SizedBox(
+                : SizedBox(
+              key: const ValueKey('addButton'),
               width: double.infinity,
               height: 36,
               child: ElevatedButton.icon(
@@ -486,6 +500,7 @@ class CustomerStoreScreen extends StatelessWidget {
                 ),
               ),
             ),
+          ),
         ],
       ),
     );
@@ -516,19 +531,25 @@ class CustomerStoreScreen extends StatelessWidget {
               const SizedBox(height: 24),
               _buildCatalogHeader(),
               const SizedBox(height: 14),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: products.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.68,
-                ),
-                itemBuilder: (context, index) {
-                  final p = products[index];
-                  return _buildProductCard(p, cart[p['id']] ?? 0);
+              StreamBuilder<Map<String, String>>(
+                stream: FirestoreService().getProductImagesStream(),
+                builder: (context, imageSnapshot) {
+                  final images = imageSnapshot.data ?? const <String, String>{};
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: products.length,
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 0.68,
+                    ),
+                    itemBuilder: (context, index) {
+                      final p = products[index];
+                      return _buildProductCard(p, cart[p['id']] ?? 0, images[p['id'] as String]);
+                    },
+                  );
                 },
               ),
             ],

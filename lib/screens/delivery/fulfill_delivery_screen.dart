@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import '../../core/constants/zones.dart';
 import '../../models/order_model.dart';
 import '../../services/cloudinary_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/messaging_service.dart';
 import '../../services/offline_queue_service.dart';
 import 'rider_delivery_map_screen.dart';
 
@@ -24,6 +26,7 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
 
   final FirestoreService _firestoreService = FirestoreService();
   final CloudinaryService _cloudinary = CloudinaryService();
+  final MessagingService _messagingService = MessagingService();
   final OfflineQueueService _offlineQueue = OfflineQueueService();
 
   late int droppedOff;
@@ -117,6 +120,10 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
         proofOfDeliveryUrl: podUrl,
         recipientName: _recipientCtrl.text.trim().isEmpty ? null : _recipientCtrl.text.trim(),
       );
+      // Best-effort — a delivery chat that fails to lock here still gets
+      // synced read-only the next time anyone opens it (see
+      // getOrCreateDeliveryConversation), so this is never load-bearing.
+      unawaited(_messagingService.lockDeliveryConversationAsCompleted(widget.order.id));
       if (!mounted) return;
       nav.pop();
       messenger.showSnackBar(const SnackBar(content: Text('Delivery Completed Successfully!')));
@@ -170,6 +177,13 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
     );
   }
 
+  // True once this order is no longer actionable — viewing it should show
+  // a read-only recap, not the same editable "fulfill" form (which has no
+  // status guard of its own and would otherwise look identical to an
+  // active delivery, button and all).
+  bool get _isCompleted =>
+      widget.order.status == OrderStatus.delivered || widget.order.status == OrderStatus.cancelled;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -183,48 +197,192 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 1. Status Banner
-                  _buildStatusBanner(),
-                  const SizedBox(height: 14),
-
-                  // 2. Customer Information
-                  _buildCustomerInfoCard(),
-                  const SizedBox(height: 14),
-
-                  // 3. Map Navigation Card
-                  _buildMapNavigationCard(),
-                  const SizedBox(height: 14),
-
-                  // 4. Order Summary
-                  _buildOrderSummaryCard(),
-                  const SizedBox(height: 14),
-
-                  // 5. Delivery Details (Quantities)
-                  _buildDeliveryDetailsCard(),
-                  const SizedBox(height: 14),
-
-                  // 6. Recipient (Optional)
-                  _buildRecipientCard(),
-                  const SizedBox(height: 14),
-
-                  // 7. Proof of Delivery Photo
-                  _buildProofOfDeliveryCard(),
-                  const SizedBox(height: 14),
-
-                  // Certification checkbox
-                  _buildCertificationCheckbox(),
-                  const SizedBox(height: 18),
-
-                  // 8. Complete Delivery Button
-                  _buildCompleteDeliveryButton(),
-                ],
-              ),
+              child: _isCompleted ? _buildCompletedView() : _buildActiveFulfillmentView(),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildActiveFulfillmentView() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. Status Banner
+        _buildStatusBanner(),
+        const SizedBox(height: 14),
+
+        // 2. Customer Information
+        _buildCustomerInfoCard(),
+        const SizedBox(height: 14),
+
+        // 3. Map Navigation Card
+        _buildMapNavigationCard(),
+        const SizedBox(height: 14),
+
+        // 4. Order Summary
+        _buildOrderSummaryCard(),
+        const SizedBox(height: 14),
+
+        // 5. Delivery Details (Quantities)
+        _buildDeliveryDetailsCard(),
+        const SizedBox(height: 14),
+
+        // 6. Recipient (Optional)
+        _buildRecipientCard(),
+        const SizedBox(height: 14),
+
+        // 7. Proof of Delivery Photo
+        _buildProofOfDeliveryCard(),
+        const SizedBox(height: 14),
+
+        // Certification checkbox
+        _buildCertificationCheckbox(),
+        const SizedBox(height: 18),
+
+        // 8. Complete Delivery Button
+        _buildCompleteDeliveryButton(),
+      ],
+    );
+  }
+
+  Widget _buildCompletedView() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildCompletedBanner(),
+        const SizedBox(height: 14),
+        _buildCustomerInfoCard(),
+        const SizedBox(height: 14),
+        _buildOrderSummaryCard(),
+        const SizedBox(height: 14),
+        if (widget.order.status == OrderStatus.delivered) ...[
+          _buildCompletedDeliveryRecapCard(),
+          const SizedBox(height: 14),
+        ],
+        if (widget.order.proofOfDeliveryUrl != null && widget.order.proofOfDeliveryUrl!.isNotEmpty) ...[
+          _buildCompletedProofOfDeliveryCard(),
+          const SizedBox(height: 14),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCompletedBanner() {
+    final bool delivered = widget.order.status == OrderStatus.delivered;
+    final Color bg = delivered ? AppColors.emerald50 : AppColors.errorContainer;
+    final Color border = delivered ? AppColors.emerald200 : AppColors.coralAlert;
+    final Color fg = delivered ? AppColors.emerald700 : AppColors.coralAlert;
+    final IconData icon = delivered ? Icons.check_circle : Icons.cancel;
+    final String label = delivered ? 'Delivered' : 'Cancelled';
+    final DateTime? at = widget.order.deliveredAt;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: fg),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.bold, color: fg),
+              ),
+            ],
+          ),
+          if (at != null)
+            Text(
+              '${at.month}/${at.day}/${at.year}',
+              style: TextStyle(fontFamily: _font, fontSize: 11, fontWeight: FontWeight.w600, color: fg),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompletedDeliveryRecapCard() {
+    final order = widget.order;
+    final String recipient = (order.recipientName ?? '').trim();
+    final String paymentLabel = order.paymentMethod == PaymentMethod.gcash ? 'GCash' : 'Cash on Delivery';
+
+    Widget row(String label, String value) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(fontFamily: _font, fontSize: 12, color: AppColors.textSecondary)),
+            Text(value, style: const TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textLight)),
+          ],
+        ),
+      );
+    }
+
+    return _buildSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.fact_check_outlined, color: AppColors.primarySky, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'Delivery Record',
+                style: TextStyle(fontFamily: _font, fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textLight),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: AppColors.slate100),
+          const SizedBox(height: 10),
+          row('Gallons Delivered', '${order.gallonsDelivered}'),
+          row('Payment', '$paymentLabel${order.isPaid ? ' (Paid)' : ' (Unpaid)'}'),
+          if (recipient.isNotEmpty) row('Received By', recipient),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompletedProofOfDeliveryCard() {
+    return _buildSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.photo_camera_back_outlined, color: AppColors.primarySky, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'Proof of Delivery',
+                style: TextStyle(fontFamily: _font, fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textLight),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              widget.order.proofOfDeliveryUrl!,
+              height: 200,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                height: 120,
+                alignment: Alignment.center,
+                color: AppColors.surfaceFrost,
+                child: const Text('Photo unavailable', style: TextStyle(fontFamily: _font, fontSize: 12, color: AppColors.textSecondary)),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

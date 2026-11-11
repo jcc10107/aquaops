@@ -26,7 +26,7 @@ class UserModel {
   final double activeDepositAmount;
   final bool notificationsEnabled;
   final bool? hasOwnContainers;
-  final String? fcmToken;
+  final List<String> fcmTokens;
 
   UserModel({
     required this.id,
@@ -40,7 +40,7 @@ class UserModel {
     this.activeDepositAmount = 0.0,
     this.notificationsEnabled = true,
     this.hasOwnContainers,
-    this.fcmToken,
+    this.fcmTokens = const [],
   });
 
   factory UserModel.fromMap(Map<String, dynamic> data, String id) {
@@ -57,7 +57,7 @@ class UserModel {
       activeDepositAmount: (data['activeDepositAmount'] as num?)?.toDouble() ?? 0.0,
       notificationsEnabled: data['notificationsEnabled'] ?? true,
       hasOwnContainers: data['hasOwnContainers'],
-      fcmToken: data['fcmToken'],
+      fcmTokens: (data['fcmTokens'] as List?)?.map((t) => t.toString()).toList() ?? const [],
     );
   }
 
@@ -73,7 +73,7 @@ class UserModel {
       'activeDepositAmount': activeDepositAmount,
       'notificationsEnabled': notificationsEnabled,
       'hasOwnContainers': hasOwnContainers,
-      'fcmToken': fcmToken,
+      'fcmTokens': fcmTokens,
     };
   }
 }

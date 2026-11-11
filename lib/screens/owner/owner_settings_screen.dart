@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../services/firestore_service.dart';
+import 'edit_product_photos_screen.dart';
 import 'gcash_account_editor_screen.dart';
 import 'manage_branches_screen.dart';
 import 'manage_team_screen.dart';
@@ -21,7 +22,8 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   void _showEditDeliveryFeeDialog(BuildContext context, double currentBaseFee, double currentRatePerKm) {
     final baseCtrl = TextEditingController(text: currentBaseFee.toStringAsFixed(2));
     final rateCtrl = TextEditingController(text: currentRatePerKm.toStringAsFixed(2));
-    String? error;
+    String? baseError;
+    String? rateError;
 
     showDialog<void>(
       context: context,
@@ -43,9 +45,13 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                 TextField(
                   controller: baseCtrl,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) {
+                    if (baseError != null) setDialogState(() => baseError = null);
+                  },
                   decoration: InputDecoration(
                     prefixText: '₱ ',
                     hintText: 'e.g. 15.00',
+                    errorText: baseError,
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
@@ -57,10 +63,13 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                 TextField(
                   controller: rateCtrl,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) {
+                    if (rateError != null) setDialogState(() => rateError = null);
+                  },
                   decoration: InputDecoration(
                     prefixText: '₱ ',
                     hintText: 'e.g. 5.00',
-                    errorText: error,
+                    errorText: rateError,
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
@@ -79,11 +88,12 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                 onPressed: () async {
                   final base = double.tryParse(baseCtrl.text.trim());
                   final rate = double.tryParse(rateCtrl.text.trim());
-                  if (base == null || base < 0 || rate == null || rate < 0) {
-                    setDialogState(() => error = 'Enter valid, non-negative amounts.');
-                    return;
-                  }
-                  await _firestoreService.setDeliveryFeeConfig(baseFee: base, ratePerKm: rate);
+                  setDialogState(() {
+                    baseError = (base == null || base < 0) ? 'Enter a valid, non-negative amount.' : null;
+                    rateError = (rate == null || rate < 0) ? 'Enter a valid, non-negative amount.' : null;
+                  });
+                  if (baseError != null || rateError != null) return;
+                  await _firestoreService.setDeliveryFeeConfig(baseFee: base!, ratePerKm: rate!);
                   if (dialogContext.mounted) Navigator.pop(dialogContext);
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primarySky, foregroundColor: Colors.white),
@@ -153,23 +163,6 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                           ),
                         ),
                         _buildDivider(),
-                        StreamBuilder<bool>(
-                          stream: _firestoreService.getServiceAreaRestrictedStream(),
-                          builder: (context, snapshot) {
-                            final restricted = snapshot.data ?? true;
-                            return _buildListTile(
-                              'Service Area Coverage',
-                              restricted ? 'Restricted: San Pablo City Only' : 'Open: Any Address Accepted',
-                              Icons.map_outlined,
-                              AppColors.primarySky,
-                              trailing: _buildSwitchTile(
-                                value: restricted,
-                                onTap: () => _firestoreService.setServiceAreaRestricted(!restricted),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildDivider(),
                         StreamBuilder<({double baseFee, double ratePerKm})>(
                           stream: _firestoreService.getDeliveryFeeConfigStream(),
                           builder: (context, snapshot) {
@@ -186,6 +179,17 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                               onTap: () => _showEditDeliveryFeeDialog(context, config.baseFee, config.ratePerKm),
                             );
                           },
+                        ),
+                        _buildDivider(),
+                        _buildListTile(
+                          'Manage Products',
+                          'Add, reprice, or remove items in the store catalog',
+                          Icons.photo_camera_outlined,
+                          AppColors.primarySky,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const EditProductPhotosScreen()),
+                          ),
                         ),
                       ]),
                       const SizedBox(height: 20),
@@ -456,30 +460,4 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   }
 
   Widget _buildDivider() => const Divider(height: 1, color: AppColors.slate100);
-
-  Widget _buildSwitchTile({required bool value, VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 48,
-        height: 28,
-        padding: const EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(100),
-          color: value ? AppColors.primarySky : AppColors.slate300,
-        ),
-        child: AnimatedAlign(
-          duration: const Duration(milliseconds: 200),
-          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            width: 24,
-            height: 24,
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-            child: value ? const Icon(Icons.check, size: 13, color: AppColors.primarySky) : null,
-          ),
-        ),
-      ),
-    );
-  }
 }

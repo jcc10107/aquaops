@@ -9,6 +9,13 @@ class SavedAddressModel {
   final String? phone;
   final bool isPrimary;
   final DateTime? createdAt;
+  // Precise pin-on-map coordinates, captured when the address was saved —
+  // null only for addresses saved before this existed. When present, a
+  // selected saved address can be routed exactly instead of relying on
+  // geocoding the typed text, which can resolve to the wrong place for an
+  // ambiguous or duplicate street/landmark name.
+  final double? latitude;
+  final double? longitude;
 
   SavedAddressModel({
     required this.id,
@@ -19,6 +26,8 @@ class SavedAddressModel {
     this.phone,
     this.isPrimary = false,
     this.createdAt,
+    this.latitude,
+    this.longitude,
   });
 
   factory SavedAddressModel.fromMap(Map<String, dynamic> data, String id) {
@@ -31,6 +40,8 @@ class SavedAddressModel {
       phone: data['phone'],
       isPrimary: data['isPrimary'] == true,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      latitude: (data['latitude'] as num?)?.toDouble(),
+      longitude: (data['longitude'] as num?)?.toDouble(),
     );
   }
 
@@ -43,6 +54,8 @@ class SavedAddressModel {
       'phone': phone,
       'isPrimary': isPrimary,
       'createdAt': FieldValue.serverTimestamp(),
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
 }

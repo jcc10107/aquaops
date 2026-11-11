@@ -18,6 +18,14 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   final AuthService _authService = AuthService();
   final Set<String> _removingIds = <String>{};
+  final TextEditingController _teamSearchCtrl = TextEditingController();
+  String _teamRoleFilter = 'all';
+
+  @override
+  void dispose() {
+    _teamSearchCtrl.dispose();
+    super.dispose();
+  }
 
   void _showAddMemberDialog() {
     final nameCtrl = TextEditingController();
@@ -495,6 +503,31 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
     );
   }
 
+  Widget _teamFilterChip(String key, String label) {
+    final active = _teamRoleFilter == key;
+    return GestureDetector(
+      onTap: () => setState(() => _teamRoleFilter = key),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? AppColors.primarySky : Colors.white,
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(color: active ? AppColors.primarySky : AppColors.slate200),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: _font,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: active ? Colors.white : AppColors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMemberList() {
     return StreamBuilder<List<UserModel>>(
       stream: _firestoreService.getTeamMembersStream(),
@@ -505,8 +538,8 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
             child: Center(child: CircularProgressIndicator()),
           );
         }
-        final members = snapshot.data!;
-        if (members.isEmpty) {
+        final allMembers = snapshot.data!;
+        if (allMembers.isEmpty) {
           return Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
@@ -524,8 +557,74 @@ class _ManageTeamScreenState extends State<ManageTeamScreen> {
           );
         }
 
+        final int staffC = allMembers.where((m) => m.role == UserRole.staff).length;
+        final int riderC = allMembers.where((m) => m.role == UserRole.rider).length;
+
+        final q = _teamSearchCtrl.text.trim().toLowerCase();
+        final members = allMembers.where((m) {
+          if (_teamRoleFilter == 'staff' && m.role != UserRole.staff) return false;
+          if (_teamRoleFilter == 'rider' && m.role != UserRole.rider) return false;
+          if (q.isEmpty) return true;
+          return m.name.toLowerCase().contains(q) || m.email.toLowerCase().contains(q);
+        }).toList();
+
         return Column(
-          children: members.map((m) => _buildMemberCard(m)).toList(),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              height: 42,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.slate200),
+              ),
+              child: TextField(
+                controller: _teamSearchCtrl,
+                onChanged: (_) => setState(() {}),
+                style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
+                decoration: InputDecoration(
+                  hintText: 'Search name or email...',
+                  hintStyle: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.slate400),
+                  prefixIcon: const Icon(Icons.search, size: 18, color: AppColors.slate400),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  _teamFilterChip('all', 'All (${allMembers.length})'),
+                  const SizedBox(width: 8),
+                  _teamFilterChip('staff', 'Staff ($staffC)'),
+                  const SizedBox(width: 8),
+                  _teamFilterChip('rider', 'Rider ($riderC)'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (members.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.slate200),
+                ),
+                child: const Center(
+                  child: Text(
+                    'No team members match your search.',
+                    style: TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                ),
+              )
+            else
+              ...members.map((m) => _buildMemberCard(m)),
+          ],
         );
       },
     );

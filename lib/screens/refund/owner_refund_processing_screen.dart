@@ -38,6 +38,8 @@ class _OwnerRefundProcessingScreenState extends State<OwnerRefundProcessingScree
   bool _isLoading = false;
   bool _isSuccess = false;
   bool _copied = false;
+  String? _gcashRefError;
+  String? _confirmError;
 
   static const List<BoxShadow> _cardShadow = [
     BoxShadow(color: Color(0x0D000000), blurRadius: 2, offset: Offset(0, 1)),
@@ -65,12 +67,6 @@ class _OwnerRefundProcessingScreenState extends State<OwnerRefundProcessingScree
     super.dispose();
   }
 
-  void _showMessage(String message) {
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(SnackBar(content: Text(message)));
-  }
-
   Future<void> _copyNumber() async {
     await Clipboard.setData(ClipboardData(text: Validators.sanitizePhone(widget.gcashNumber)));
     if (!mounted) return;
@@ -82,15 +78,12 @@ class _OwnerRefundProcessingScreenState extends State<OwnerRefundProcessingScree
 
   Future<void> _submitRefund() async {
     if (_isLoading || _isSuccess) return;
-    if (!_isConfirmed) {
-      _showMessage('Please verify the checkbox confirming GCash payment was sent.');
-      return;
-    }
     final String ref = _gcashRefController.text.trim();
-    if (Validators.sanitizePhone(ref).length < 13) {
-      _showMessage('Please provide a valid 13-digit GCash Ref Number.');
-      return;
-    }
+    setState(() {
+      _gcashRefError = Validators.sanitizePhone(ref).length < 13 ? 'Enter a valid 13-digit GCash Ref Number.' : null;
+      _confirmError = !_isConfirmed ? 'Please verify the checkbox confirming GCash payment was sent.' : null;
+    });
+    if (_gcashRefError != null || _confirmError != null) return;
 
     FocusScope.of(context).unfocus();
     setState(() => _isLoading = true);
@@ -523,6 +516,9 @@ class _OwnerRefundProcessingScreenState extends State<OwnerRefundProcessingScree
               controller: _gcashRefController,
               enabled: !_isLoading && !_isSuccess,
               keyboardType: TextInputType.number,
+              onChanged: (_) {
+                if (_gcashRefError != null) setState(() => _gcashRefError = null);
+              },
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(13),
@@ -550,9 +546,9 @@ class _OwnerRefundProcessingScreenState extends State<OwnerRefundProcessingScree
                 fillColor: Colors.white,
                 contentPadding: const EdgeInsets.only(right: 12),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: _gcashRefError != null ? AppColors.coralAlert : AppColors.slate200)),
                 disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primarySky, width: 1.5)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: _gcashRefError != null ? AppColors.coralAlert : AppColors.primarySky, width: 1.5)),
               ),
             ),
           ),
@@ -560,8 +556,8 @@ class _OwnerRefundProcessingScreenState extends State<OwnerRefundProcessingScree
           Padding(
             padding: const EdgeInsets.only(left: 4),
             child: Text(
-              'From your GCash SMS confirmation or transaction receipt slip.',
-              style: _ts(size: 10.5, weight: FontWeight.w400, color: AppColors.slate400),
+              _gcashRefError ?? 'From your GCash SMS confirmation or transaction receipt slip.',
+              style: _ts(size: 10.5, weight: FontWeight.w400, color: _gcashRefError != null ? AppColors.coralAlert : AppColors.slate400),
             ),
           ),
         ],
@@ -607,10 +603,13 @@ class _OwnerRefundProcessingScreenState extends State<OwnerRefundProcessingScree
   Widget _buildConfirmationCard() {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => setState(() => _isConfirmed = !_isConfirmed),
+      onTap: () => setState(() {
+        _isConfirmed = !_isConfirmed;
+        if (_isConfirmed) _confirmError = null;
+      }),
       child: _card(
         padding: const EdgeInsets.all(14),
-        borderColor: AppColors.slate200.withValues(alpha: 0.8),
+        borderColor: _confirmError != null ? AppColors.coralAlert : AppColors.slate200.withValues(alpha: 0.8),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -621,7 +620,10 @@ class _OwnerRefundProcessingScreenState extends State<OwnerRefundProcessingScree
                 height: 16,
                 child: Checkbox(
                   value: _isConfirmed,
-                  onChanged: (v) => setState(() => _isConfirmed = v ?? false),
+                  onChanged: (v) => setState(() {
+                    _isConfirmed = v ?? false;
+                    if (_isConfirmed) _confirmError = null;
+                  }),
                   activeColor: AppColors.primarySky,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
@@ -640,8 +642,8 @@ class _OwnerRefundProcessingScreenState extends State<OwnerRefundProcessingScree
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'I verify that ${widget.amount} has been transferred to customer ${widget.customerName}.',
-                    style: _ts(size: 11, weight: FontWeight.w400, color: AppColors.slate500, height: 1.3),
+                    _confirmError ?? 'I verify that ${widget.amount} has been transferred to customer ${widget.customerName}.',
+                    style: _ts(size: 11, weight: FontWeight.w400, color: _confirmError != null ? AppColors.coralAlert : AppColors.slate500, height: 1.3),
                   ),
                 ],
               ),

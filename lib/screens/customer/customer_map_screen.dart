@@ -8,6 +8,8 @@ import '../../core/constants/zones.dart';
 import '../../models/order_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/location_service.dart';
+import '../../services/messaging_service.dart';
+import '../messaging/chat_conversation_screen.dart';
 
 class CustomerMapScreen extends StatefulWidget {
   final OrderModel order;
@@ -27,6 +29,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
   final MapController _mapController = MapController();
   final LocationService _locationService = LocationService();
   final FirestoreService _firestoreService = FirestoreService();
+  final MessagingService _messagingService = MessagingService();
 
   static const LatLng _station = LatLng(stationLat, stationLng);
   static const String _font = 'Plus Jakarta Sans';
@@ -37,6 +40,13 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
   List<LatLng> _routePoints = [];
   double? _distanceKm;
   int? _etaMinutes;
+  bool _isApproximateLocation = false;
+  // Tracks where the currently-drawn route line was last computed FROM, so
+  // it can be redrawn from the rider's live position once they're moving —
+  // without this it stays a fixed station→destination reference line
+  // forever, never actually following the rider.
+  LatLng? _routeOrigin;
+  bool _refreshingRoute = false;
 
   @override
   void initState() {
@@ -56,13 +66,70 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
     super.dispose();
   }
 
+  Future<void> _openDeliveryChat() async {
+    try {
+      final convo = await _messagingService.getOrCreateDeliveryConversation(order: widget.order);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => ChatConversationScreen(conversation: convo)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to open chat: $e'), backgroundColor: AppColors.coralAlert),
+      );
+    }
+  }
+
+  Future<({List<LatLng> points, double distanceKm, int etaMinutes})?> _fetchOsrmRoute(
+    LatLng from,
+    LatLng to,
+  ) async {
+    final uri = Uri.parse(
+      'https://router.project-osrm.org/route/v1/driving/'
+          '${from.longitude},${from.latitude};'
+          '${to.longitude},${to.latitude}'
+          '?overview=full&geometries=geojson',
+    );
+    final response = await http.get(uri).timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) return null;
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final routes = data['routes'] as List?;
+    if (routes == null || routes.isEmpty) return null;
+    final route = routes.first as Map<String, dynamic>;
+    final geometry = route['geometry'] as Map<String, dynamic>;
+    final coords = (geometry['coordinates'] as List)
+        .map((c) => LatLng((c as List)[1] as double, c[0] as double))
+        .toList();
+    return (
+      points: coords,
+      distanceKm: (route['distance'] as num).toDouble() / 1000,
+      etaMinutes: ((route['duration'] as num).toDouble() / 60).ceil(),
+    );
+  }
+
   Future<void> _loadRoute() async {
     try {
-      final destination = await _locationService.resolveDestination(
+      // Same tiered fallback as the rider's own delivery map — Tier A/B
+      // (exact pin, then the full free-text address) often can't resolve
+      // messy real-world addresses on their own; falling back to the
+      // barangay's approximate location means the customer still sees
+      // roughly where their rider is heading instead of nothing at all.
+      LatLng? destination = await _locationService.resolveDestination(
         lat: widget.order.deliveryLat,
         lng: widget.order.deliveryLng,
         address: widget.order.deliveryAddress,
       );
+      bool approximate = false;
+
+      if (destination == null && widget.order.areaZone.trim().isNotEmpty) {
+        final zoneName = zoneLabel(widget.order.areaZone);
+        destination = await _locationService.resolveDestination(
+          address: '$zoneName, San Pablo City, Laguna',
+        );
+        approximate = true;
+      }
 
       if (destination == null) {
         if (!mounted) return;
@@ -73,36 +140,21 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
         return;
       }
 
-      final uri = Uri.parse(
-        'https://router.project-osrm.org/route/v1/driving/'
-            '${_station.longitude},${_station.latitude};'
-            '${destination.longitude},${destination.latitude}'
-            '?overview=full&geometries=geojson',
-      );
-      final response = await http.get(uri).timeout(const Duration(seconds: 15));
-      if (response.statusCode != 200) {
-        throw Exception('Routing service returned ${response.statusCode}');
-      }
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final routes = data['routes'] as List?;
-      if (routes == null || routes.isEmpty) {
-        throw Exception('No route found');
-      }
-      final route = routes.first as Map<String, dynamic>;
-      final geometry = route['geometry'] as Map<String, dynamic>;
-      final coords = (geometry['coordinates'] as List)
-          .map((c) => LatLng((c as List)[1] as double, c[0] as double))
-          .toList();
-      final distanceMeters = (route['distance'] as num).toDouble();
-      final durationSeconds = (route['duration'] as num).toDouble();
+      // Initial line is a station→destination reference — gets replaced
+      // with a rider→destination one as soon as a live rider position
+      // comes in, by _refreshRouteFromRider below.
+      final result = await _fetchOsrmRoute(_station, destination);
+      if (result == null) throw Exception('No route found');
 
       if (!mounted) return;
       setState(() {
         _destination = destination;
-        _routePoints = coords;
-        _distanceKm = distanceMeters / 1000;
-        _etaMinutes = (durationSeconds / 60).ceil();
+        _routePoints = result.points;
+        _distanceKm = result.distanceKm;
+        _etaMinutes = result.etaMinutes;
         _loadingRoute = false;
+        _isApproximateLocation = approximate;
+        _routeOrigin = _station;
       });
 
       WidgetsBinding.instance.addPostFrameCallback((_) => _fitRoute());
@@ -112,6 +164,35 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
         _loadingRoute = false;
         _routeError = 'Could not load the delivery route.';
       });
+    }
+  }
+
+  // Redraws the route line from the rider's actual current position instead
+  // of the fixed station — called whenever the live order stream reports a
+  // new riderLat/riderLng that differs from what the line was last drawn
+  // from. Silent no-op on failure: the existing line just stays as-is
+  // rather than disappearing over a flaky OSRM request.
+  Future<void> _refreshRouteFromRider(LatLng riderPosition) async {
+    if (_refreshingRoute || _destination == null) return;
+    if (_routeOrigin != null &&
+        (_routeOrigin!.latitude - riderPosition.latitude).abs() < 0.0001 &&
+        (_routeOrigin!.longitude - riderPosition.longitude).abs() < 0.0001) {
+      return;
+    }
+    _refreshingRoute = true;
+    try {
+      final result = await _fetchOsrmRoute(riderPosition, _destination!);
+      if (!mounted || result == null) return;
+      setState(() {
+        _routePoints = result.points;
+        _distanceKm = result.distanceKm;
+        _etaMinutes = result.etaMinutes;
+        _routeOrigin = riderPosition;
+      });
+    } catch (_) {
+      // Keep showing the last good route.
+    } finally {
+      _refreshingRoute = false;
     }
   }
 
@@ -409,6 +490,10 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                       final hasLiveRider = riderLat != null && riderLng != null;
                       final riderPoint = hasLiveRider ? LatLng(riderLat, riderLng) : null;
 
+                      if (riderPoint != null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) => _refreshRouteFromRider(riderPoint));
+                      }
+
                       return FlutterMap(
                         mapController: _mapController,
                         options: MapOptions(
@@ -502,6 +587,32 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
                         _routeError!,
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.textSecondary),
+                      ),
+                    ),
+                  )
+                else if (_isApproximateLocation)
+                  Positioned(
+                    top: 10,
+                    left: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(100),
+                        border: Border.all(color: AppColors.slate200),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.info_outline, size: 14, color: AppColors.primarySky),
+                          SizedBox(width: 6),
+                          Text(
+                            'Showing the approximate barangay area',
+                            style: TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.textSecondary),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -769,13 +880,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen>
             width: double.infinity,
             height: 42,
             child: OutlinedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('In-app messaging is coming soon. Please contact the water station for updates.'),
-                  ),
-                );
-              },
+              onPressed: _openDeliveryChat,
               icon: const Icon(Icons.chat_outlined, size: 16),
               label: const Text(
                 'Send Message',

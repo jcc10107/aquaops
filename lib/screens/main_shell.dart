@@ -43,7 +43,9 @@ class _MainShellState extends State<MainShell> {
           ],
           'staff' => const [
             PosScreen(),
+            DeliveryQueueScreen(),
             InventoryScreen(),
+            OwnerRequestScreen(),
             ProfileScreen(),
           ],
           'rider' => const [

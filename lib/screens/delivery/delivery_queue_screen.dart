@@ -1127,6 +1127,14 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
+            // An unassigned order has no rider actually en route — opening
+            // the live navigation map would show the viewer's own GPS
+            // position mislabeled as "the rider." Route to assignment
+            // instead, which is the actual next step for this order.
+            if (order.assignedRiderId == null) {
+              if (canReassign) _showAssignRiderSheet(order, riders);
+              return;
+            }
             if (order.status != OrderStatus.delivered && order.status != OrderStatus.cancelled) {
               Navigator.push(
                 context,
@@ -1163,16 +1171,19 @@ class _DeliveryQueueScreenState extends State<DeliveryQueueScreen> {
                       child: Text(statusTitle, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: statusBadgeText)),
                     ),
                     const Spacer(),
-                    // Chat Action Button with Customer
-                    IconButton(
-                      tooltip: 'Message Customer',
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: AppColors.primarySky),
-                      onPressed: () => _openDeliveryChat(order),
-                    ),
-                    const SizedBox(width: 4),
+                    // Chat with the customer is private to them and the
+                    // assigned rider — staff/owner don't get a button here.
+                    if (isRider) ...[
+                      IconButton(
+                        tooltip: 'Message Customer',
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: AppColors.primarySky),
+                        onPressed: () => _openDeliveryChat(order),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
                     Text(_formatOrderTime(order.createdAt), style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                     const SizedBox(width: 6),
                     const Icon(Icons.chevron_right, size: 18, color: AppColors.slate400),

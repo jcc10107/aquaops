@@ -62,6 +62,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final TextEditingController taskController = TextEditingController();
     String urgency = 'Routine';
     DateTime dueDate = DateTime.now().add(const Duration(days: 7));
+    String? equipmentError;
+    String? taskError;
 
     showDialog(
       context: context,
@@ -112,6 +114,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: equipmentController,
+                        onChanged: (_) {
+                          if (equipmentError != null) setDialogState(() => equipmentError = null);
+                        },
                         style: const TextStyle(fontSize: 14, color: AppColors.textLight),
                         decoration: InputDecoration(
                           labelText: 'Equipment Name',
@@ -119,14 +124,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           filled: true,
                           fillColor: AppColors.slate50,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          errorText: equipmentError,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primarySky, width: 2)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: equipmentError != null ? AppColors.coralAlert : AppColors.slate200)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: equipmentError != null ? AppColors.coralAlert : AppColors.primarySky, width: 2)),
                         ),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: taskController,
+                        onChanged: (_) {
+                          if (taskError != null) setDialogState(() => taskError = null);
+                        },
                         style: const TextStyle(fontSize: 14, color: AppColors.textLight),
                         decoration: InputDecoration(
                           labelText: 'Task Description',
@@ -134,9 +143,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           filled: true,
                           fillColor: AppColors.slate50,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          errorText: taskError,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primarySky, width: 2)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: taskError != null ? AppColors.coralAlert : AppColors.slate200)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: taskError != null ? AppColors.coralAlert : AppColors.primarySky, width: 2)),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -198,7 +208,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () async {
-                                if (equipmentController.text.trim().isEmpty || taskController.text.trim().isEmpty) return;
+                                setDialogState(() {
+                                  equipmentError = equipmentController.text.trim().isEmpty ? 'Equipment name is required.' : null;
+                                  taskError = taskController.text.trim().isEmpty ? 'Task description is required.' : null;
+                                });
+                                if (equipmentError != null || taskError != null) return;
                                 final messenger = ScaffoldMessenger.of(context);
                                 Navigator.pop(dialogContext);
                                 try {
@@ -904,6 +918,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget build(BuildContext context) {
     final currentRole = UserRole.fromString(currentUserRoleNotifier.value);
     final isOwner = currentRole == UserRole.owner;
+    final isStaff = currentRole == UserRole.staff;
 
     return Align(
       alignment: Alignment.topCenter,
@@ -1119,7 +1134,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                 ),
                               ],
                             ),
-                            if (isOwner)
+                            if (isOwner || isStaff)
                               OutlinedButton.icon(
                                 onPressed: _showAddMaintenanceAlertDialog,
                                 icon: const Icon(Icons.add, size: 14),

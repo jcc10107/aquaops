@@ -31,8 +31,71 @@
 
   <title>aquaops</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    #splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0175C2;
+      z-index: 9999;
+      transition: opacity 0.25s ease-out;
+    }
+    #splash img {
+      width: 96px;
+      height: 96px;
+      margin-bottom: 20px;
+      border-radius: 20px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    }
+    #splash h1 {
+      margin: 0 0 4px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      color: #ffffff;
+    }
+    #splash p {
+      margin: 0 0 28px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.8);
+    }
+    #splash .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: splash-spin 0.8s linear infinite;
+    }
+    @keyframes splash-spin {
+      to { transform: rotate(360deg); }
+    }
+    #splash.splash-hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
 </head>
 <body>
+  <!-- Shown immediately (plain HTML, no JS/Flutter needed) while the app
+       downloads and boots, so the first thing the user sees is branded
+       feedback instead of a blank white page. Removed once Flutter paints
+       its first real frame, with a timeout fallback in case that signal
+       never fires. -->
+  <div id="splash">
+    <img src="icons/Icon-192.png" alt="AquaOps">
+    <h1>AquaOps</h1>
+    <p>Water Refilling Station</p>
+    <div class="spinner"></div>
+  </div>
+
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
@@ -42,5 +105,22 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+    (function () {
+      var hidden = false;
+      function hideSplash() {
+        if (hidden) return;
+        hidden = true;
+        var splash = document.getElementById('splash');
+        if (!splash) return;
+        splash.classList.add('splash-hidden');
+        setTimeout(function () { splash.remove(); }, 300);
+      }
+      window.addEventListener('flutter-first-frame', hideSplash);
+      // Fallback in case the app never reports a first frame (e.g. a
+      // startup error) — don't leave the user staring at the splash forever.
+      setTimeout(hideSplash, 15000);
+    })();
+  </script>
 </body>
 </html>

@@ -44,7 +44,9 @@ class AquaBottomNav extends StatelessWidget implements PreferredSizeWidget {
     if (isStaff) {
       return const [
         _NavEntry(icon: Icon(Icons.point_of_sale), label: 'POS'),
+        _NavEntry(icon: Icon(Icons.local_shipping), label: 'Queue'),
         _NavEntry(icon: Icon(Icons.inventory_2), label: 'Inventory'),
+        _NavEntry(icon: Icon(Icons.assignment_return), label: 'Refund'),
       ];
     }
     if (isRider) {

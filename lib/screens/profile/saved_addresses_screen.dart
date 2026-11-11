@@ -4,6 +4,8 @@ import '../../core/constants/zones.dart';
 import '../../core/utils/app_toast.dart';
 import '../../models/saved_address_model.dart';
 import '../../services/firestore_service.dart';
+import '../../services/location_service.dart';
+import '../customer/location_picker_map_screen.dart';
 
 const String _font = 'Plus Jakarta Sans';
 
@@ -15,6 +17,8 @@ class _NewAddress {
   final String contact;
   final String phone;
   final bool isPrimary;
+  final double latitude;
+  final double longitude;
 
   const _NewAddress({
     required this.label,
@@ -24,6 +28,8 @@ class _NewAddress {
     required this.contact,
     required this.phone,
     required this.isPrimary,
+    required this.latitude,
+    required this.longitude,
   });
 }
 
@@ -58,12 +64,21 @@ class _AddAddressSheet extends StatefulWidget {
 }
 
 class _AddAddressSheetState extends State<_AddAddressSheet> {
-  final FirestoreService _firestoreService = FirestoreService();
   String _tag = 'Home';
   String? _barangay;
   bool _isPrimary = false;
   String? _barangayError;
   String? _streetError;
+  String? _locationError;
+  PreciseLocation? _pinnedLocation;
+  // True once a pinned location fails to match any San Pablo barangay — the
+  // customer picked "Outside San Pablo" on the map picker, or just pinned
+  // somewhere outside the city. Forces the barangay field to free text
+  // regardless of the owner's global service-area setting, since the pin's
+  // actual coordinates already say this address isn't in San Pablo — letting
+  // the dropdown stay up would force a fake San Pablo barangay onto a
+  // real out-of-town address.
+  bool _addressOutsideSanPablo = false;
 
   final TextEditingController _streetCtrl = TextEditingController();
   final TextEditingController _landmarkCtrl = TextEditingController();
@@ -81,13 +96,61 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
     super.dispose();
   }
 
+  Future<void> _pinLocationOnMap() async {
+    // Opens immediately centered on the station — waiting on a
+    // high-accuracy GPS fix here (up to 20s, and often slow on desktop
+    // browsers with no real GPS chip) just to pick a starting point isn't
+    // worth the delay, since the map's own GPS button and manual drag
+    // already get the user to the right spot.
+    final result = await Navigator.push<PreciseLocation>(
+      context,
+      MaterialPageRoute(builder: (_) => const LocationPickerMapScreen(initialLat: stationLat, initialLng: stationLng)),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _pinnedLocation = result;
+      _locationError = null;
+      // Reuse the reverse-geocoded address so the rider only has to touch
+      // the landmark/recipient fields — not retype what the pin already
+      // tells us.
+      if (_streetCtrl.text.trim().isEmpty) {
+        _streetCtrl.text = result.address;
+      }
+      final matchedBarangay = _matchBarangay(result.address);
+      _addressOutsideSanPablo = matchedBarangay == null;
+      if (matchedBarangay != null) {
+        _barangay = matchedBarangay;
+        _barangayError = null;
+        _barangayFreeTextCtrl.text = matchedBarangay;
+      } else {
+        _barangay = null;
+        _barangayFreeTextCtrl.text = '';
+      }
+    });
+  }
+
+  // Best-effort match of a reverse-geocoded address string against the
+  // official barangay list, so the dropdown can pre-select itself. Not
+  // guaranteed to find one (OSM's phrasing varies) — the field stays
+  // editable either way.
+  String? _matchBarangay(String address) {
+    final lower = address.toLowerCase();
+    final sortedByLength = [...sanPabloBarangays]..sort((a, b) => b.length.compareTo(a.length));
+    for (final b in sortedByLength) {
+      final bareName = b.replaceFirst(RegExp(r'^(Barangay|Brgy\.?)\s+', caseSensitive: false), '').toLowerCase().trim();
+      if (bareName.isNotEmpty && lower.contains(bareName)) return b;
+    }
+    return null;
+  }
+
   void _submit() {
     final street = _streetCtrl.text.trim();
     setState(() {
       _barangayError = (_barangay == null || _barangay!.isEmpty) ? 'Please select a barangay.' : null;
       _streetError = street.isEmpty ? 'Street address is required.' : null;
+      _locationError = _pinnedLocation == null ? 'Pin the exact delivery location on the map.' : null;
     });
-    if (_barangayError != null || _streetError != null) return;
+    if (_barangayError != null || _streetError != null || _locationError != null) return;
     Navigator.pop(
       context,
       _NewAddress(
@@ -98,6 +161,8 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
         contact: _contactCtrl.text.trim(),
         phone: _phoneCtrl.text.trim(),
         isPrimary: _isPrimary,
+        latitude: _pinnedLocation!.latitude,
+        longitude: _pinnedLocation!.longitude,
       ),
     );
   }
@@ -204,12 +269,69 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                       ),
                       const SizedBox(height: 16),
 
+                      Text(
+                        'Exact Pin Location *',
+                        style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: _locationError != null ? AppColors.coralAlert : AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: 6),
+                      if (_pinnedLocation != null)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFBBF7D0)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle, size: 18, color: Color(0xFF16A34A)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _pinnedLocation!.address,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF15803D)),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _pinLocationOnMap,
+                                child: const Text('Change', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _pinLocationOnMap,
+                            icon: const Icon(Icons.pin_drop_outlined, size: 18),
+                            label: const Text('Pin Exact Location on Map', style: TextStyle(fontFamily: _font, fontSize: 13, fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primarySky,
+                              side: BorderSide(color: _locationError != null ? AppColors.coralAlert : AppColors.primarySky),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                      if (_locationError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4, top: 4),
+                          child: Text(_locationError!, style: const TextStyle(fontFamily: _font, fontSize: 11, color: AppColors.coralAlert)),
+                        ),
+                      const SizedBox(height: 16),
+
                       const Text('Barangay (San Pablo City) *', style: TextStyle(fontFamily: _font, fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
                       const SizedBox(height: 6),
-                      StreamBuilder<bool>(
-                        stream: _firestoreService.getServiceAreaRestrictedStream(),
-                        builder: (context, snapshot) {
-                          final restricted = snapshot.data ?? true;
+                      Builder(
+                        builder: (context) {
+                          // Driven purely by the map pin itself now — not an
+                          // owner-level setting — so the dropdown only ever
+                          // stays up when the pinned location actually
+                          // matched a San Pablo barangay.
+                          final restricted = !_addressOutsideSanPablo;
                           if (!restricted) {
                             return TextField(
                               controller: _barangayFreeTextCtrl,
@@ -224,6 +346,13 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                           return SizedBox(
                             width: double.infinity,
                             child: DropdownMenu<String>(
+                              // DropdownMenu only reads initialSelection on
+                              // its first build — keying by the current
+                              // value forces a fresh widget (and a fresh
+                              // read of it) whenever pinning a location
+                              // auto-fills _barangay, so the field visibly
+                              // updates instead of silently staying blank.
+                              key: ValueKey(_barangay),
                               initialSelection: _barangay,
                               menuHeight: 300,
                               enableFilter: true,
@@ -412,6 +541,8 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
         contactName: result.contact.isEmpty ? null : result.contact,
         phone: result.phone.isEmpty ? null : result.phone,
         isPrimary: result.isPrimary,
+        latitude: result.latitude,
+        longitude: result.longitude,
       );
       if (mounted) {
         AppToast.showSuccess(context, 'Delivery address saved successfully!');
@@ -425,41 +556,55 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
 
   void _showEditAddressLabelDialog(String uid, SavedAddressModel address) {
     final labelCtrl = TextEditingController(text: address.label);
+    String? labelError;
 
     showDialog(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: AppColors.surfaceCanvas,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Edit Address Label', style: TextStyle(fontFamily: _font, fontSize: 16, fontWeight: FontWeight.bold)),
-          content: TextField(
-            controller: labelCtrl,
-            style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
-            decoration: InputDecoration(
-              hintText: 'e.g. Home, Work, Apartment',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                final label = labelCtrl.text.trim();
-                if (label.isEmpty) return;
-                Navigator.pop(dialogContext);
-                try {
-                  await _firestoreService.updateSavedAddressLabel(uid: uid, addressId: address.id, label: label);
-                } catch (e) {
-                  if (mounted) AppToast.showError(context, 'Failed to update label: $e');
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primarySky, foregroundColor: Colors.white),
-              child: const Text('Save'),
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.surfaceCanvas,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Edit Address Label', style: TextStyle(fontFamily: _font, fontSize: 16, fontWeight: FontWeight.bold)),
+              content: TextField(
+                controller: labelCtrl,
+                style: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
+                onChanged: (_) {
+                  if (labelError != null) setDialogState(() => labelError = null);
+                },
+                decoration: InputDecoration(
+                  hintText: 'e.g. Home, Work, Apartment',
+                  errorText: labelError,
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.slate200)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: labelError != null ? AppColors.coralAlert : AppColors.slate200)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: labelError != null ? AppColors.coralAlert : AppColors.primarySky)),
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+                ElevatedButton(
+                  onPressed: () async {
+                    final label = labelCtrl.text.trim();
+                    if (label.isEmpty) {
+                      setDialogState(() => labelError = 'Please enter a label for this address.');
+                      return;
+                    }
+                    Navigator.pop(dialogContext);
+                    try {
+                      await _firestoreService.updateSavedAddressLabel(uid: uid, addressId: address.id, label: label);
+                    } catch (e) {
+                      if (mounted) AppToast.showError(context, 'Failed to update label: $e');
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primarySky, foregroundColor: Colors.white),
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

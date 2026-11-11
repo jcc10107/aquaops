@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/products.dart';
+import '../../core/constants/zones.dart';
 import '../../widgets/aqua_bottom_nav.dart';
 import '../../widgets/bottom_sheet_chrome.dart';
 import '../../widgets/custom_header.dart';
@@ -36,6 +40,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   double? _currentLat;
   double? _currentLng;
   bool _fetchingLocation = false;
+  String? _quickAddAddressError;
 
   late final Future<UserModel?> _userFuture;
   late final Stream<List<OrderModel>> _ordersStream;
@@ -48,32 +53,13 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
     'n_round': ['inv_water_round', 'inv_pkg_caps', 'inv_pkg_seals'],
   };
 
-  final List<Map<String, dynamic>> _products = const [
-    {
-      'id': 'r_slim',
-      'name': 'Slim Refill',
-      'price': 35.0,
-      'type': 'Refill exchange • Cap sanitized',
-    },
-    {
-      'id': 'r_round',
-      'name': 'Round Refill',
-      'price': 35.0,
-      'type': 'Refill exchange • Dispenser fit',
-    },
-    {
-      'id': 'n_slim',
-      'name': 'New Slim Gallon',
-      'price': 235.0,
-      'type': 'New Container + Pure Water',
-    },
-    {
-      'id': 'n_round',
-      'name': 'New Round Gallon',
-      'price': 255.0,
-      'type': 'New Container + Pure Water',
-    },
-  ];
+  // Seeded from the old hardcoded catalog so the store isn't empty for the
+  // one frame before the Firestore products stream (the owner-editable
+  // catalog) delivers its first snapshot.
+  List<Map<String, dynamic>> _products = catalogProducts
+      .map((p) => {'id': p.id, 'name': p.name, 'price': p.price, 'type': p.type})
+      .toList();
+  StreamSubscription<List<Map<String, dynamic>>>? _productsSub;
 
   double get _cartSubtotal {
     double total = 0;
@@ -95,6 +81,11 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
         ? const Stream.empty()
         : _firestoreService.getOrdersForCustomerStream(uid);
     _inventoryStream = _firestoreService.getInventoryStream();
+    _productsSub = _firestoreService.getProductsStream().listen((products) {
+      if (mounted && products.isNotEmpty) {
+        setState(() => _products = products);
+      }
+    });
     if (uid != null) {
       _firestoreService.getSavedAddressesStream(uid).first.then((addresses) {
         if (mounted && addresses.isNotEmpty) {
@@ -104,6 +95,12 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
         }
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _productsSub?.cancel();
+    super.dispose();
   }
 
   List<Map<String, dynamic>> _productsWithStock(List<InventoryModel> inventory) {
@@ -136,62 +133,83 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
     });
   }
 
-  Widget _buildQuickAddAddress(BuildContext sheetContext) {
+  Widget _buildQuickAddAddress(BuildContext sheetContext, StateSetter setSheetState) {
     final addressCtrl = TextEditingController();
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: TextField(
-            controller: addressCtrl,
-            decoration: InputDecoration(
-              hintText: 'Type your address...',
-              contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              filled: true,
-              fillColor: AppColors.surfaceContainerLow,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: addressCtrl,
+                onChanged: (_) {
+                  if (_quickAddAddressError != null) setSheetState(() => _quickAddAddressError = null);
+                },
+                decoration: InputDecoration(
+                  hintText: 'Type your address...',
+                  contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  filled: true,
+                  fillColor: AppColors.surfaceContainerLow,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _quickAddAddressError != null ? AppColors.error : Colors.transparent),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _quickAddAddressError != null ? AppColors.error : Colors.transparent),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Material(
-          color: AppColors.primary,
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () async {
-              final text = addressCtrl.text.trim();
-              final uid = AuthService().currentUserId;
-              if (text.isEmpty || uid == null) return;
-              final navigator = Navigator.of(sheetContext);
-              final messenger = ScaffoldMessenger.of(sheetContext);
-              try {
-                await _firestoreService.addSavedAddress(
-                  uid: uid,
-                  label: 'Home',
-                  addressText: text,
-                );
-                setState(() {
-                  _currentAddress = text;
-                  _currentLat = null;
-                  _currentLng = null;
-                });
-                navigator.pop();
-              } catch (e) {
-                messenger.showSnackBar(
-                  SnackBar(content: Text('Failed to save address: $e')),
-                );
-              }
-            },
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Icon(Icons.check, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Material(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () async {
+                  final text = addressCtrl.text.trim();
+                  if (text.isEmpty) {
+                    setSheetState(() => _quickAddAddressError = 'Please type an address.');
+                    return;
+                  }
+                  final uid = AuthService().currentUserId;
+                  if (uid == null) return;
+                  final navigator = Navigator.of(sheetContext);
+                  final messenger = ScaffoldMessenger.of(sheetContext);
+                  try {
+                    await _firestoreService.addSavedAddress(
+                      uid: uid,
+                      label: 'Home',
+                      addressText: text,
+                    );
+                    setState(() {
+                      _currentAddress = text;
+                      _currentLat = null;
+                      _currentLng = null;
+                    });
+                    navigator.pop();
+                  } catch (e) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('Failed to save address: $e')),
+                    );
+                  }
+                },
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Icon(Icons.check, color: Colors.white, size: 20),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
+        if (_quickAddAddressError != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 4),
+            child: Text(_quickAddAddressError!, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: AppColors.error)),
+          ),
       ],
     );
   }
@@ -220,8 +238,22 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
       if (!mounted) return;
       setSheetState(() => _fetchingLocation = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not get your location: $e')),
+        SnackBar(content: Text('Could not get your location: $e. Falling back to map — you can pin it manually or tap the GPS button there.')),
       );
+      if (!sheetContext.mounted) return;
+      final result = await Navigator.push<PreciseLocation>(
+        sheetContext,
+        MaterialPageRoute(
+          builder: (_) => const LocationPickerMapScreen(initialLat: stationLat, initialLng: stationLng),
+        ),
+      );
+      if (result == null || !mounted) return;
+      setState(() {
+        _currentAddress = result.address;
+        _currentLat = result.latitude;
+        _currentLng = result.longitude;
+      });
+      if (sheetContext.mounted) Navigator.pop(sheetContext);
     }
   }
 
@@ -332,7 +364,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 12),
-                                _buildQuickAddAddress(sheetContext),
+                                _buildQuickAddAddress(sheetContext, setSheetState),
                               ],
                             ),
                           );
@@ -352,8 +384,13 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                                   onTap: () {
                                     setState(() {
                                       _currentAddress = address.addressText;
-                                      _currentLat = null;
-                                      _currentLng = null;
+                                      // Use the precise pin saved with this
+                                      // address when it has one; older
+                                      // addresses saved before pinning was
+                                      // required fall back to geocoding the
+                                      // typed text, same as before.
+                                      _currentLat = address.latitude;
+                                      _currentLng = address.longitude;
                                     });
                                     Navigator.pop(sheetContext);
                                   },

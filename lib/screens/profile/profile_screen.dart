@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -78,6 +79,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const HelpCenterScreen()),
+    );
+  }
+
+  // Temporary diagnostic tool — walks through FCM permission + token
+  // retrieval + Firestore save step by step and shows exactly where it
+  // fails, since a silent failure in any of those three steps is
+  // otherwise invisible (no console access on a release web build).
+  Future<void> _checkNotificationSetup() async {
+    final buffer = StringBuffer();
+    try {
+      final messaging = FirebaseMessaging.instance;
+      final settings = await messaging.requestPermission();
+      buffer.writeln('1. Permission: ${settings.authorizationStatus.name}');
+
+      String? token;
+      try {
+        token = await messaging.getToken(vapidKey: fcmVapidKey);
+        buffer.writeln('2. Token: ${token == null ? 'NULL (no error, but no token)' : '${token.substring(0, token.length.clamp(0, 24))}...'}');
+      } catch (e) {
+        buffer.writeln('2. Token FAILED: $e');
+      }
+
+      final uid = _authService.currentUserId;
+      buffer.writeln('3. Current UID: ${uid ?? 'NULL (not signed in?)'}');
+
+      if (uid != null && token != null) {
+        try {
+          await _firestoreService.saveFcmToken(uid, token);
+          buffer.writeln('4. Saved to Firestore: YES');
+        } catch (e) {
+          buffer.writeln('4. Save FAILED: $e');
+        }
+      } else {
+        buffer.writeln('4. Save SKIPPED (missing uid or token above)');
+      }
+    } catch (e) {
+      buffer.writeln('Unexpected error: $e');
+    }
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Notification Diagnostic'),
+        content: SingleChildScrollView(child: Text(buffer.toString())),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+      ),
     );
   }
 
@@ -247,6 +295,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ? null
                             : () => _firestoreService.setNotificationsEnabled(user.id, !(user.notificationsEnabled)),
                       ),
+                    ),
+                    _buildDivider(),
+                    _buildListTile(
+                      'Check Notification Setup',
+                      'Diagnose why push notifications may not be arriving',
+                      Icons.troubleshoot_outlined,
+                      AppColors.primarySky,
+                      onTap: _checkNotificationSetup,
                     ),
                   ]),
                   const SizedBox(height: 20),

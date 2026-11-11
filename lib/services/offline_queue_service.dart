@@ -124,7 +124,6 @@ class OfflineQueueService {
         // intentionally out of scope for this pass.
         await firestoreService.fulfillDelivery(
           orderId: orderId,
-          customerId: record['customerId'] as String,
           gallonsDelivered: record['gallonsDelivered'] as int,
           emptyReturned: record['emptyReturned'] as int,
           paymentMethod: record['paymentMethod'] as String,

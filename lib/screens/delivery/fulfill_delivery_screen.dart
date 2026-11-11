@@ -113,7 +113,6 @@ class _FulfillDeliveryScreenState extends State<FulfillDeliveryScreen> {
       }
       await _firestoreService.fulfillDelivery(
         orderId: widget.order.id,
-        customerId: widget.order.customerId ?? '',
         gallonsDelivered: droppedOff,
         emptyReturned: emptyCollected,
         paymentMethod: paymentMethod,

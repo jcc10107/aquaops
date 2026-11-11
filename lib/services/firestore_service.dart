@@ -387,7 +387,6 @@ class FirestoreService {
 
   Future<void> fulfillDelivery({
     required String orderId,
-    required String customerId,
     required int gallonsDelivered,
     required int emptyReturned,
     required String paymentMethod,
@@ -396,6 +395,10 @@ class FirestoreService {
   }) async {
     final orderRef = _db.collection(_colOrders).doc(orderId);
     String orderNumber = '';
+    // Read from the order itself rather than trusting a customerId passed
+    // in separately by the caller — a mismatched/stale value there would
+    // otherwise adjust the wrong customer's unreturnedContainers balance.
+    String customerId = '';
 
     await _db.runTransaction((transaction) async {
       final orderSnap = await transaction.get(orderRef);
@@ -404,6 +407,7 @@ class FirestoreService {
       }
       final data = orderSnap.data()!;
       orderNumber = data['orderNumber'] as String? ?? '';
+      customerId = data['customerId'] as String? ?? '';
       final currentStatus = data['status'] as String?;
       if (currentStatus == 'delivered' || currentStatus == 'cancelled' || data['stockDeductedAt'] != null) {
         throw Exception('This delivery was already processed.');

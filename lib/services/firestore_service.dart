@@ -370,10 +370,24 @@ class FirestoreService {
     required String customerId,
   }) async {
     try {
-      await _db.collection(_colOrders).doc(orderId).update({
+      final orderRef = _db.collection(_colOrders).doc(orderId);
+      await orderRef.update({
         'customerConfirmedReceived': true,
         'customerReceivedAt': FieldValue.serverTimestamp(),
       });
+
+      final snap = await orderRef.get();
+      final data = snap.data();
+      final riderId = data?['assignedRiderId'] as String?;
+      if (riderId != null && riderId.isNotEmpty) {
+        final orderNumber = data?['orderNumber'] as String? ?? '';
+        unawaited(_push.notifyUser(
+          uid: riderId,
+          title: 'Delivery confirmed',
+          body: 'The customer confirmed they received $orderNumber.',
+          data: {'orderId': orderId},
+        ));
+      }
     } on FirebaseException catch (e) {
       if (e.code == 'permission-denied') {
         if (customerId.isNotEmpty) {

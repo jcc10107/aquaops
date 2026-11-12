@@ -81,13 +81,17 @@ service cloud.firestore {
       // via assignRider(). Field list mirrors exactly what fulfillDelivery() and
       // updateRiderLocation() write — price, customer, and assignment fields
       // (totalAmount, items, assignedRiderId, etc.) are never rider-writable.
-      // A customer can only cancel their own order, nothing else.
+      // A customer can only cancel their own order, or confirm they
+      // received it (confirmOrderReceived()) — nothing else.
       allow update: if isStaff()
         || (isSignedIn()
             && resource.data.customerId == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
             && request.resource.data.status == 'cancelled'
             && resource.data.status != 'delivered')
+        || (isSignedIn()
+            && resource.data.customerId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['customerConfirmedReceived', 'customerReceivedAt']))
         || (isRider() && resource.data.assignedRiderId == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                 'status', 'riderConfirmedDelivery', 'gallonsDelivered', 'emptyGallonsReturned',

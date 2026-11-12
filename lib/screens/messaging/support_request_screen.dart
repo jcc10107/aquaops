@@ -225,7 +225,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
                       ),
                       const SizedBox(height: 8),
 
-                      // Non-deprecated Topic Selector
+                      // Topic Selector
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
@@ -295,32 +295,81 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
 
                           return SizedBox(
                             width: double.infinity,
-                            child: DropdownMenu<String>(
-                              key: ValueKey(_selectedOrderId),
-                              initialSelection: _selectedOrderId ?? _noOrderValue,
-                              menuHeight: 300,
-                              enableFilter: true,
-                              requestFocusOnTap: true,
-                              hintText: 'Search your orders...',
-                              textStyle: const TextStyle(fontFamily: _font, fontSize: 13, color: AppColors.textLight),
-                              inputDecorationTheme: InputDecorationTheme(
-                                filled: true,
-                                fillColor: Colors.white,
-                                isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
-                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.slate200)),
-                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primarySky)),
+                            child: Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: Theme.of(context).colorScheme.copyWith(
+                                  primary: AppColors.primarySky,
+                                  surface: const Color(0xFFF0F9FF),
+                                  surfaceTint: Colors.transparent,
+                                ),
+                                textSelectionTheme: const TextSelectionThemeData(
+                                  cursorColor: AppColors.primarySky,
+                                  selectionColor: Color(0xFFBAE6FD),
+                                  selectionHandleColor: AppColors.primarySky,
+                                ),
                               ),
-                              dropdownMenuEntries: [
-                                const DropdownMenuEntry(value: _noOrderValue, label: 'No specific order'),
-                                ...orders.map((o) => DropdownMenuEntry(
-                                  value: o.id,
-                                  label: '#${o.orderNumber} • ₱${o.totalAmount.toStringAsFixed(2)} (${o.status.name})',
-                                )),
-                              ],
-                              onSelected: (val) => setState(
-                                    () => _selectedOrderId = (val == null || val == _noOrderValue) ? null : val,
+                              child: DropdownMenu<String>(
+                                key: ValueKey(_selectedOrderId),
+                                initialSelection: _selectedOrderId ?? _noOrderValue,
+                                menuHeight: 300,
+                                enableFilter: true,
+                                requestFocusOnTap: true,
+                                hintText: 'Search your orders...',
+                                textStyle: const TextStyle(
+                                  fontFamily: _font,
+                                  fontSize: 13,
+                                  color: AppColors.textLight,
+                                ),
+                                menuStyle: MenuStyle(
+                                  backgroundColor: const WidgetStatePropertyAll<Color>(Color(0xFFF0F9FF)),
+                                  surfaceTintColor: const WidgetStatePropertyAll<Color>(Colors.transparent),
+                                  elevation: const WidgetStatePropertyAll<double>(4),
+                                  shape: WidgetStatePropertyAll<OutlinedBorder>(
+                                    RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      side: const BorderSide(color: Color(0xFFBAE6FD)),
+                                    ),
+                                  ),
+                                ),
+                                inputDecorationTheme: InputDecorationTheme(
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: AppColors.slate200),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: AppColors.slate200),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: AppColors.primarySky),
+                                  ),
+                                ),
+                                dropdownMenuEntries: [
+                                  DropdownMenuEntry(
+                                    value: _noOrderValue,
+                                    label: 'No specific order',
+                                    style: MenuItemButton.styleFrom(
+                                      foregroundColor: AppColors.textLight,
+                                    ),
+                                  ),
+                                  ...orders.map(
+                                        (o) => DropdownMenuEntry(
+                                      value: o.id,
+                                      label: '#${o.orderNumber} • ₱${o.totalAmount.toStringAsFixed(2)} (${o.status.name})',
+                                      style: MenuItemButton.styleFrom(
+                                        foregroundColor: AppColors.textLight,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                onSelected: (val) => setState(
+                                      () => _selectedOrderId = (val == null || val == _noOrderValue) ? null : val,
+                                ),
                               ),
                             ),
                           );

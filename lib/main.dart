@@ -63,9 +63,15 @@ void _wireNotificationTapRouting() {
 
     final conversationId = data['conversationId'] as String?;
     if (conversationId != null) {
-      final conversation = await MessagingService().getConversationOnce(conversationId);
+      final conversation =
+      await MessagingService().getConversationOnce(conversationId);
       if (conversation != null) {
-        nav.push(MaterialPageRoute(builder: (_) => ChatConversationScreen(conversation: conversation)));
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) =>
+                ChatConversationScreen(conversation: conversation),
+          ),
+        );
       }
       return;
     }
@@ -77,24 +83,50 @@ void _wireNotificationTapRouting() {
     if (orderId != null) {
       final order = await fs.getOrderOnce(orderId);
       if (order == null) return;
-      final orderActive = order.status != OrderStatus.delivered && order.status != OrderStatus.cancelled;
+
+      final orderActive = order.status != OrderStatus.delivered &&
+          order.status != OrderStatus.cancelled;
+
       switch (role) {
         case UserRole.rider:
-          if (orderActive && order.assignedRiderId == AuthService().currentUserId) {
-            nav.push(MaterialPageRoute(builder: (_) => FulfillDeliveryScreen(order: order)));
+          if (orderActive &&
+              order.assignedRiderId == AuthService().currentUserId) {
+            nav.push(
+              MaterialPageRoute(
+                builder: (_) => FulfillDeliveryScreen(order: order),
+              ),
+            );
           } else {
-            nav.push(MaterialPageRoute(builder: (_) => const MainShell(initialIndex: 0)));
+            nav.push(
+              MaterialPageRoute(
+                builder: (_) => const MainShell(initialIndex: 0),
+              ),
+            );
           }
           break;
+
         case UserRole.owner:
         case UserRole.staff:
-          nav.push(MaterialPageRoute(builder: (_) => shellAt(ShellTab.queue)));
+          nav.push(
+            MaterialPageRoute(
+              builder: (_) => shellAt(ShellTab.queue),
+            ),
+          );
           break;
+
         case UserRole.customer:
           if (order.status == OrderStatus.outForDelivery) {
-            nav.push(MaterialPageRoute(builder: (_) => CustomerMapScreen(order: order)));
+            nav.push(
+              MaterialPageRoute(
+                builder: (_) => CustomerMapScreen(order: order),
+              ),
+            );
           } else {
-            nav.push(MaterialPageRoute(builder: (_) => const CustomerMainScreen(initialTab: 1)));
+            nav.push(
+              MaterialPageRoute(
+                builder: (_) => const CustomerMainScreen(initialTab: 1),
+              ),
+            );
           }
           break;
       }
@@ -106,11 +138,21 @@ void _wireNotificationTapRouting() {
       switch (role) {
         case UserRole.owner:
         case UserRole.staff:
-          nav.push(MaterialPageRoute(builder: (_) => const OwnerRequestScreen()));
+          nav.push(
+            MaterialPageRoute(
+              builder: (_) => const OwnerRequestScreen(),
+            ),
+          );
           break;
+
         case UserRole.customer:
-          nav.push(MaterialPageRoute(builder: (_) => const CustomerMainScreen(initialTab: 1)));
+          nav.push(
+            MaterialPageRoute(
+              builder: (_) => const CustomerMainScreen(initialTab: 1),
+            ),
+          );
           break;
+
         case UserRole.rider:
           break;
       }
@@ -121,13 +163,19 @@ void _wireNotificationTapRouting() {
     // queue (delivery_queue_screen.dart), reachable via the shell's queue tab.
     final cashOutId = data['cashOutId'] as String?;
     final emergencyRequestId = data['emergencyRequestId'] as String?;
+
     if (cashOutId != null || emergencyRequestId != null) {
       switch (role) {
         case UserRole.owner:
         case UserRole.staff:
         case UserRole.rider:
-          nav.push(MaterialPageRoute(builder: (_) => shellAt(ShellTab.queue)));
+          nav.push(
+            MaterialPageRoute(
+              builder: (_) => shellAt(ShellTab.queue),
+            ),
+          );
           break;
+
         case UserRole.customer:
           break;
       }
@@ -135,6 +183,7 @@ void _wireNotificationTapRouting() {
   }
 
   FirebaseMessaging.onMessageOpenedApp.listen(handleTap);
+
   FirebaseMessaging.instance.getInitialMessage().then((message) {
     if (message != null) handleTap(message);
   });
@@ -180,17 +229,38 @@ class AquaOpsApp extends StatelessWidget {
       valueListenable: isDarkModeNotifier,
       builder: (context, isDark, child) {
         final baseTheme = isDark ? ThemeData.dark() : ThemeData.light();
+
         return MaterialApp(
           navigatorKey: navigatorKey,
           title: 'AquaOps',
           debugShowCheckedModeBanner: false,
           themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
-          // TASK 7.4: Standardize global Plus Jakarta Sans typography across textTheme
+
+          // Global AquaOps theme.
           theme: ThemeData(
             brightness: isDark ? Brightness.dark : Brightness.light,
-            scaffoldBackgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+
+            // Use AquaOps blue as the global primary color.
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: AppColors.primarySky,
+              brightness: isDark ? Brightness.dark : Brightness.light,
+            ),
+
+            // Make all default loading indicators use AquaOps blue.
+            progressIndicatorTheme: const ProgressIndicatorThemeData(
+              color: AppColors.primarySky,
+            ),
+
+            scaffoldBackgroundColor: isDark
+                ? AppColors.backgroundDark
+                : AppColors.backgroundLight,
+
             fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
-            textTheme: GoogleFonts.plusJakartaSansTextTheme(baseTheme.textTheme),
+
+            textTheme: GoogleFonts.plusJakartaSansTextTheme(
+              baseTheme.textTheme,
+            ),
+
             elevatedButtonTheme: ElevatedButtonThemeData(
               style: ElevatedButton.styleFrom(
                 elevation: 0,
@@ -200,7 +270,9 @@ class AquaOpsApp extends StatelessWidget {
               ),
             ),
           ),
+
           home: const _AuthGate(),
+
           routes: {
             '/login': (context) => const LoginScreen(),
             '/signup': (context) => const SignupScreen(),
@@ -208,10 +280,13 @@ class AquaOpsApp extends StatelessWidget {
             currentUserRoleNotifier.value == 'customer'
                 ? const Scaffold(
               backgroundColor: AppColors.surfaceCanvas,
-              body: SafeArea(child: ProfileScreen()),
+              body: SafeArea(
+                child: ProfileScreen(),
+              ),
             )
                 : shellAt(ShellTab.profile),
-            '/owner_dashboard': (context) => shellAt(ShellTab.dashboard),
+            '/owner_dashboard': (context) =>
+                shellAt(ShellTab.dashboard),
             '/pos': (context) => shellAt(ShellTab.pos),
             '/dispatch': (context) => shellAt(ShellTab.queue),
             '/inventory': (context) => shellAt(ShellTab.stock),
@@ -241,11 +316,18 @@ class _AuthGate extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             backgroundColor: AppColors.surfaceBackground,
-            body: Center(child: CircularProgressIndicator(color: AppColors.primarySky)),
+            body: Center(
+              child: CircularProgressIndicator(
+                color: AppColors.primarySky,
+              ),
+            ),
           );
         }
+
         final user = snapshot.data;
+
         if (user == null) return const LoginScreen();
+
         return _RestoredSessionHome(uid: user.uid);
       },
     );
@@ -254,14 +336,17 @@ class _AuthGate extends StatelessWidget {
 
 class _RestoredSessionHome extends StatefulWidget {
   final String uid;
+
   const _RestoredSessionHome({required this.uid});
 
   @override
-  State<_RestoredSessionHome> createState() => _RestoredSessionHomeState();
+  State<_RestoredSessionHome> createState() =>
+      _RestoredSessionHomeState();
 }
 
 class _RestoredSessionHomeState extends State<_RestoredSessionHome> {
-  late final Future<UserModel?> _profileFuture = FirestoreService().getUser(widget.uid);
+  late final Future<UserModel?> _profileFuture =
+  FirestoreService().getUser(widget.uid);
 
   @override
   Widget build(BuildContext context) {
@@ -271,10 +356,16 @@ class _RestoredSessionHomeState extends State<_RestoredSessionHome> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             backgroundColor: AppColors.surfaceBackground,
-            body: Center(child: CircularProgressIndicator(color: AppColors.primarySky)),
+            body: Center(
+              child: CircularProgressIndicator(
+                color: AppColors.primarySky,
+              ),
+            ),
           );
         }
+
         final profile = snapshot.data;
+
         if (profile == null) {
           // Auth session is valid but the Firestore profile is gone (e.g.
           // the account was deleted) — can't restore into anything, so

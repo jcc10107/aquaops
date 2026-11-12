@@ -2,7 +2,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../core/utils/string_utils.dart';
 import '../../main.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
@@ -27,6 +26,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   static const String _font = 'Plus Jakarta Sans';
 
+  String _getSingleInitial(String? name) {
+    if (name == null || name.trim().isEmpty) return 'U';
+    return name.trim()[0].toUpperCase();
+  }
+
   String _badgeForRole(UserRole role) {
     switch (role) {
       case UserRole.owner:
@@ -46,7 +50,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'email': user.email,
       'phone': user.phone,
       'badge': _badgeForRole(user.role),
-      'initials': getInitials(user.name),
+      'initials': _getSingleInitial(user.name),
     };
   }
 
@@ -231,7 +235,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800), // Standard 800px width
+            constraints: const BoxConstraints(maxWidth: 800),
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               padding: EdgeInsets.fromLTRB(16, 20, 16, 120 + bottomInset),

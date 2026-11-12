@@ -354,7 +354,7 @@ class _EditProductPhotosScreenState extends State<EditProductPhotosScreen> {
                 child: imageUrl != null && imageUrl.isNotEmpty
                     ? Image.network(
                         imageUrl,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
                         errorBuilder: (_, __, ___) => ProductIllustration(productId: id),
                       )
                     : ProductIllustration(productId: id),

@@ -343,7 +343,11 @@ class CustomerStoreScreen extends StatelessWidget {
                       Positioned.fill(
                         child: Image.network(
                           imageUrl,
-                          fit: BoxFit.cover,
+                          // contain, not cover — real product photos are
+                          // portrait (tall bottles) while this box is
+                          // wide, so cover was cropping the cap/top off
+                          // every photo to fill the width.
+                          fit: BoxFit.contain,
                           errorBuilder: (_, __, ___) => ProductIllustration(productId: id),
                         ),
                       )

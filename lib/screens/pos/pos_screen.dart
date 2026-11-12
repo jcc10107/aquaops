@@ -685,8 +685,8 @@ class _PosScreenState extends State<PosScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                width: 64,
-                height: 64,
+                width: 84,
+                height: 84,
                 clipBehavior: Clip.hardEdge,
                 decoration: BoxDecoration(
                   color: AppColors.surfaceIce,
@@ -696,7 +696,7 @@ class _PosScreenState extends State<PosScreen> {
                 child: imageUrl != null && imageUrl.isNotEmpty
                     ? Image.network(
                         imageUrl,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
                         errorBuilder: (_, __, ___) => ProductIllustration(productId: productId),
                       )
                     : ProductIllustration(productId: productId),
